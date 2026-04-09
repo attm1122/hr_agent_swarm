@@ -127,4 +127,18 @@ describe('ActionQueue', () => {
     render(<ActionQueue items={itemWithoutDue} />);
     expect(screen.queryByText(/Due:/)).not.toBeInTheDocument();
   });
+
+  it('falls back to default icon for unknown action type', () => {
+    const unknownTypeItem: ActionItem[] = [{
+      id: 'unknown-type',
+      type: 'some_unknown_type',
+      title: 'Unknown type action',
+      description: 'Testing fallback icon',
+      priority: 'medium',
+      entityType: 'unknown',
+      entityId: 'u-1',
+    }];
+    render(<ActionQueue items={unknownTypeItem} />);
+    expect(screen.getByText('Unknown type action')).toBeInTheDocument();
+  });
 });

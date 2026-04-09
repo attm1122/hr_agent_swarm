@@ -90,4 +90,20 @@ describe('Sidebar', () => {
     expect(leaveLink?.className).toContain('text-slate-600');
     expect(leaveLink?.className).not.toContain('bg-emerald-50');
   });
+
+  it('highlights settings link when active', () => {
+    mockUsePathname.mockReturnValue('/admin');
+    render(<Sidebar />);
+    const settingsLink = screen.getByText('Settings').closest('a');
+    expect(settingsLink?.className).toContain('bg-emerald-50');
+    expect(settingsLink?.className).toContain('text-emerald-700');
+  });
+
+  it('settings link is not active on other routes', () => {
+    mockUsePathname.mockReturnValue('/hr');
+    render(<Sidebar />);
+    const settingsLink = screen.getByText('Settings').closest('a');
+    expect(settingsLink?.className).toContain('text-slate-600');
+    expect(settingsLink?.className).not.toContain('bg-emerald-50');
+  });
 });

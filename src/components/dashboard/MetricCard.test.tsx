@@ -96,4 +96,31 @@ describe('MetricCard', () => {
     expect(screen.getByText('+5.2%')).toBeInTheDocument();
     expect(screen.getByText('vs last month')).toBeInTheDocument();
   });
+
+  it('renders navy variant with icon (dark icon container)', () => {
+    const { container } = render(
+      <MetricCard title="Dark" value={10} icon={Users} variant="navy" />
+    );
+    // Navy variant uses bg-slate-800 for icon container
+    expect(container.querySelector('.bg-slate-800')).toBeInTheDocument();
+  });
+
+  it('renders non-navy variant with icon (light icon container)', () => {
+    const { container } = render(
+      <MetricCard title="Light" value={10} icon={Users} variant="default" />
+    );
+    expect(container.querySelector('.bg-slate-100')).toBeInTheDocument();
+  });
+
+  it('renders navy variant with change and description', () => {
+    render(
+      <MetricCard title="Dark Trend" value={10} change={3} trend="neutral" description="info" variant="navy" />
+    );
+    expect(screen.getByText('info')).toBeInTheDocument();
+  });
+
+  it('renders description only without change', () => {
+    render(<MetricCard title="Test" value={5} description="only desc" />);
+    expect(screen.getByText('only desc')).toBeInTheDocument();
+  });
 });

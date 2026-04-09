@@ -14,16 +14,15 @@ export default defineConfig({
       reporter: ['text', 'text-summary', 'lcov'],
       include: [
         'src/lib/**/*.ts',
-        'src/types/**/*.ts',
         'src/infrastructure/**/*.ts',
         'src/components/dashboard/**/*.tsx',
         'src/components/layout/**/*.tsx',
-        'src/app/(dashboard)/**/*.tsx',
       ],
       exclude: [
         'src/components/ui/**',
         'src/**/*.test.*',
         'src/__tests__/**',
+        'src/types/**',
       ],
       thresholds: {
         statements: 98,

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
+import { createElement } from 'react';
 
 afterEach(() => {
   cleanup();
@@ -21,14 +22,13 @@ vi.mock('next/navigation', () => ({
 // Mock next/link
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => {
-    return <a href={href} {...props}>{children}</a>;
+    return createElement('a', { href, ...props }, children);
   },
 }));
 
 // Mock next/image
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img {...props} />;
+    return createElement('img', props);
   },
 }));
