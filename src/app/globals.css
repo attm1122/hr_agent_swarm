@@ -128,3 +128,104 @@
     @apply font-sans;
   }
 }
+/* Custom HR Agent Swarm Design System */
+
+:root {
+  /* Premium Emerald/Navy Palette */
+  --emerald-50: #ecfdf5;
+  --emerald-100: #d1fae5;
+  --emerald-200: #a7f3d0;
+  --emerald-300: #6ee7b7;
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
+  --emerald-800: #065f46;
+  --emerald-900: #064e3b;
+  
+  --navy-50: #f8fafc;
+  --navy-100: #f1f5f9;
+  --navy-200: #e2e8f0;
+  --navy-300: #cbd5e1;
+  --navy-400: #94a3b8;
+  --navy-500: #64748b;
+  --navy-600: #475569;
+  --navy-700: #334155;
+  --navy-800: #1e293b;
+  --navy-900: #0f172a;
+  
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  
+  /* Override shadcn colors for premium HR look */
+  --primary: var(--emerald-600);
+  --primary-foreground: #ffffff;
+  --secondary: var(--navy-100);
+  --secondary-foreground: var(--navy-800);
+  --accent: var(--navy-100);
+  --accent-foreground: var(--navy-800);
+  --muted: var(--navy-100);
+  --muted-foreground: var(--navy-500);
+  --destructive: var(--red-500);
+  --destructive-foreground: #ffffff;
+  --border: var(--navy-200);
+  --input: var(--navy-200);
+  --ring: var(--emerald-500);
+  --background: var(--navy-50);
+  --foreground: var(--navy-900);
+  --card: #ffffff;
+  --card-foreground: var(--navy-900);
+  
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@layer base {
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-emerald {
+    background: linear-gradient(135deg, var(--emerald-500) 0%, var(--emerald-700) 100%);
+  }
+  
+  .gradient-navy {
+    background: linear-gradient(135deg, var(--navy-800) 0%, var(--navy-900) 100%);
+  }
+  
+  .shadow-premium {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  }
+  
+  .shadow-premium-lg {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  }
+  
+  .animate-in-view {
+    animation: fadeInUp 0.5s ease-out;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
