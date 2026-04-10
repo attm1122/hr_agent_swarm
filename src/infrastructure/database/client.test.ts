@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 // Mock supabase before importing client
 const mockCreateClient = vi.fn(() => ({
@@ -12,9 +12,18 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 describe('database client', () => {
+  beforeAll(() => {
+    // Mock window as undefined (server environment) for admin client tests
+    vi.stubGlobal('window', undefined);
+    // Mock service role key for admin client
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
+  });
+
   beforeEach(() => {
     vi.resetModules();
     mockCreateClient.mockClear();
+    // Re-stub window after module reset
+    vi.stubGlobal('window', undefined);
   });
 
   it('createBrowserClient returns a supabase client', async () => {

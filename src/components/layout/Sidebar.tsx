@@ -10,39 +10,69 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { employees, leaveRequests, documents, milestones, actionQueue } from '@/lib/data/mock-data';
+import type { Role } from '@/types';
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
+  requiredPermission?: string;
 }
 
-const hrNavItems: NavItem[] = [
-  { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
-  { title: 'Employees', href: '/employees', icon: Users, badge: 23 },
-  { title: 'Approvals', href: '/approvals', icon: CheckSquare, badge: 6 },
-  { title: 'Leave', href: '/leave', icon: Calendar, badge: 4 },
-  { title: 'Compensation', href: '/compensation', icon: DollarSign },
-  { title: 'Reviews', href: '/reviews', icon: BarChart3, badge: 3 },
-  { title: 'Onboarding', href: '/onboarding', icon: UserPlus, badge: 1 },
-  { title: 'Compliance', href: '/compliance', icon: Shield, badge: 2 },
-  { title: 'Communications', href: '/communications', icon: MessageSquare },
-  { title: 'Reports', href: '/reports', icon: PieChart },
-  { title: 'Knowledge', href: '/knowledge', icon: BookOpen },
-];
+/** Derive live badge counts from data */
+function getBadges() {
+  return {
+    employees: employees.filter(e => e.status !== 'terminated').length,
+    approvals: actionQueue.length,
+    leave: leaveRequests.filter(lr => lr.status === 'pending').length,
+    reviews: milestones.filter(m => m.milestoneType === 'probation_end' && m.status !== 'completed').length,
+    onboarding: employees.filter(e => e.status === 'pending').length,
+    compliance: documents.filter(d => d.status === 'expiring' || d.status === 'expired').length +
+      milestones.filter(m => m.milestoneType === 'visa_expiry' && m.status !== 'completed').length,
+  };
+}
+
+function buildNavItems(): NavItem[] {
+  const b = getBadges();
+  return [
+    { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
+    { title: 'Employees', href: '/employees', icon: Users, badge: b.employees, requiredPermission: 'employee:read' },
+    { title: 'Approvals', href: '/approvals', icon: CheckSquare, badge: b.approvals, requiredPermission: 'leave:approve' },
+    { title: 'Leave', href: '/leave', icon: Calendar, badge: b.leave, requiredPermission: 'leave:read' },
+    { title: 'Compensation', href: '/compensation', icon: DollarSign, requiredPermission: 'compensation:read' },
+    { title: 'Reviews', href: '/reviews', icon: BarChart3, badge: b.reviews, requiredPermission: 'review:read' },
+    { title: 'Onboarding', href: '/onboarding', icon: UserPlus, badge: b.onboarding, requiredPermission: 'onboarding:read' },
+    { title: 'Compliance', href: '/compliance', icon: Shield, badge: b.compliance, requiredPermission: 'compliance:read' },
+    { title: 'Communications', href: '/communications', icon: MessageSquare, requiredPermission: 'communication:read' },
+    { title: 'Reports', href: '/reports', icon: PieChart, requiredPermission: 'report:read' },
+    { title: 'Knowledge', href: '/knowledge', icon: BookOpen },
+  ];
+}
 
 const bottomNavItems: NavItem[] = [
-  { title: 'Settings', href: '/admin', icon: Settings },
+  { title: 'Settings', href: '/admin', icon: Settings, requiredPermission: 'admin:read' },
 ];
 
 interface SidebarProps {
-  role?: 'hr' | 'manager' | 'employee';
+  role?: Role;
+  permissions?: string[];
 }
 
-export function Sidebar({ role = 'hr' }: SidebarProps) {
+export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
   const pathname = usePathname();
-  const navItems = hrNavItems;
+  const allNav = buildNavItems();
+
+  // Filter nav items based on permissions (if provided)
+  const userPerms = permissions || [];
+  const navItems = role === 'admin'
+    ? allNav
+    : allNav.filter(item => !item.requiredPermission || userPerms.includes(item.requiredPermission));
+
+  const filteredBottomNav = role === 'admin'
+    ? bottomNavItems
+    : bottomNavItems.filter(item => !item.requiredPermission || userPerms.includes(item.requiredPermission));
 
   return (
     <div className="flex flex-col h-full w-64 bg-white border-r border-slate-200">
@@ -94,7 +124,7 @@ export function Sidebar({ role = 'hr' }: SidebarProps) {
 
       <div className="border-t border-slate-200 p-3">
         <nav className="space-y-1">
-          {bottomNavItems.map((item) => {
+          {filteredBottomNav.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             

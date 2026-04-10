@@ -300,7 +300,7 @@ export interface Citation {
   reference: string;
 }
 
-export type AgentType = 
+export type AgentType =
   | 'coordinator'
   | 'employee_profile'
   | 'document_compliance'
@@ -309,22 +309,101 @@ export type AgentType =
   | 'reporting'
   | 'communications'
   | 'reviews'
-  | 'performance';
+  | 'performance'
+  | 'onboarding'
+  | 'offboarding'
+  | 'workflow_approvals'
+  | 'knowledge_policy';
 
 export type AgentIntent =
+  // Employee & Document
   | 'employee_search'
   | 'employee_summary'
   | 'document_list'
   | 'document_classify'
+  // Leave & Compensation
   | 'leave_balance'
   | 'leave_request'
   | 'compensation_view'
   | 'compensation_history'
+  // Reviews & Milestones
   | 'milestone_list'
   | 'review_status'
+  // Communications & Reporting
   | 'communication_draft'
   | 'report_generate'
+  // Onboarding
+  | 'onboarding_create'
+  | 'onboarding_status'
+  | 'onboarding_task_list'
+  | 'onboarding_task_complete'
+  | 'onboarding_blockers'
+  | 'onboarding_missing_docs'
+  // Offboarding
+  | 'offboarding_create'
+  | 'offboarding_status'
+  | 'offboarding_task_list'
+  | 'offboarding_task_complete'
+  | 'offboarding_assets'
+  | 'offboarding_access'
+  | 'offboarding_exit_summary'
+  // Workflow & Approvals
+  | 'workflow_create'
+  | 'workflow_status'
+  | 'workflow_approve'
+  | 'workflow_reject'
+  | 'workflow_history'
+  | 'approval_inbox'
+  // Knowledge & Policy
+  | 'policy_search'
+  | 'policy_answer'
+  | 'policy_citations'
+  // Coordinator
   | 'dashboard_summary';
+
+// ============================================
+// Orchestration Types
+// ============================================
+
+export type Role = 'admin' | 'manager' | 'team_lead' | 'employee' | 'payroll';
+
+export type RecordScope = 'self' | 'team' | 'all' | 'payroll_scope';
+
+export type DataSensitivity =
+  | 'self_visible'
+  | 'team_visible'
+  | 'pay_sensitive'
+  | 'hr_admin_sensitive'
+  | 'confidential';
+
+export interface AgentContext {
+  userId: string;
+  role: Role;
+  scope: RecordScope;
+  sensitivityClearance: DataSensitivity[];
+  employeeId?: string;
+  managerId?: string;
+  teamId?: string;
+  permissions: string[];
+  sessionId: string;
+  timestamp: string;
+}
+
+export interface SwarmRequest {
+  intent: AgentIntent;
+  query: string;
+  payload: Record<string, unknown>;
+  context: AgentContext;
+}
+
+export interface SwarmResponse {
+  agentType: AgentType;
+  intent: AgentIntent;
+  result: AgentResult;
+  routingConfidence: number;
+  executionTimeMs: number;
+  auditId: string;
+}
 
 // ============================================
 // UI Types
@@ -359,6 +438,198 @@ export interface ActionItem {
   entityId: string;
 }
 
+// ============================================
+// Onboarding Domain
+// ============================================
+
+export interface OnboardingPlan {
+  id: string;
+  employeeId: string;
+  assignedTo: string; // hiring manager / onboarding owner
+  templateName: string;
+  startDate: string;
+  targetCompletionDate: string;
+  actualCompletionDate: string | null;
+  status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OnboardingTask {
+  id: string;
+  planId: string;
+  taskName: string;
+  description: string | null;
+  category: 'admin' | 'it' | 'hr' | 'team' | 'training' | 'compliance';
+  assignedTo: string;
+  dueDate: string;
+  completedAt: string | null;
+  completedBy: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
+  priority: 'low' | 'medium' | 'high';
+  dependsOn: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Template helper: days offset from start date (for template definitions only) */
+  dueDateOffset?: number;
+}
+
+export interface OnboardingBlocker {
+  taskId: string;
+  taskName: string;
+  reason: string;
+  severity: 'warning' | 'blocking';
+}
+
+// ============================================
+// Offboarding Domain
+// ============================================
+
+export interface OffboardingPlan {
+  id: string;
+  employeeId: string;
+  terminationDate: string;
+  initiatedBy: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  checklistTemplate: string;
+  targetCompletionDate: string;
+  actualCompletionDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OffboardingTask {
+  id: string;
+  planId: string;
+  taskName: string;
+  category: 'access_removal' | 'asset_return' | 'knowledge_transfer' | 'hr_exit' | 'payroll_exit' | 'compliance';
+  assignedTo: string;
+  dueDate: string;
+  completedAt: string | null;
+  completedBy: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
+  priority: 'low' | 'medium' | 'high';
+  dependsOn: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Template helper: days offset from termination date (for template definitions only) */
+  dueDateOffset?: number;
+}
+
+export interface OffboardingAsset {
+  id: string;
+  planId: string;
+  assetType: 'laptop' | 'phone' | 'badge' | 'credit_card' | 'other';
+  description: string;
+  expectedReturnDate: string;
+  returnedAt: string | null;
+  conditionNotes: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Template helper: days offset from termination date (for template definitions only) */
+  expectedReturnDateOffset?: number;
+}
+
+export interface OffboardingAccess {
+  id: string;
+  planId: string;
+  systemName: string;
+  removalStatus: 'pending' | 'scheduled' | 'completed' | 'na';
+  scheduledDate: string | null;
+  completedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Template helper: days offset from termination date (for template definitions only) */
+  scheduledOffset?: number;
+}
+
+export interface OffboardingExitSummary {
+  planId: string;
+  employeeId: string;
+  employeeName: string;
+  terminationDate: string;
+  tasksCompleted: number;
+  tasksTotal: number;
+  assetsReturned: number;
+  assetsTotal: number;
+  accessRemoved: number;
+  accessTotal: number;
+  pendingItems: string[];
+  exitCleared: boolean;
+}
+
+// ============================================
+// Workflow & Approvals Domain
+// ============================================
+
+export interface WorkflowInstance {
+  id: string;
+  workflowType: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval' | 'communication_approval' | 'review';
+  referenceType: string;
+  referenceId: string;
+  initiatorId: string;
+  status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
+  currentStep: number;
+  totalSteps: number;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowStep {
+  id: string;
+  workflowId: string;
+  stepNumber: number;
+  stepName: string;
+  approverId: string | null;
+  approverRole: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'delegated' | 'skipped';
+  comments: string | null;
+  actedAt: string | null;
+  dueDate: string;
+  escalatedTo: string | null;
+  escalatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApprovalInboxItem {
+  workflowId: string;
+  stepId: string;
+  stepNumber: number;
+  stepName: string;
+  workflowType: string;
+  referenceType: string;
+  referenceId: string;
+  initiatorName: string;
+  dueDate: string;
+  isEscalated: boolean;
+}
+
+// ============================================
+// Knowledge & Policy Domain
+// ============================================
+
+export interface PolicySearchResult {
+  chunkId: string;
+  documentId: string;
+  documentTitle: string;
+  chunkIndex: number;
+  content: string;
+  relevanceScore: number;
+  citations: { source: string; reference: string }[];
+}
+
+export interface PolicyAnswer {
+  answer: string;
+  confidence: number;
+  citations: { source: string; reference: string }[];
+  relatedQuestions: string[];
+  requiresEscalation: boolean;
+  escalationReason?: string;
+}
+
 export interface EmployeeSummary {
   id: string;
   name: string;
@@ -370,6 +641,9 @@ export interface EmployeeSummary {
   hireDate: string;
   manager?: string;
 }
+
+// Re-export database types for agent layer use
+export type { PolicyDocument, PolicyChunk } from './database';
 
 export interface ReportColumn {
   key: string;

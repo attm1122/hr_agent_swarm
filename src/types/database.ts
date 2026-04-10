@@ -279,6 +279,59 @@ export interface PolicyChunk {
   updated_at: string;
 }
 
+// Offboarding domain tables
+export interface OffboardingPlan {
+  id: string;
+  employee_id: string;
+  termination_date: string;
+  initiated_by: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  checklist_template: string;
+  target_completion_date: string;
+  actual_completion_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OffboardingTask {
+  id: string;
+  plan_id: string;
+  task_name: string;
+  category: 'access_removal' | 'asset_return' | 'knowledge_transfer' | 'hr_exit' | 'payroll_exit' | 'compliance';
+  assigned_to: string;
+  due_date: string;
+  completed_at: string | null;
+  completed_by: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked';
+  priority: 'low' | 'medium' | 'high';
+  depends_on: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OffboardingAsset {
+  id: string;
+  plan_id: string;
+  asset_type: 'laptop' | 'phone' | 'badge' | 'credit_card' | 'other';
+  description: string;
+  expected_return_date: string;
+  returned_at: string | null;
+  condition_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OffboardingAccess {
+  id: string;
+  plan_id: string;
+  system_name: string;
+  removal_status: 'pending' | 'scheduled' | 'completed' | 'na';
+  scheduled_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Database interface
 export interface Database {
   public: {
@@ -302,6 +355,10 @@ export interface Database {
       report_runs: { Row: ReportRun; Insert: Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>> };
       policy_documents: { Row: PolicyDocument; Insert: Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>> };
       policy_chunks: { Row: PolicyChunk; Insert: Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>> };
+      offboarding_plans: { Row: OffboardingPlan; Insert: Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>> };
+      offboarding_tasks: { Row: OffboardingTask; Insert: Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>> };
+      offboarding_assets: { Row: OffboardingAsset; Insert: Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>> };
+      offboarding_access: { Row: OffboardingAccess; Insert: Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>> };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

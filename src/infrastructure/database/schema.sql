@@ -347,6 +347,51 @@ CREATE INDEX idx_workflows_initiator ON workflows(initiator_id);
 CREATE INDEX idx_workflows_status ON workflows(status);
 CREATE INDEX idx_workflows_reference ON workflows(reference_type, reference_id);
 CREATE INDEX idx_approval_steps_workflow ON approval_steps(workflow_id);
+
+-- ============================================
+-- AUDIT LOGS (Security)
+-- ============================================
+
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id TEXT NOT NULL UNIQUE, -- Custom audit event ID
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    event_type TEXT NOT NULL CHECK (event_type IN (
+        'agent_execute', 'data_access', 'permission_check', 'integration_call',
+        'security_blocked', 'auth_failure', 'rate_limit_hit', 'csrf_violation', 'sensitive_action'
+    )),
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    intent TEXT,
+    agent_type TEXT,
+    success BOOLEAN NOT NULL DEFAULT false,
+    error_message TEXT,
+    resource_type TEXT,
+    resource_id TEXT,
+    action TEXT,
+    fields_accessed TEXT[], -- Array of field names
+    sensitivity_level TEXT,
+    risk_score INTEGER,
+    requires_approval BOOLEAN DEFAULT false,
+    approval_status TEXT CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    previous_hash TEXT,
+    integrity_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Audit log indexes for efficient querying
+CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_event_type ON audit_logs(event_type);
+CREATE INDEX idx_audit_logs_success ON audit_logs(success);
+CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+CREATE INDEX idx_audit_logs_session ON audit_logs(session_id);
+
+-- Retention: Create partition or cleanup job for 90-day retention
+-- This is a placeholder - implement based on your PostgreSQL version
 CREATE INDEX idx_approval_steps_approver ON approval_steps(approver_id);
 
 CREATE INDEX idx_audit_entity ON audit_events(entity_type, entity_id);

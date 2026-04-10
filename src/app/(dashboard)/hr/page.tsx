@@ -43,7 +43,7 @@ function getDashboardMetrics() {
   
   return {
     totalEmployees: activeEmployees,
-    pendingApprovals: 6,
+    pendingApprovals: actionQueue.length,
     pendingLeaveRequests: pendingLeave,
     expiringDocsCount: expiringDocs,
   };
@@ -98,10 +98,12 @@ async function DashboardContent() {
             Welcome back. Here's what's happening across your organization.
           </p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
-          <Sparkles className="w-4 h-4 mr-2" />
-          Generate Report
-        </Button>
+        <Link href="/reports">
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Generate Report
+          </Button>
+        </Link>
       </div>
 
       {/* Metrics */}

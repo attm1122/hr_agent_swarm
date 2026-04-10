@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,15 @@ const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   default: AlertCircle,
 };
 
+const typeRoutes: Record<string, string> = {
+  leave_request: '/leave',
+  expiring_document: '/compliance',
+  milestone: '/compliance',
+  compliance: '/compliance',
+};
+
 export function ActionQueue({ items, title = 'Action Queue' }: ActionQueueProps) {
+  const router = useRouter();
   if (items.length === 0) {
     return (
       <Card className="border shadow-sm">
@@ -104,7 +113,12 @@ export function ActionQueue({ items, title = 'Action Queue' }: ActionQueueProps)
                     </div>
                   </div>
                   
-                  <Button variant="ghost" size="sm" className="flex-shrink-0 h-8 text-xs">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-shrink-0 h-8 text-xs"
+                    onClick={() => router.push(typeRoutes[item.type] || '/approvals')}
+                  >
                     Review
                   </Button>
                 </div>

@@ -13,38 +13,15 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
-  Search, Filter, Mail, MapPin, Briefcase, User, 
-  MoreHorizontal, Download, Plus
+  Search, Filter, Plus, MoreHorizontal
 } from 'lucide-react';
-import { 
-  employees, teams, positions, getTeamById, getPositionById, getManagerForEmployee 
-} from '@/lib/data/mock-data';
+import { getTeamById, getPositionById, getManagerForEmployee, teams } from '@/lib/data/mock-data';
+import { getEmployeeList, getEmployeeCount } from '@/lib/services';
+import { getSession, getAgentContext } from '@/lib/auth/session';
+import { hasCapability } from '@/lib/auth/authorization';
+import { ExportButton } from '@/components/export/ExportButton';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import type { Employee } from '@/types';
-
-// Status badge component
-function StatusBadge({ status }: { status: Employee['status'] }) {
-  const styles = {
-    active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    inactive: 'bg-slate-100 text-slate-700 border-slate-200',
-    on_leave: 'bg-amber-100 text-amber-700 border-amber-200',
-    terminated: 'bg-red-100 text-red-700 border-red-200',
-    pending: 'bg-blue-100 text-blue-700 border-blue-200',
-  };
-  
-  const labels = {
-    active: 'Active',
-    inactive: 'Inactive',
-    on_leave: 'On Leave',
-    terminated: 'Terminated',
-    pending: 'Pending',
-  };
-  
-  return (
-    <Badge variant="outline" className={`${styles[status]} text-xs capitalize`}>
-      {labels[status]}
-    </Badge>
-  );
-}
 
 // Employee row component
 function EmployeeRow({ employee }: { employee: Employee }) {
@@ -116,10 +93,23 @@ function EmployeeDirectorySkeleton() {
   );
 }
 
-// Content component
+// Content component - uses service layer with RBAC enforcement
 async function EmployeeDirectoryContent() {
-  const activeEmployees = employees.filter(e => e.status !== 'terminated');
-  
+  // Get session and context for RBAC
+  const session = getSession();
+  const context = getAgentContext(session);
+
+  // Use service layer for RBAC-filtered data
+  const result = await getEmployeeList(context, { status: 'active', limit: 1000 });
+  const totalEmployees = await getEmployeeCount(context, { status: 'all' });
+
+  // Cast to Employee type for display
+  const activeEmployees = result.employees as Employee[];
+
+  // Check capabilities for UI controls
+  const canExport = hasCapability(session.role, 'report:generate');
+  const canAddEmployee = hasCapability(session.role, 'employee:write');
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -127,18 +117,28 @@ async function EmployeeDirectoryContent() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Employee Directory</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {activeEmployees.length} active employees across {teams.length} teams
+            {totalEmployees} total employees • Showing {activeEmployees.length} active (role-limited)
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            View restricted by your role: {session.role}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Employee
-          </Button>
+          {canExport && (
+            <ExportButton
+              context={context}
+              exportType="employees"
+              variant="outline"
+              size="sm"
+              className="h-9"
+            />
+          )}
+          {canAddEmployee && (
+            <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Employee
+            </Button>
+          )}
         </div>
       </div>
 
