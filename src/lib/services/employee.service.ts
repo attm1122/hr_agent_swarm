@@ -10,10 +10,10 @@
  * - Service calls agents for complex operations
  */
 
-import type { Employee, Role, AgentContext } from '@/types';
+import type { Employee, AgentContext } from '@/types';
 import { employees, getEmployeeById, getTeamById, getPositionById, getManagerForEmployee } from '@/lib/data/mock-data';
-import { ROLE_SCOPE, ROLE_SENSITIVITY, stripSensitiveFields, isInScope } from '@/lib/auth/authorization';
-import { getCoordinator } from '@/lib/agents';
+import { stripSensitiveFields, isInScope } from '@/lib/auth/authorization';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
 
 export interface EmployeeListOptions {
   status?: 'active' | 'inactive' | 'on_leave' | 'terminated' | 'pending' | 'all';
@@ -43,34 +43,17 @@ export async function getEmployeeList(
   context: AgentContext,
   options: EmployeeListOptions = {}
 ): Promise<EmployeeListResult> {
-  const { role, scope, sensitivityClearance, employeeId } = context;
+  const { scope, sensitivityClearance } = context;
   const { status = 'active', searchQuery, page = 1, limit = 50 } = options;
+  const scopeContext = buildRecordScopeContext(context);
 
   // Get base dataset based on scope
   let filteredEmployees = employees;
 
-  if (scope === 'self' && employeeId) {
-    // Employee sees only self
-    filteredEmployees = employees.filter(e => e.id === employeeId);
-  } else if (scope === 'team' && employeeId) {
-    // Manager/Team Lead see their team
-    // Get team members including self
-    const manager = getManagerForEmployee(getEmployeeById(employeeId)!);
-    const teamId = getEmployeeById(employeeId)?.teamId;
-    
-    if (teamId) {
-      filteredEmployees = employees.filter(e => 
-        e.teamId === teamId || e.id === employeeId
-      );
-    } else if (manager) {
-      // Fallback: if no team, show manager's direct reports
-      filteredEmployees = employees.filter(e => 
-        e.managerId === employeeId || e.id === employeeId
-      );
-    } else {
-      // No team, no reports - just self
-      filteredEmployees = employees.filter(e => e.id === employeeId);
-    }
+  if (scope === 'self' || scope === 'team') {
+    filteredEmployees = employees.filter((employee) =>
+      isInScope(scope, employee.id, scopeContext)
+    );
   }
   // scope === 'all' or 'payroll_scope' - no filtering (ADMIN/PAYROLL)
 
@@ -118,12 +101,13 @@ export async function getEmployee(
   context: AgentContext,
   targetEmployeeId: string
 ): Promise<Partial<Employee> | null> {
-  const { role, scope, sensitivityClearance, employeeId } = context;
+  const { scope, sensitivityClearance } = context;
+  const scopeContext = buildRecordScopeContext(context);
 
   // Check scope authorization
   const hasAccess = isInScope(scope, targetEmployeeId, { 
-    employeeId: employeeId || '',
-    teamEmployeeIds: getTeamEmployeeIds(context)
+    employeeId: scopeContext.employeeId,
+    teamEmployeeIds: scopeContext.teamEmployeeIds,
   });
 
   if (!hasAccess) {
@@ -189,26 +173,4 @@ export async function getEmployeeProfile(
       name: `${manager.firstName} ${manager.lastName}` 
     } : null,
   };
-}
-
-// Helper: Get team member IDs for scope checking
-function getTeamEmployeeIds(context: AgentContext): string[] {
-  const { employeeId } = context;
-  if (!employeeId) return [];
-
-  const employee = getEmployeeById(employeeId);
-  if (!employee) return [];
-
-  // Get direct reports
-  const directReports = employees.filter(e => e.managerId === employeeId);
-  
-  // Get team members
-  const teamMembers = employee.teamId 
-    ? employees.filter(e => e.teamId === employee.teamId && e.id !== employeeId)
-    : [];
-
-  return [
-    ...directReports.map(e => e.id),
-    ...teamMembers.map(e => e.id),
-  ];
 }

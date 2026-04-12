@@ -185,9 +185,9 @@ export class SwarmCoordinator {
         if (anyPerms && !anyPerms.some(p => request.context.permissions.includes(p))) return false;
         return true;
       })
-      .map(async ({ intent }) => {
+      .map(async ({ intent, payload }) => {
         const agent = this.agents.get(INTENT_ROUTING[intent]!);
-        return { intent, result: await agent!.execute(intent, {}, request.context) };
+        return { intent, result: await agent!.execute(intent, payload, request.context) };
       });
 
     const settled = await Promise.allSettled(tasks);

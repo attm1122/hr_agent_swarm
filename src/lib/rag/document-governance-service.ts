@@ -25,6 +25,12 @@ import type {
 } from '@/types/rag';
 import type { Role } from '@/types';
 import { hasCapability } from '@/lib/auth/authorization';
+import {
+  differenceInDateOnlyDays,
+  getDateOnlyRelativeState,
+  toDateOnlyString,
+  toUTCDateFromDateOnly,
+} from '@/lib/date-only';
 
 // ============================================
 // State Machine Definition
@@ -565,14 +571,13 @@ export async function checkRetrievalEligibility(
     };
   }
 
-  const now = new Date();
-  const effectiveDate = new Date(doc.effectiveDate);
-  const reviewDate = doc.reviewDate ? new Date(doc.reviewDate) : null;
+  const effectiveState = getDateOnlyRelativeState(doc.effectiveDate);
+  const reviewState = doc.reviewDate ? getDateOnlyRelativeState(doc.reviewDate) : null;
 
   const status: DocumentRetrievalStatus = {
     isRetrievable: true,
-    effectiveDatePassed: effectiveDate <= now,
-    reviewDateValid: reviewDate ? reviewDate >= now : true,
+    effectiveDatePassed: effectiveState !== 'future',
+    reviewDateValid: reviewState ? reviewState !== 'past' : true,
     approvalStatusValid: doc.lifecycleState === 'approved' && doc.approvalStatus === 'approved',
     indexingStatusValid: doc.indexingMetadata?.indexingStatus === 'completed',
     notSuperseded: doc.lifecycleState !== 'superseded',
@@ -605,24 +610,25 @@ export async function getStaleDocuments(
 ): Promise<KnowledgeDocument[]> {
   const stale: KnowledgeDocument[] = [];
   const now = new Date();
+  const today = toDateOnlyString(now);
 
   for (const doc of documentStore.values()) {
     if (doc.tenantId !== tenantId) continue;
     if (!['approved', 'pending_review'].includes(doc.lifecycleState)) continue;
 
-    const reviewDate = doc.reviewDate ? new Date(doc.reviewDate) : null;
+    const reviewDateState = doc.reviewDate ? getDateOnlyRelativeState(doc.reviewDate, now) : null;
     const lastReviewed = doc.governanceMetadata?.lastReviewedAt
       ? new Date(doc.governanceMetadata.lastReviewedAt)
-      : new Date(doc.effectiveDate);
+      : toUTCDateFromDateOnly(doc.effectiveDate);
 
-    if (reviewDate && reviewDate < now) {
+    if (reviewDateState === 'past') {
       stale.push(doc);
       continue;
     }
 
-    const daysSinceReview = Math.floor(
-      (now.getTime() - lastReviewed.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const daysSinceReview = doc.governanceMetadata?.lastReviewedAt
+      ? Math.floor((now.getTime() - lastReviewed.getTime()) / (1000 * 60 * 60 * 24))
+      : differenceInDateOnlyDays(today, doc.effectiveDate);
 
     if (daysSinceReview > staleAfterDays) {
       stale.push(doc);

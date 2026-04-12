@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Calendar, Plus, Clock, CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { leaveRequests, getEmployeeById } from '@/lib/data/mock-data';
+import { formatDateOnly } from '@/lib/date-only';
 import type { LeaveRequest } from '@/types';
 
 async function callSwarm(intent: string, payload: Record<string, unknown>) {
@@ -119,7 +120,7 @@ export default function LeavePage() {
                       {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'}
                     </p>
                     <p className="text-xs text-slate-500 capitalize">
-                      {lr.leaveType.replace('_', ' ')} · {new Date(lr.startDate).toLocaleDateString()} – {new Date(lr.endDate).toLocaleDateString()} · {lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''}
+                      {lr.leaveType.replace('_', ' ')} · {formatDateOnly(lr.startDate)} – {formatDateOnly(lr.endDate)} · {lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''}
                     </p>
                     {lr.reason && <p className="text-xs text-slate-400 mt-0.5">{lr.reason}</p>}
                   </div>

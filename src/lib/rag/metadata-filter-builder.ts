@@ -26,6 +26,7 @@ import type {
 } from '@/types/rag';
 import type { Role } from '@/types';
 import { getAccessibleZones, requiresApprovedContent } from './knowledge-zones';
+import { getDateOnlyRelativeState } from '@/lib/date-only';
 
 // ============================================
 // Filter Types
@@ -233,9 +234,7 @@ export function documentMatchesFilter(
 
   // Expiration filter
   if (filter.notExpired && doc.reviewDate) {
-    const reviewDate = new Date(doc.reviewDate);
-    const now = new Date();
-    if (reviewDate < now) {
+    if (getDateOnlyRelativeState(doc.reviewDate) === 'past') {
       return false;
     }
   }

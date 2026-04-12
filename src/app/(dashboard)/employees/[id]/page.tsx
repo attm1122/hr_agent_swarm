@@ -15,6 +15,8 @@ import {
   milestones, documents,
 } from '@/lib/data/mock-data';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/date-only';
+import { getDerivedMilestoneState } from '@/lib/milestones';
 import type { Employee } from '@/types';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
@@ -41,7 +43,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
   const empLeave = leaveRequests.filter(lr => lr.employeeId === employee.id);
   const empMilestones = milestones.filter(m => m.employeeId === employee.id);
   const empDocs = documents.filter(d => d.employeeId === employee.id);
-  const tenure = Math.floor((Date.now() - new Date(employee.hireDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  const tenure = getFullYearsSinceDateOnly(employee.hireDate);
 
   return (
     <div className="space-y-6">
@@ -99,7 +101,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
             </CardHeader>
             <CardContent className="space-y-1">
               <InfoRow icon={Briefcase} label="Employee Number" value={employee.employeeNumber} />
-              <InfoRow icon={Calendar} label="Hire Date" value={new Date(employee.hireDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
+              <InfoRow icon={Calendar} label="Hire Date" value={formatDateOnly(employee.hireDate, 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })} />
               <InfoRow icon={Briefcase} label="Employment Type" value={employee.employmentType.replace('_', ' ')} />
               <InfoRow icon={Star} label="Level" value={position?.level || 'N/A'} />
               <InfoRow icon={MapPin} label="Work Location" value={employee.workLocation || 'Not set'} />
@@ -183,7 +185,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                       <div>
                         <p className="text-sm font-medium text-slate-900 capitalize">{lr.leaveType.replace('_', ' ')} Leave</p>
                         <p className="text-xs text-slate-500">
-                          {new Date(lr.startDate).toLocaleDateString()} – {new Date(lr.endDate).toLocaleDateString()} ({lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''})
+                          {formatDateOnly(lr.startDate)} – {formatDateOnly(lr.endDate)} ({lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''})
                         </p>
                       </div>
                       <Badge variant="outline" className={
@@ -214,21 +216,24 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                 <p className="text-sm text-slate-500 text-center py-4">No milestones tracked</p>
               ) : (
                 <div className="space-y-3">
-                  {empMilestones.map(ms => (
-                    <div key={ms.id} className="flex items-center justify-between p-3 rounded-md bg-slate-50">
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{ms.description}</p>
-                        <p className="text-xs text-slate-500">{new Date(ms.milestoneDate).toLocaleDateString()}</p>
+                  {empMilestones.map((ms) => {
+                    const state = getDerivedMilestoneState(ms);
+                    return (
+                      <div key={ms.id} className="flex items-center justify-between p-3 rounded-md bg-slate-50">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{ms.description}</p>
+                          <p className="text-xs text-slate-500">{formatDateOnly(ms.milestoneDate)}</p>
+                        </div>
+                        <Badge variant="outline" className={
+                          state === 'completed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :
+                          state === 'overdue' ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
+                          'bg-amber-100 text-amber-700 border-amber-200 text-xs'
+                        }>
+                          {state}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className={
-                        ms.status === 'completed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :
-                        ms.status === 'overdue' ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
-                        'bg-amber-100 text-amber-700 border-amber-200 text-xs'
-                      }>
-                        {ms.status}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

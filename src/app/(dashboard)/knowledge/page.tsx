@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { BookOpen, Search, FileText, Shield, Calendar, DollarSign, UserPlus, Clock } from 'lucide-react';
+import { formatDateOnly } from '@/lib/date-only';
 
 const policies = [
   { id: 'p-1', title: 'Annual Leave Policy', category: 'leave', version: '3.1', updated: '2025-01-15', sections: 8 },
@@ -81,7 +82,7 @@ export default function KnowledgePage() {
                       <Badge variant="secondary" className="text-[10px] flex-shrink-0">v{p.version}</Badge>
                     </div>
                     <p className="text-xs text-slate-500 mt-1 capitalize">{p.category} · {p.sections} sections</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Updated {new Date(p.updated).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Updated {formatDateOnly(p.updated)}</p>
                   </div>
                 </div>
               </CardContent>

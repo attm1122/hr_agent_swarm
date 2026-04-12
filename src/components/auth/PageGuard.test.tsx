@@ -4,8 +4,7 @@
  * Verifies the server component blocks/allows content based on
  * the required permission and the current session role.
  *
- * Because getSession() returns a mock admin by default, these tests
- * validate:
+ * These tests validate:
  *  - Admin can access admin-only pages
  *  - Access-denied message renders for blocked pages
  *  - Children rendered when permission granted
@@ -114,6 +113,17 @@ describe('PageGuard', () => {
         <div>Documents</div>
       </PageGuard>
     );
+    expect(screen.getByText('Access Denied')).toBeInTheDocument();
+  });
+
+  it('blocks access when no verified session is present', () => {
+    mockGetSession.mockReturnValue(null);
+    render(
+      <PageGuard requiredPermission="employee:read">
+        <div data-testid="employees">Employees</div>
+      </PageGuard>
+    );
+    expect(screen.queryByTestId('employees')).not.toBeInTheDocument();
     expect(screen.getByText('Access Denied')).toBeInTheDocument();
   });
 

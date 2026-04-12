@@ -81,7 +81,7 @@ export const employees: Employee[] = [
 // ============================================
 
 export const documents: EmployeeDocument[] = [
-  { id: 'doc-001', employeeId: 'emp-021', sourceId: 'm365-001', sourcePath: '/employees/EMP021/AWS_Certification.pdf', fileName: 'AWS_Certification.pdf', fileType: 'application/pdf', fileSize: 1500000, category: 'certification', status: 'expiring', uploadedAt: '2022-01-15', expiresAt: '2025-05-09', extractedData: { certification_name: 'AWS Solutions Architect', level: 'Professional' }, createdAt: '2022-01-15', updatedAt: '2024-01-01' },
+  { id: 'doc-001', employeeId: 'emp-021', sourceId: 'm365-001', sourcePath: '/employees/EMP021/AWS_Certification.pdf', fileName: 'AWS_Certification.pdf', fileType: 'application/pdf', fileSize: 1500000, category: 'certification', status: 'expiring', uploadedAt: '2022-01-15', expiresAt: '2026-05-09', extractedData: { certification_name: 'AWS Solutions Architect', level: 'Professional' }, createdAt: '2022-01-15', updatedAt: '2026-01-01' },
 ];
 
 // ============================================
@@ -89,10 +89,10 @@ export const documents: EmployeeDocument[] = [
 // ============================================
 
 export const leaveRequests: LeaveRequest[] = [
-  { id: 'lr-001', employeeId: 'emp-008', leaveType: 'annual', startDate: '2025-04-15', endDate: '2025-04-20', daysRequested: 5, reason: 'Family vacation', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2025-03-20', updatedAt: '2025-03-20' },
-  { id: 'lr-002', employeeId: 'emp-009', leaveType: 'annual', startDate: '2025-05-01', endDate: '2025-05-05', daysRequested: 4, reason: 'Personal trip', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2025-03-25', updatedAt: '2025-03-25' },
-  { id: 'lr-003', employeeId: 'emp-021', leaveType: 'sick', startDate: '2025-04-02', endDate: '2025-04-03', daysRequested: 2, reason: 'Not feeling well', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2025-04-01', updatedAt: '2025-04-01' },
-  { id: 'lr-004', employeeId: 'emp-016', leaveType: 'annual', startDate: '2025-04-10', endDate: '2025-04-14', daysRequested: 4, reason: 'Wedding', status: 'approved', approvedBy: 'emp-015', approvedAt: '2025-04-01T10:30:00Z', rejectionReason: null, createdAt: '2025-03-15', updatedAt: '2025-04-01' },
+  { id: 'lr-001', employeeId: 'emp-008', leaveType: 'annual', startDate: '2026-04-15', endDate: '2026-04-20', daysRequested: 5, reason: 'Family vacation', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2026-03-20', updatedAt: '2026-03-20' },
+  { id: 'lr-002', employeeId: 'emp-009', leaveType: 'annual', startDate: '2026-05-01', endDate: '2026-05-05', daysRequested: 4, reason: 'Personal trip', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2026-03-25', updatedAt: '2026-03-25' },
+  { id: 'lr-003', employeeId: 'emp-021', leaveType: 'sick', startDate: '2026-04-02', endDate: '2026-04-03', daysRequested: 2, reason: 'Not feeling well', status: 'pending', approvedBy: null, approvedAt: null, rejectionReason: null, createdAt: '2026-04-01', updatedAt: '2026-04-01' },
+  { id: 'lr-004', employeeId: 'emp-016', leaveType: 'annual', startDate: '2026-04-10', endDate: '2026-04-14', daysRequested: 4, reason: 'Wedding', status: 'approved', approvedBy: 'emp-015', approvedAt: '2026-04-01T10:30:00Z', rejectionReason: null, createdAt: '2026-03-15', updatedAt: '2026-04-01' },
 ];
 
 // ============================================
@@ -100,14 +100,14 @@ export const leaveRequests: LeaveRequest[] = [
 // ============================================
 
 export const milestones: Milestone[] = [
-  { id: 'ms-001', employeeId: 'emp-021', milestoneType: 'probation_end', milestoneDate: '2025-05-01', description: 'Probation Period Ends', alertDaysBefore: 14, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-02-01', updatedAt: '2025-02-01' },
-  { id: 'ms-002', employeeId: 'emp-023', milestoneType: 'probation_end', milestoneDate: '2025-07-01', description: 'Probation Period Ends', alertDaysBefore: 14, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-04-01', updatedAt: '2025-04-01' },
-  { id: 'ms-003', employeeId: 'emp-023', milestoneType: 'visa_expiry', milestoneDate: '2025-06-01', description: 'Work Visa Expiry', alertDaysBefore: 60, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-04-01', updatedAt: '2025-04-01' },
-  { id: 'ms-004', employeeId: 'emp-008', milestoneType: 'visa_expiry', milestoneDate: '2025-10-01', description: 'Work Visa Expiry', alertDaysBefore: 60, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2023-01-10', updatedAt: '2023-01-10' },
-  { id: 'ms-005', employeeId: 'emp-003', milestoneType: 'service_anniversary', milestoneDate: '2025-06-01', description: '6 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2024-06-01', updatedAt: '2024-06-01' },
-  { id: 'ms-006', employeeId: 'emp-001', milestoneType: 'service_anniversary', milestoneDate: '2025-01-15', description: '5 Year Service Anniversary', alertDaysBefore: 30, status: 'completed', acknowledgedAt: '2025-01-10', acknowledgedBy: 'emp-002', createdAt: '2024-01-15', updatedAt: '2025-01-10' },
-  { id: 'ms-007', employeeId: 'emp-004', milestoneType: 'service_anniversary', milestoneDate: '2025-08-15', description: '5 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2024-08-15', updatedAt: '2024-08-15' },
-  { id: 'ms-008', employeeId: 'emp-005', milestoneType: 'service_anniversary', milestoneDate: '2025-06-20', description: '4 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2024-06-20', updatedAt: '2024-06-20' },
+  { id: 'ms-001', employeeId: 'emp-021', milestoneType: 'probation_end', milestoneDate: '2026-05-01', description: 'Probation Period Ends', alertDaysBefore: 14, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2026-02-01', updatedAt: '2026-02-01' },
+  { id: 'ms-002', employeeId: 'emp-023', milestoneType: 'probation_end', milestoneDate: '2026-07-01', description: 'Probation Period Ends', alertDaysBefore: 14, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2026-04-01', updatedAt: '2026-04-01' },
+  { id: 'ms-003', employeeId: 'emp-023', milestoneType: 'visa_expiry', milestoneDate: '2026-06-01', description: 'Work Visa Expiry', alertDaysBefore: 60, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2026-04-01', updatedAt: '2026-04-01' },
+  { id: 'ms-004', employeeId: 'emp-008', milestoneType: 'visa_expiry', milestoneDate: '2026-10-01', description: 'Work Visa Expiry', alertDaysBefore: 60, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2023-01-10', updatedAt: '2026-01-10' },
+  { id: 'ms-005', employeeId: 'emp-003', milestoneType: 'service_anniversary', milestoneDate: '2026-06-01', description: '7 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-06-01', updatedAt: '2026-01-01' },
+  { id: 'ms-006', employeeId: 'emp-001', milestoneType: 'service_anniversary', milestoneDate: '2026-01-15', description: '6 Year Service Anniversary', alertDaysBefore: 30, status: 'completed', acknowledgedAt: '2026-01-10', acknowledgedBy: 'emp-002', createdAt: '2025-01-15', updatedAt: '2026-01-10' },
+  { id: 'ms-007', employeeId: 'emp-004', milestoneType: 'service_anniversary', milestoneDate: '2026-08-15', description: '6 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-08-15', updatedAt: '2026-01-15' },
+  { id: 'ms-008', employeeId: 'emp-005', milestoneType: 'service_anniversary', milestoneDate: '2026-06-20', description: '5 Year Service Anniversary', alertDaysBefore: 30, status: 'upcoming', acknowledgedAt: null, acknowledgedBy: null, createdAt: '2025-06-20', updatedAt: '2026-01-20' },
 ];
 
 // ============================================
@@ -115,12 +115,12 @@ export const milestones: Milestone[] = [
 // ============================================
 
 export const actionQueue: ActionItem[] = [
-  { id: 'lr-001', type: 'leave_request', title: 'Leave request from Priya Sharma', description: 'Annual leave: Apr 15 to Apr 20 (5 days)', priority: 'medium', dueDate: '2025-04-15', assignee: 'priya.sharma@company.com', entityType: 'leave', entityId: 'lr-001' },
-  { id: 'lr-002', type: 'leave_request', title: 'Leave request from Marcus Johnson', description: 'Annual leave: May 1 to May 5 (4 days)', priority: 'medium', dueDate: '2025-05-01', assignee: 'marcus.johnson@company.com', entityType: 'leave', entityId: 'lr-002' },
-  { id: 'lr-003', type: 'leave_request', title: 'Leave request from Zara Patel', description: 'Sick leave: Apr 2 to Apr 3 (2 days)', priority: 'high', dueDate: '2025-04-02', assignee: 'zara.patel@company.com', entityType: 'leave', entityId: 'lr-003' },
-  { id: 'doc-001', type: 'expiring_document', title: 'Document expiring: AWS_Certification.pdf', description: 'Zara Patel - expires 2025-05-09', priority: 'high', dueDate: '2025-05-09', entityType: 'document', entityId: 'doc-001' },
-  { id: 'ms-001', type: 'milestone', title: 'Probation Period Ends', description: 'Zara Patel - 2025-05-01', priority: 'high', dueDate: '2025-05-01', entityType: 'milestone', entityId: 'ms-001' },
-  { id: 'ms-003', type: 'milestone', title: 'Work Visa Expiry', description: 'Jessica Wong - 2025-06-01', priority: 'critical', dueDate: '2025-06-01', entityType: 'milestone', entityId: 'ms-003' },
+  { id: 'lr-001', type: 'leave_request', title: 'Leave request from Priya Sharma', description: 'Annual leave: Apr 15 to Apr 20 (5 days)', priority: 'medium', dueDate: '2026-04-15', assignee: 'priya.sharma@company.com', entityType: 'leave', entityId: 'lr-001' },
+  { id: 'lr-002', type: 'leave_request', title: 'Leave request from Marcus Johnson', description: 'Annual leave: May 1 to May 5 (4 days)', priority: 'medium', dueDate: '2026-05-01', assignee: 'marcus.johnson@company.com', entityType: 'leave', entityId: 'lr-002' },
+  { id: 'lr-003', type: 'leave_request', title: 'Leave request from Zara Patel', description: 'Sick leave: Apr 2 to Apr 3 (2 days)', priority: 'high', dueDate: '2026-04-02', assignee: 'zara.patel@company.com', entityType: 'leave', entityId: 'lr-003' },
+  { id: 'doc-001', type: 'expiring_document', title: 'Document expiring: AWS_Certification.pdf', description: 'Zara Patel - expires 2026-05-09', priority: 'high', dueDate: '2026-05-09', entityType: 'document', entityId: 'doc-001' },
+  { id: 'ms-001', type: 'milestone', title: 'Probation Period Ends', description: 'Zara Patel - 2026-05-01', priority: 'high', dueDate: '2026-05-01', entityType: 'milestone', entityId: 'ms-001' },
+  { id: 'ms-003', type: 'milestone', title: 'Work Visa Expiry', description: 'Jessica Wong - 2026-06-01', priority: 'critical', dueDate: '2026-06-01', entityType: 'milestone', entityId: 'ms-003' },
 ];
 
 // ============================================

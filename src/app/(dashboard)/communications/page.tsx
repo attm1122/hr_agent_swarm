@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageSquare, Plus, Send, Clock, CheckCircle2, FileText } from 'lucide-react';
+import { formatDateOnly } from '@/lib/date-only';
 
 const templates = [
   { id: 'ct-1', name: 'Welcome Email', category: 'onboarding', channel: 'email', uses: 12 },
@@ -93,7 +94,7 @@ export default function CommunicationsPage() {
                 <div key={d.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900">{d.subject}</p>
-                    <p className="text-xs text-slate-500">To: {d.recipient} · {new Date(d.date).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-500">To: {d.recipient} · {formatDateOnly(d.date)}</p>
                   </div>
                   <Badge variant="outline" className={
                     d.status === 'sent' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :

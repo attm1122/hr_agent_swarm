@@ -9,16 +9,12 @@ import type { AgentResult, AgentContext, AgentIntent } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  leaveRequests, milestones, getEmployeeById, getEmployeeFullName, getDirectReports,
+  leaveRequests, milestones, getEmployeeById, getEmployeeFullName,
 } from '@/lib/data/mock-data';
 import type { LeaveRequest } from '@/types';
-import { canEditLeave, canViewLeave, canViewMilestone, isInScope } from '@/lib/auth/authorization';
-
-/** Resolve team member IDs for scope checks */
-function getTeamIds(ctx: AgentContext): string[] {
-  if (!ctx.employeeId) return [];
-  return getDirectReports(ctx.employeeId).map(r => r.id);
-}
+import { canEditLeave, canViewLeave, canViewMilestone } from '@/lib/auth/authorization';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
+import { compareMilestonesByDate, getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export class LeaveMilestonesAgent implements Agent {
   readonly type = 'leave_milestones' as const;
@@ -51,12 +47,12 @@ export class LeaveMilestonesAgent implements Agent {
     payload: Record<string, unknown>,
     context: AgentContext
   ): Promise<AgentResult> {
-    const teamIds = getTeamIds(context);
+    const scopeContext = buildRecordScopeContext(context);
     let requests = [...leaveRequests];
 
     // Scope filtering via policy
     requests = requests.filter(lr =>
-      canViewLeave(context, lr.employeeId, teamIds)
+      canViewLeave(context, lr.employeeId, scopeContext.teamEmployeeIds)
     );
 
     if (payload.status && payload.status !== 'all') {
@@ -100,8 +96,8 @@ export class LeaveMilestonesAgent implements Agent {
 
     // Team-scoped roles can only approve their direct reports
     if (context.scope === 'team') {
-      const teamIds = getTeamIds(context);
-      if (!teamIds.includes(request.employeeId)) {
+      const scopeContext = buildRecordScopeContext(context);
+      if (!scopeContext.teamEmployeeIds.includes(request.employeeId)) {
         return createErrorResult('Not authorized: not a direct report', ['RBAC violation']);
       }
     }
@@ -134,27 +130,32 @@ export class LeaveMilestonesAgent implements Agent {
     payload: Record<string, unknown>,
     context: AgentContext
   ): Promise<AgentResult> {
-    const teamIds = getTeamIds(context);
+    const scopeContext = buildRecordScopeContext(context);
     let items = [...milestones];
 
     if (payload.type) {
       items = items.filter(m => m.milestoneType === payload.type);
     }
     if (payload.status && payload.status !== 'all') {
-      items = items.filter(m => m.status === payload.status);
+      items = items.filter((milestone) => getDerivedMilestoneState(milestone) === payload.status);
     }
 
     // Scope filtering via policy
     items = items.filter(m =>
-      canViewMilestone(context, m.employeeId, teamIds)
+      canViewMilestone(context, m.employeeId, scopeContext.teamEmployeeIds)
     );
 
     const enriched = items
-      .sort((a, b) => new Date(a.milestoneDate).getTime() - new Date(b.milestoneDate).getTime())
+      .sort(compareMilestonesByDate)
       .map(m => {
         const emp = getEmployeeById(m.employeeId);
-        const daysUntil = Math.ceil((new Date(m.milestoneDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        return { ...m, employeeName: emp ? getEmployeeFullName(emp) : 'Unknown', daysUntil };
+        const daysUntil = getMilestoneDayOffset(m);
+        return {
+          ...m,
+          status: getDerivedMilestoneState(m),
+          employeeName: emp ? getEmployeeFullName(emp) : 'Unknown',
+          daysUntil,
+        };
       });
 
     return createAgentResult(enriched, {

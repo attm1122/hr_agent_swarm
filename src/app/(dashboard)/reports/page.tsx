@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Download, FileText, Clock, Plus, TrendingUp, Users, DollarSign, Calendar } from 'lucide-react';
+import { formatDateOnly } from '@/lib/date-only';
 
 const reports = [
   { id: 'r-1', name: 'Headcount Report', category: 'hr', icon: Users, lastRun: '2025-04-01', frequency: 'Monthly' },
@@ -68,7 +69,7 @@ export default function ReportsPage() {
                     <div className="p-2 rounded-lg bg-slate-100"><Icon className="w-4 h-4 text-slate-600" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900">{r.name}</p>
-                      <p className="text-xs text-slate-500 capitalize">{r.category} · {r.frequency} · Last: {new Date(r.lastRun).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500 capitalize">{r.category} · {r.frequency} · Last: {formatDateOnly(r.lastRun)}</p>
                     </div>
                     <Button size="sm" variant="outline" className="h-7 text-xs">Generate</Button>
                   </div>

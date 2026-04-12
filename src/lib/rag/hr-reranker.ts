@@ -28,6 +28,7 @@ import type {
 } from '@/types/rag';
 import type { Role } from '@/types';
 import { getZonePriority, getRankingWeights } from './knowledge-zones';
+import { differenceFromTodayInDateOnlyDays } from '@/lib/date-only';
 
 // ============================================
 // Reranker Configuration
@@ -234,11 +235,8 @@ function calculateRecencyScore(chunk: KnowledgeChunk): number {
     return 0.3; // Significant penalty for non-current versions
   }
 
-  const now = new Date();
-  const effectiveDate = new Date(chunk.effectiveDate);
-
   // Calculate days since effective
-  const daysSinceEffective = (now.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24);
+  const daysSinceEffective = Math.max(0, -differenceFromTodayInDateOnlyDays(chunk.effectiveDate));
 
   // Score decreases slowly over time (half-life of 2 years)
   const halfLifeDays = 730;

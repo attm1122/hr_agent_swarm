@@ -14,7 +14,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCoordinator } from '@/lib/agents';
-import { getSession, getAgentContext } from '@/lib/auth/session';
+import {
+  requireVerifiedSessionContext,
+  isSessionResolutionError,
+} from '@/lib/auth/session';
 import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent } from '@/lib/security';
 import type { AgentIntent } from '@/types';
@@ -27,13 +30,7 @@ interface SwarmPostBody {
 
 export async function POST(req: NextRequest) {
   try {
-    // Get session for security context
-    const session = getSession();
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId, // Use userId as session identifier
-    };
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     // 1. Apply security middleware (rate limit, CSRF, size checks)
     const securityCheck = await securityMiddleware(req, securityContext, {
@@ -53,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (!bodyValidation.success) {
       logSecurityEvent(
         'security_blocked',
-        getAgentContext(session),
+        context,
         { reason: bodyValidation.error || 'Body validation failed' }
       );
       const response = NextResponse.json(
@@ -75,8 +72,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Context is built server-side from the session — client cannot override role/permissions
-    const context = getAgentContext(session);
-
     // 4. Route to coordinator with full security context
     const coordinator = getCoordinator();
     const response = await coordinator.route({
@@ -90,6 +85,15 @@ export async function POST(req: NextRequest) {
     const successResponse = NextResponse.json(response);
     return addSecurityHeaders(successResponse);
   } catch (err) {
+    if (isSessionResolutionError(err)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.status }
+        )
+      );
+    }
+
     const message = err instanceof Error ? err.message : 'Internal server error';
     const errorResponse = NextResponse.json(
       { error: message },
@@ -100,36 +104,46 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  // Auth-gate: only admin can see audit log (contains employee names & action summaries)
-  const session = getSession();
-  if (session.role !== 'admin') {
-    const response = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  try {
+    const { session, securityContext } = requireVerifiedSessionContext();
+
+    // Auth-gate: only admin can see audit log (contains employee names & action summaries)
+    if (session.role !== 'admin') {
+      const response = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return addSecurityHeaders(response);
+    }
+
+    const securityCheck = await securityMiddleware(req, securityContext, {
+      rateLimitTier: 'report', // Lower limit for audit access
+      requireCsrf: false, // GET doesn't require CSRF
+      validateInput: false,
+    });
+
+    if (securityCheck) {
+      return addSecurityHeaders(securityCheck);
+    }
+
+    const coordinator = getCoordinator();
+    const response = NextResponse.json({
+      status: 'ok',
+      agents: ['employee_profile', 'leave_milestones', 'document_compliance'],
+      recentAudit: coordinator.getAuditLog().slice(-10),
+    });
+
     return addSecurityHeaders(response);
+  } catch (err) {
+    if (isSessionResolutionError(err)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.status }
+        )
+      );
+    }
+
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return addSecurityHeaders(
+      NextResponse.json({ error: message }, { status: 500 })
+    );
   }
-
-  // Apply rate limiting to audit endpoint (admin tier)
-  const securityContext = {
-    userId: session.employeeId || 'unknown',
-    role: session.role,
-    sessionId: session.userId,
-  };
-
-  const securityCheck = await securityMiddleware(req, securityContext, {
-    rateLimitTier: 'report', // Lower limit for audit access
-    requireCsrf: false, // GET doesn't require CSRF
-    validateInput: false,
-  });
-
-  if (securityCheck) {
-    return addSecurityHeaders(securityCheck);
-  }
-
-  const coordinator = getCoordinator();
-  const response = NextResponse.json({
-    status: 'ok',
-    agents: ['employee_profile', 'leave_milestones', 'document_compliance'],
-    recentAudit: coordinator.getAuditLog().slice(-10),
-  });
-
-  return addSecurityHeaders(response);
 }

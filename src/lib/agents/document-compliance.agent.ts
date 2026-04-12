@@ -9,15 +9,11 @@ import type { AgentResult, AgentContext, AgentIntent } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  documents, milestones, getEmployeeById, getEmployeeFullName, getDirectReports,
+  documents, milestones, getEmployeeById, getEmployeeFullName,
 } from '@/lib/data/mock-data';
-import { canViewDocument, hasCapability, isInScope } from '@/lib/auth/authorization';
-
-/** Resolve team member IDs for scope checks */
-function getTeamIds(ctx: AgentContext): string[] {
-  if (!ctx.employeeId) return [];
-  return getDirectReports(ctx.employeeId).map(r => r.id);
-}
+import { canViewDocument, hasCapability } from '@/lib/auth/authorization';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
+import { getDerivedMilestoneState } from '@/lib/milestones';
 
 export class DocumentComplianceAgent implements Agent {
   readonly type = 'document_compliance' as const;
@@ -53,11 +49,11 @@ export class DocumentComplianceAgent implements Agent {
       return createErrorResult('Not authorized to access documents', ['RBAC violation']);
     }
 
-    const teamIds = getTeamIds(context);
+    const scopeContext = buildRecordScopeContext(context);
 
     // Scope + sensitivity filtering via policy (documents are team_visible by default)
     let docs = documents.filter(d =>
-      canViewDocument(context, d.employeeId, 'team_visible', teamIds)
+      canViewDocument(context, d.employeeId, 'team_visible', scopeContext.teamEmployeeIds)
     );
 
     if (payload.status && payload.status !== 'all') {
@@ -99,8 +95,16 @@ export class DocumentComplianceAgent implements Agent {
     const expiredDocs = documents.filter(d => d.status === 'expired');
     const missingDocs = documents.filter(d => d.status === 'missing');
 
-    const visaExpiries = milestones.filter(m => m.milestoneType === 'visa_expiry' && m.status !== 'completed');
-    const probationDue = milestones.filter(m => m.milestoneType === 'probation_end' && m.status !== 'completed');
+    const visaExpiries = milestones.filter(
+      (milestone) =>
+        milestone.milestoneType === 'visa_expiry' &&
+        getDerivedMilestoneState(milestone) !== 'completed'
+    );
+    const probationDue = milestones.filter(
+      (milestone) =>
+        milestone.milestoneType === 'probation_end' &&
+        getDerivedMilestoneState(milestone) !== 'completed'
+    );
 
     const risks: string[] = [];
     if (expiredDocs.length > 0) risks.push(`${expiredDocs.length} expired documents require immediate action`);

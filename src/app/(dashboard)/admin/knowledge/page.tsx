@@ -28,6 +28,11 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import {
+  differenceFromTodayInDateOnlyDays,
+  formatDateOnly,
+  getDateOnlyRelativeState,
+} from '@/lib/date-only';
 
 // Mock data for POC - replace with actual API calls
 async function getKnowledgeDocuments(tenantId: string, filters?: Record<string, string>) {
@@ -151,7 +156,7 @@ export default async function KnowledgeInventoryPage({ searchParams }: PageProps
         />
         <StatCard
           title="Needs Review"
-          value={documents.filter(d => new Date(d.reviewDate) < new Date()).length.toString()}
+          value={documents.filter((document) => getDateOnlyRelativeState(document.reviewDate) === 'past').length.toString()}
           icon={AlertCircle}
           variant="red"
         />
@@ -371,9 +376,9 @@ function IndexingBadge({ status }: { status: string }) {
 }
 
 function ReviewDate({ date }: { date: string }) {
-  const reviewDate = new Date(date);
-  const isOverdue = reviewDate < new Date();
-  const isSoon = !isOverdue && reviewDate < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const dayOffset = differenceFromTodayInDateOnlyDays(date);
+  const isOverdue = dayOffset < 0;
+  const isSoon = !isOverdue && dayOffset <= 30;
 
   return (
     <span className={cn(
@@ -381,7 +386,7 @@ function ReviewDate({ date }: { date: string }) {
       isOverdue ? 'text-red-600 font-medium' : 
       isSoon ? 'text-amber-600' : 'text-slate-600'
     )}>
-      {new Date(date).toLocaleDateString()}
+      {formatDateOnly(date)}
       {isOverdue && ' (Overdue)'}
     </span>
   );

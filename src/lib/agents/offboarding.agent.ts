@@ -30,7 +30,8 @@ import {
   canManageOffboarding,
   hasCapability,
 } from '@/lib/auth/authorization';
-import { getEmployeeById, getEmployeeFullName, getDirectReports } from '@/lib/data/mock-data';
+import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
 
 // Ensure store is initialized
 initializeOffboardingStore();
@@ -173,7 +174,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Offboarding plan not found');
     }
 
-    if (!canViewOffboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOffboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this offboarding plan', ['RBAC violation']);
     }
 
@@ -217,7 +219,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Offboarding plan not found');
     }
 
-    if (!canViewOffboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOffboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
@@ -302,7 +305,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Offboarding plan not found');
     }
 
-    if (!canViewOffboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOffboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
@@ -358,7 +362,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Offboarding plan not found');
     }
 
-    if (!canViewOffboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOffboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
@@ -414,7 +419,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Offboarding plan not found');
     }
 
-    if (!canViewOffboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOffboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 

@@ -17,7 +17,7 @@ interface PageGuardProps {
 export function PageGuard({ requiredPermission, children }: PageGuardProps) {
   const session = getSession();
 
-  if (!hasCapability(session.role, requiredPermission)) {
+  if (!session || !hasCapability(session.role, requiredPermission)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="max-w-md border shadow-sm">

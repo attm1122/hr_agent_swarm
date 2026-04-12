@@ -12,8 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Search, Filter, Plus, MoreHorizontal
+import {
+  Search, Filter, Plus, MoreHorizontal, ShieldX
 } from 'lucide-react';
 import { getTeamById, getPositionById, getManagerForEmployee, teams } from '@/lib/data/mock-data';
 import { getEmployeeList, getEmployeeCount } from '@/lib/services';
@@ -21,6 +21,7 @@ import { getSession, getAgentContext } from '@/lib/auth/session';
 import { hasCapability } from '@/lib/auth/authorization';
 import { ExportButton } from '@/components/export/ExportButton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/date-only';
 import type { Employee } from '@/types';
 
 // Employee row component
@@ -57,10 +58,10 @@ function EmployeeRow({ employee }: { employee: Employee }) {
           
           <div className="col-span-2">
             <p className="text-sm text-slate-600">
-              {new Date(employee.hireDate).toLocaleDateString()}
+              {formatDateOnly(employee.hireDate)}
             </p>
             <p className="text-xs text-slate-400">
-              {Math.floor((new Date().getTime() - new Date(employee.hireDate).getTime()) / (365 * 24 * 60 * 60 * 1000))} years
+              {getFullYearsSinceDateOnly(employee.hireDate)} years
             </p>
           </div>
           
@@ -97,6 +98,19 @@ function EmployeeDirectorySkeleton() {
 async function EmployeeDirectoryContent() {
   // Get session and context for RBAC
   const session = getSession();
+  if (!session) {
+    return (
+      <Card className="border shadow-sm">
+        <CardContent className="p-8 text-center">
+          <ShieldX className="mx-auto mb-4 h-10 w-10 text-red-400" />
+          <h1 className="text-lg font-semibold text-slate-900">Authentication Required</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Sign in with a verified session before viewing the employee directory.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   const context = getAgentContext(session);
 
   // Use service layer for RBAC-filtered data

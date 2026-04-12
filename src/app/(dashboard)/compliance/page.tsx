@@ -8,6 +8,8 @@ import {
   AlertCircle, Calendar, ArrowRight,
 } from 'lucide-react';
 import { documents, milestones, getEmployeeById } from '@/lib/data/mock-data';
+import { formatDateOnly } from '@/lib/date-only';
+import { compareMilestonesByDate, getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export default function CompliancePage() {
   const expiringDocs = documents.filter(d => d.status === 'expiring');
@@ -15,12 +17,22 @@ export default function CompliancePage() {
   const expiredDocs = documents.filter(d => d.status === 'expired');
   const activeDocs = documents.filter(d => d.status === 'active');
 
-  const visaExpiries = milestones.filter(m => m.milestoneType === 'visa_expiry' && m.status !== 'completed');
-  const certExpiries = milestones.filter(m => m.milestoneType === 'certification_expiry' && m.status !== 'completed');
-  const probations = milestones.filter(m => m.milestoneType === 'probation_end' && m.status !== 'completed');
-  const allAlerts = [...visaExpiries, ...certExpiries, ...probations].sort(
-    (a, b) => new Date(a.milestoneDate).getTime() - new Date(b.milestoneDate).getTime()
+  const visaExpiries = milestones.filter(
+    (milestone) =>
+      milestone.milestoneType === 'visa_expiry' &&
+      getDerivedMilestoneState(milestone) !== 'completed'
   );
+  const certExpiries = milestones.filter(
+    (milestone) =>
+      milestone.milestoneType === 'certification_expiry' &&
+      getDerivedMilestoneState(milestone) !== 'completed'
+  );
+  const probations = milestones.filter(
+    (milestone) =>
+      milestone.milestoneType === 'probation_end' &&
+      getDerivedMilestoneState(milestone) !== 'completed'
+  );
+  const allAlerts = [...visaExpiries, ...certExpiries, ...probations].sort(compareMilestonesByDate);
 
   return (
     <div className="space-y-6">
@@ -88,7 +100,7 @@ export default function CompliancePage() {
                         <p className="text-sm font-medium text-slate-900 truncate">{doc.fileName}</p>
                         <p className="text-xs text-slate-500">
                           {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {doc.category}
-                          {doc.expiresAt && ` · Expires ${new Date(doc.expiresAt).toLocaleDateString()}`}
+                          {doc.expiresAt && ` · Expires ${formatDateOnly(doc.expiresAt)}`}
                         </p>
                       </div>
                       <Badge variant="outline" className={
@@ -128,7 +140,8 @@ export default function CompliancePage() {
               <div className="divide-y divide-slate-100">
                 {allAlerts.map(ms => {
                   const emp = getEmployeeById(ms.employeeId);
-                  const daysLeft = Math.ceil((new Date(ms.milestoneDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  const state = getDerivedMilestoneState(ms);
+                  const dayOffset = getMilestoneDayOffset(ms);
                   return (
                     <div key={ms.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
                       <Avatar className="w-8 h-8">
@@ -139,15 +152,19 @@ export default function CompliancePage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-900">{ms.description}</p>
                         <p className="text-xs text-slate-500">
-                          {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {new Date(ms.milestoneDate).toLocaleDateString()}
+                          {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {formatDateOnly(ms.milestoneDate)}
                         </p>
                       </div>
                       <Badge variant="outline" className={
-                        daysLeft < 14 ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
-                        daysLeft < 60 ? 'bg-amber-100 text-amber-700 border-amber-200 text-xs' :
+                        state === 'overdue' || dayOffset === 0 ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
+                        dayOffset < 60 ? 'bg-amber-100 text-amber-700 border-amber-200 text-xs' :
                         'text-xs'
                       }>
-                        {daysLeft}d
+                        {state === 'overdue'
+                          ? `Overdue ${Math.abs(dayOffset)}d`
+                          : dayOffset === 0
+                            ? 'Due today'
+                            : `${dayOffset}d left`}
                       </Badge>
                       {emp && (
                         <Link href={`/employees/${emp.id}`}>

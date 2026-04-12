@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { formatDateOnly, getDateOnlyRelativeState } from '@/lib/date-only';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -247,8 +248,8 @@ export default async function DocumentDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <MetadataRow icon={Globe} label="Jurisdiction" value={doc.jurisdiction} />
-                <MetadataRow icon={Calendar} label="Effective Date" value={doc.effectiveDate} />
-                <MetadataRow icon={Calendar} label="Review Due" value={doc.reviewDate} />
+                <MetadataRow icon={Calendar} label="Effective Date" value={formatDateOnly(doc.effectiveDate)} />
+                <MetadataRow icon={Calendar} label="Review Due" value={formatDateOnly(doc.reviewDate)} />
                 <MetadataRow icon={Tag} label="Topics" value="Leave, Benefits, Policy" />
                 <MetadataRow icon={User} label="Document Owner" value={doc.ownership.documentOwner} />
                 <MetadataRow icon={User} label="Business Owner" value={doc.ownership.businessOwner} />
@@ -501,13 +502,13 @@ export default async function DocumentDetailPage({ params }: PageProps) {
                 />
                 <EligibilityRow 
                   label="Effective Date Passed" 
-                  value={new Date(doc.effectiveDate) <= new Date()} 
-                  detail={`Effective: ${doc.effectiveDate}`}
+                  value={getDateOnlyRelativeState(doc.effectiveDate) !== 'future'} 
+                  detail={`Effective: ${formatDateOnly(doc.effectiveDate)}`}
                 />
                 <EligibilityRow 
                   label="Review Date Valid" 
-                  value={new Date(doc.reviewDate) >= new Date()} 
-                  detail={`Review Due: ${doc.reviewDate}`}
+                  value={getDateOnlyRelativeState(doc.reviewDate) !== 'past'} 
+                  detail={`Review Due: ${formatDateOnly(doc.reviewDate)}`}
                 />
               </div>
             </CardContent>

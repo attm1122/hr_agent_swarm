@@ -113,6 +113,12 @@ vi.mock('@/lib/data/mock-data', async () => {
       ];
       return managers.find(m => m.id === employee.managerId) || null;
     }),
+    getDirectReports: vi.fn((managerId: string) => {
+      const directReports = [
+        { id: 'emp-3', managerId: 'emp-2' },
+      ];
+      return directReports.filter((employee) => employee.managerId === managerId);
+    }),
   };
 });
 
@@ -208,23 +214,22 @@ describe('Employee Service - RBAC Security', () => {
   });
 
   describe('MANAGER role (team scope)', () => {
-    it('sees team members with team scope', async () => {
-      const context = createTestContext('manager', 'emp-2', 'team', ['self_visible', 'team_visible']);
-      
-      const result = await getEmployeeList(context);
-      
-      // Manager should see self + team members in same team
-      // emp-2 (Jane) is in team-1, so should see emp-1, emp-2, emp-3
-      expect(result.employees.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('does NOT see employees from other teams', async () => {
+    it('sees only self plus direct reports with team scope', async () => {
       const context = createTestContext('manager', 'emp-2', 'team', ['self_visible', 'team_visible']);
       
       const result = await getEmployeeList(context);
       const employeeIds = result.employees.map(e => e.id);
       
-      // emp-4 is in team-2, manager in team-1 should not see them
+      expect(employeeIds).toEqual(['emp-2', 'emp-3']);
+    });
+
+    it('does NOT see boss or same-team peers outside direct reports', async () => {
+      const context = createTestContext('manager', 'emp-2', 'team', ['self_visible', 'team_visible']);
+      
+      const result = await getEmployeeList(context);
+      const employeeIds = result.employees.map(e => e.id);
+      
+      expect(employeeIds).not.toContain('emp-1');
       expect(employeeIds).not.toContain('emp-4');
     });
 
@@ -344,8 +349,16 @@ describe('Employee Service - RBAC Security', () => {
       const context = createTestContext('manager', 'emp-2', 'team', ['self_visible', 'team_visible']);
       
       const otherTeamEmployee = await getEmployee(context, 'emp-4');
-      
+
       expect(otherTeamEmployee).toBeNull();
+    });
+
+    it('CRITICAL: team scope does not allow boss-level access through the service', async () => {
+      const context = createTestContext('manager', 'emp-2', 'team', ['self_visible', 'team_visible']);
+
+      const boss = await getEmployee(context, 'emp-1');
+
+      expect(boss).toBeNull();
     });
   });
 });

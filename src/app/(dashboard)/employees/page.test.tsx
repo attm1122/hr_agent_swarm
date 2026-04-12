@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { employees, teams, positions, getTeamById, getPositionById, getManagerForEmployee } from '@/lib/data/mock-data';
 import type { Employee } from '@/types';
+import { getFullYearsSinceDateOnly, toDateOnlyString } from '@/lib/date-only';
 
 // Test the data logic used by the employees page
 
@@ -97,15 +98,14 @@ describe('Employee Directory - StatusBadge logic', () => {
 describe('Employee Directory - tenure calculation', () => {
   it('computes years of service correctly', () => {
     const hireDate = '2020-01-01';
-    const now = new Date();
-    const years = Math.floor((now.getTime() - new Date(hireDate).getTime()) / (365 * 24 * 60 * 60 * 1000));
+    const years = getFullYearsSinceDateOnly(hireDate, new Date('2026-04-10T12:00:00Z'), 'UTC');
     expect(years).toBeGreaterThanOrEqual(5);
   });
 
   it('computes zero years for recent hire', () => {
-    const now = new Date();
-    const recentHire = now.toISOString().split('T')[0];
-    const years = Math.floor((now.getTime() - new Date(recentHire).getTime()) / (365 * 24 * 60 * 60 * 1000));
+    const now = new Date('2026-04-10T12:00:00Z');
+    const recentHire = toDateOnlyString(now, 'UTC');
+    const years = getFullYearsSinceDateOnly(recentHire, now, 'UTC');
     expect(years).toBe(0);
   });
 });

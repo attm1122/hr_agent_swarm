@@ -11,9 +11,15 @@ import {
   Gift, GraduationCap, Shield, Sparkles, ArrowRight, CheckSquare as CheckIcon
 } from 'lucide-react';
 import { 
-  employees, actionQueue, milestones, documents, leaveRequests,
-  getEmployeeById 
+  documents,
+  actionQueue,
 } from '@/lib/data/mock-data';
+import { formatDateOnly } from '@/lib/date-only';
+import {
+  getDashboardMetrics,
+  getProbationDue,
+  getUpcomingAnniversaries,
+} from './dashboard-data';
 
 // Loading Skeleton
 function DashboardSkeleton() {
@@ -33,51 +39,6 @@ function DashboardSkeleton() {
       </div>
     </div>
   );
-}
-
-// Dashboard Data
-function getDashboardMetrics() {
-  const activeEmployees = employees.filter(e => e.status === 'active').length;
-  const pendingLeave = leaveRequests.filter(lr => lr.status === 'pending').length;
-  const expiringDocs = documents.filter(d => d.status === 'expiring').length;
-  
-  return {
-    totalEmployees: activeEmployees,
-    pendingApprovals: actionQueue.length,
-    pendingLeaveRequests: pendingLeave,
-    expiringDocsCount: expiringDocs,
-  };
-}
-
-function getUpcomingAnniversaries() {
-  return milestones
-    .filter(m => m.milestoneType === 'service_anniversary' && m.status === 'upcoming')
-    .map(m => {
-      const emp = getEmployeeById(m.employeeId);
-      return {
-        id: m.id,
-        employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
-        date: m.milestoneDate,
-        description: m.description,
-      };
-    });
-}
-
-function getProbationDue() {
-  const now = new Date();
-  return milestones
-    .filter(m => m.milestoneType === 'probation_end' && (m.status === 'upcoming' || m.status === 'due'))
-    .map(m => {
-      const emp = getEmployeeById(m.employeeId);
-      const daysRemaining = Math.ceil((new Date(m.milestoneDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        id: m.id,
-        employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
-        date: m.milestoneDate,
-        daysRemaining,
-      };
-    })
-    .sort((a, b) => a.daysRemaining - b.daysRemaining);
 }
 
 // Dashboard Content
@@ -141,7 +102,9 @@ async function DashboardContent() {
                         <p className="text-sm font-medium text-slate-900">{item.employeeName}</p>
                         <p className="text-xs text-slate-500">{item.description}</p>
                       </div>
-                      <span className="text-xs text-slate-400">{new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                      <span className="text-xs text-slate-400">
+                        {formatDateOnly(item.date, undefined, { month: 'short', day: 'numeric' })}
+                      </span>
                     </div>
                   ))}
                   {upcomingAnniversaries.length === 0 && (
@@ -170,9 +133,20 @@ async function DashboardContent() {
                     <div key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
                       <div>
                         <p className="text-sm font-medium text-slate-900">{item.employeeName}</p>
-                        <p className="text-xs text-slate-500">Due {new Date(item.date).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-500">Due {formatDateOnly(item.date)}</p>
                       </div>
-                      <Badge variant="outline" className={item.daysRemaining < 7 ? 'border-red-200 text-red-600 text-xs' : 'border-amber-200 text-amber-600 text-xs'}>{item.daysRemaining}d</Badge>
+                      <Badge
+                        variant="outline"
+                        className={
+                          item.daysRemaining === 0
+                            ? 'border-red-200 text-red-600 text-xs'
+                            : item.daysRemaining < 7
+                              ? 'border-red-200 text-red-600 text-xs'
+                              : 'border-amber-200 text-amber-600 text-xs'
+                        }
+                      >
+                        {item.daysRemaining === 0 ? 'Due today' : `${item.daysRemaining}d`}
+                      </Badge>
                     </div>
                   ))}
                   {probationDue.length === 0 && (

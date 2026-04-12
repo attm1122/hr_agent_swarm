@@ -25,16 +25,11 @@ import {
   hasCapability,
   isInScope,
 } from '@/lib/auth/authorization';
-import { getEmployeeById, getEmployeeFullName, getDirectReports } from '@/lib/data/mock-data';
+import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
 
 // Ensure store is initialized
 initializeOnboardingStore();
-
-/** Resolve team member IDs for scope checks */
-function getTeamIds(ctx: AgentContext): string[] {
-  if (!ctx.employeeId) return [];
-  return getDirectReports(ctx.employeeId).map(r => r.id);
-}
 
 /** Check if user can view specific onboarding plan */
 function canViewPlan(context: AgentContext, plan: OnboardingPlan, teamIds: string[]): boolean {
@@ -125,7 +120,7 @@ export class OnboardingAgent implements Agent {
       employeeId,
       effectiveManagerId!,
       effectiveTemplateName,
-      startDate ? new Date(startDate) : new Date()
+      startDate || new Date()
     );
 
     if (!plan) {
@@ -160,8 +155,10 @@ export class OnboardingAgent implements Agent {
       plan = onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed');
     } else {
       // Return all accessible plans
-      const teamIds = getTeamIds(context);
-      const accessiblePlans = onboardingPlans.filter(p => canViewPlan(context, p, teamIds));
+      const scopeContext = buildRecordScopeContext(context);
+      const accessiblePlans = onboardingPlans.filter((plan) =>
+        canViewPlan(context, plan, scopeContext.teamEmployeeIds)
+      );
 
       const enriched = accessiblePlans.map(p => ({
         ...p,
@@ -180,7 +177,8 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Onboarding plan not found');
     }
 
-    if (!canViewOnboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOnboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this onboarding plan', ['RBAC violation']);
     }
 
@@ -220,7 +218,8 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Onboarding plan not found');
     }
 
-    if (!canViewOnboarding(context, plan.employeeId)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewOnboarding(context, plan.employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
@@ -315,8 +314,8 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Onboarding plan not found');
     }
 
-    const teamIds = getTeamIds(context);
-    if (!canViewPlan(context, plan, teamIds)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewPlan(context, plan, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 

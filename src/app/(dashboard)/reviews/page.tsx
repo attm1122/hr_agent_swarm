@@ -5,9 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { BarChart3, Clock, CheckCircle2, AlertCircle, Plus, ArrowRight } from 'lucide-react';
 import { employees, milestones, getEmployeeById, getPositionById } from '@/lib/data/mock-data';
+import { formatDateOnly } from '@/lib/date-only';
+import { getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export default function ReviewsPage() {
-  const probationReviews = milestones.filter(m => m.milestoneType === 'probation_end' && m.status !== 'completed');
+  const probationReviews = milestones.filter(
+    (milestone) =>
+      milestone.milestoneType === 'probation_end' &&
+      ['upcoming', 'due'].includes(getDerivedMilestoneState(milestone))
+  );
   const performanceReviews = milestones.filter(m => m.milestoneType === 'performance_review');
 
   return (
@@ -63,7 +69,7 @@ export default function ReviewsPage() {
               {probationReviews.map(ms => {
                 const emp = getEmployeeById(ms.employeeId);
                 const pos = emp?.positionId ? getPositionById(emp.positionId) : null;
-                const daysLeft = Math.ceil((new Date(ms.milestoneDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const daysLeft = getMilestoneDayOffset(ms);
                 return (
                   <div key={ms.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                     <Avatar className="w-9 h-9">
@@ -73,11 +79,15 @@ export default function ReviewsPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900">{emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'}</p>
-                      <p className="text-xs text-slate-500">{pos?.title} · Due {new Date(ms.milestoneDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">{pos?.title} · Due {formatDateOnly(ms.milestoneDate)}</p>
                     </div>
                     <Badge variant="outline" className={
-                      daysLeft < 14 ? 'bg-red-100 text-red-700 border-red-200 text-xs' : 'bg-amber-100 text-amber-700 border-amber-200 text-xs'
-                    }>{daysLeft}d left</Badge>
+                      daysLeft === 0 || daysLeft < 14
+                        ? 'bg-red-100 text-red-700 border-red-200 text-xs'
+                        : 'bg-amber-100 text-amber-700 border-amber-200 text-xs'
+                    }>
+                      {daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
+                    </Badge>
                     <div className="flex gap-1.5">
                       <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Start Review</Button>
                       {emp && (

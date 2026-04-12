@@ -6,6 +6,7 @@
 
 import type { WorkflowInstance, WorkflowStep, ApprovalInboxItem } from '@/types';
 import { getEmployeeById, getEmployeeFullName } from './mock-data';
+import { addDaysToDateOnly, toDateOnlyString } from '@/lib/date-only';
 
 // In-memory stores
 export const workflowInstances: WorkflowInstance[] = [];
@@ -62,6 +63,7 @@ export function initializeWorkflowStore(): void {
   // Sample leave approval workflow for emp-008
   const workflowId = 'wf-001';
   const now = new Date().toISOString();
+  const today = toDateOnlyString();
 
   workflowInstances.push({
     id: workflowId,
@@ -89,7 +91,7 @@ export function initializeWorkflowStore(): void {
       status: 'approved',
       comments: 'Approved - coverage is arranged',
       actedAt: now,
-      dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      dueDate: addDaysToDateOnly(today, 1),
       escalatedTo: null,
       escalatedAt: null,
       createdAt: now,
@@ -105,7 +107,7 @@ export function initializeWorkflowStore(): void {
       status: 'pending',
       comments: null,
       actedAt: null,
-      dueDate: new Date(Date.now() + 172800000).toISOString().split('T')[0],
+      dueDate: addDaysToDateOnly(today, 2),
       escalatedTo: null,
       escalatedAt: null,
       createdAt: now,
@@ -191,8 +193,7 @@ export function createWorkflow(
 
   // Create steps
   config.steps.forEach((stepConfig, index) => {
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + (index + 1) * 2);
+    const dueDate = addDaysToDateOnly(toDateOnlyString(), (index + 1) * 2);
 
     workflowSteps.push({
       id: `ws-${String(workflowSteps.length + 1).padStart(3, '0')}`,
@@ -204,7 +205,7 @@ export function createWorkflow(
       status: index === 0 ? 'pending' : 'pending',
       comments: null,
       actedAt: null,
-      dueDate: dueDate.toISOString().split('T')[0],
+      dueDate,
       escalatedTo: null,
       escalatedAt: null,
       createdAt: now,
@@ -281,7 +282,7 @@ export function getWorkflowHistory(workflowId: string): WorkflowStep[] {
 }
 
 export function identifyOverdueSteps(): WorkflowStep[] {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateOnlyString();
   return workflowSteps.filter(
     s => s.status === 'pending' && s.dueDate < today && !s.escalatedTo
   );

@@ -1,18 +1,21 @@
 /**
  * Auth Session
- * POC: returns a mock session. Production replaces with Supabase Auth / SSO.
- * Single source of truth for "who is the current user and what can they do."
+ * Session resolution fails closed by default.
+ * A session exists only when explicit mock auth is configured for
+ * non-production use, or when real production auth is implemented.
  *
  * Delegates capability/scope/sensitivity definitions to authorization.ts
- * 
+ *
  * PRODUCTION MIGRATION:
  * 1. Replace getSession() with Supabase Auth call
- * 2. Replace getAgentContext() to use real session
- * 3. Remove mock session fallback
+ * 2. Keep getAgentContext() bound to a verified session only
+ * 3. Remove mock auth env usage before release
  * 4. Enable JWT validation
- * 
- * CRITICAL: The mock session below grants ADMIN access to ALL users.
- * This must be replaced before production deployment.
+ *
+ * CRITICAL:
+ * - There is no hard-coded fallback identity.
+ * - Missing or invalid auth configuration must not grant access.
+ * - Production auth remains release-blocking until implemented.
  */
 
 import type { Role, AgentContext, RecordScope, DataSensitivity } from '@/types';
@@ -21,20 +24,6 @@ import {
   ROLE_SCOPE,
   ROLE_SENSITIVITY,
 } from './authorization';
-
-// PRODUCTION WARNING: Set to true when migrating to real auth
-const IS_PRODUCTION_AUTH_ENABLED = process.env.NEXT_PUBLIC_PRODUCTION_AUTH === 'true';
-
-// Production safety check
-if (process.env.NODE_ENV === 'production' && !IS_PRODUCTION_AUTH_ENABLED) {
-  console.error(
-    '[CRITICAL SECURITY WARNING] ' +
-    'Running in production with MOCK AUTHENTICATION. ' +
-    'All users have ADMIN access. ' +
-    'Set NEXT_PUBLIC_PRODUCTION_AUTH=true after configuring Supabase Auth. ' +
-    'See MIGRATION_GUIDE.md for instructions.'
-  );
-}
 
 export interface Session {
   userId: string;
@@ -46,6 +35,43 @@ export interface Session {
   permissions: string[];
   scope: RecordScope;
   sensitivityClearance: DataSensitivity[];
+}
+
+export type SessionResolutionErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'AUTH_CONFIG_INVALID';
+
+export class SessionResolutionError extends Error {
+  readonly code: SessionResolutionErrorCode;
+  readonly status: number;
+
+  constructor(code: SessionResolutionErrorCode, message: string, status: number) {
+    super(message);
+    this.name = 'SessionResolutionError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const MOCK_AUTH_FIELDS = [
+  'MOCK_AUTH_USER_ID',
+  'MOCK_AUTH_EMPLOYEE_ID',
+  'MOCK_AUTH_NAME',
+  'MOCK_AUTH_EMAIL',
+  'MOCK_AUTH_ROLE',
+  'MOCK_AUTH_TITLE',
+] as const;
+
+function isProductionAuthEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PRODUCTION_AUTH === 'true';
+}
+
+function isMockAuthEnabled(): boolean {
+  return process.env.MOCK_AUTH_ENABLED === 'true';
+}
+
+function isRole(value: string): value is Role {
+  return ['admin', 'manager', 'team_lead', 'employee', 'payroll'].includes(value);
 }
 
 /** Build a fully-populated session for a given role */
@@ -70,31 +96,118 @@ export function buildSession(
   };
 }
 
-/**
- * Mock session — always returns Sarah Chen (Admin) for the POC
- * 
- * PRODUCTION: Replace with Supabase Auth
- * Example:
- *   import { createServerClient } from '@supabase/ssr';
- *   const supabase = createServerClient();
- *   const { data: { user } } = await supabase.auth.getUser();
- *   return mapUserToSession(user);
- */
-export function getSession(): Session {
-  // PRODUCTION GUARD: Warn about mock auth
-  if (process.env.NODE_ENV === 'production') {
-    console.warn(
-      '[SECURITY] Using mock authentication. ' +
-      'All requests are treated as ADMIN. ' +
-      'This is a CRITICAL security issue in production.'
+function getMockSession(): Session {
+  const missingFields = MOCK_AUTH_FIELDS.filter((field) => !process.env[field]);
+  if (missingFields.length > 0) {
+    throw new SessionResolutionError(
+      'AUTH_CONFIG_INVALID',
+      `Mock authentication is enabled but missing required variables: ${missingFields.join(', ')}`,
+      503,
     );
   }
-  
+
+  const role = process.env.MOCK_AUTH_ROLE!;
+  if (!isRole(role)) {
+    throw new SessionResolutionError(
+      'AUTH_CONFIG_INVALID',
+      `Mock authentication role '${role}' is invalid`,
+      503,
+    );
+  }
+
   return buildSession(
-    'user-001', 'emp-001',
-    'Sarah Chen', 'sarah.chen@company.com',
-    'admin', 'Chief People Officer',
+    process.env.MOCK_AUTH_USER_ID!,
+    process.env.MOCK_AUTH_EMPLOYEE_ID!,
+    process.env.MOCK_AUTH_NAME!,
+    process.env.MOCK_AUTH_EMAIL!,
+    role,
+    process.env.MOCK_AUTH_TITLE!,
   );
+}
+
+/**
+ * Resolve the current session.
+ *
+ * Behavior:
+ * - Production: fail closed until real auth exists
+ * - Non-production: only explicit mock auth may create a session
+ * - No explicit auth: return null (unauthenticated)
+ */
+export function getSession(): Session | null {
+  const inProduction = process.env.NODE_ENV === 'production';
+  const productionAuthEnabled = isProductionAuthEnabled();
+  const mockAuthEnabled = isMockAuthEnabled();
+
+  if (inProduction) {
+    if (mockAuthEnabled) {
+      throw new SessionResolutionError(
+        'AUTH_CONFIG_INVALID',
+        'Mock authentication is forbidden in production',
+        503,
+      );
+    }
+
+    if (!productionAuthEnabled) {
+      throw new SessionResolutionError(
+        'AUTH_CONFIG_INVALID',
+        'Production authentication is not configured; requests must fail closed until real auth is enabled',
+        503,
+      );
+    }
+
+    throw new SessionResolutionError(
+      'AUTH_CONFIG_INVALID',
+      'Production authentication is enabled but not implemented',
+      503,
+    );
+  }
+
+  if (productionAuthEnabled) {
+    throw new SessionResolutionError(
+      'AUTH_CONFIG_INVALID',
+      'NEXT_PUBLIC_PRODUCTION_AUTH is enabled, but production authentication is not implemented in this environment',
+      503,
+    );
+  }
+
+  if (!mockAuthEnabled) {
+    return null;
+  }
+
+  return getMockSession();
+}
+
+export function requireSession(): Session {
+  const session = getSession();
+  if (!session) {
+    throw new SessionResolutionError('AUTH_REQUIRED', 'Authentication required', 401);
+  }
+  return session;
+}
+
+export function isSessionResolutionError(error: unknown): error is SessionResolutionError {
+  return error instanceof SessionResolutionError;
+}
+
+export function requireVerifiedSessionContext(): {
+  session: Session;
+  context: AgentContext;
+  securityContext: {
+    userId: string;
+    role: Role;
+    sessionId: string;
+  };
+} {
+  const session = requireSession();
+  return {
+    session,
+    context: getAgentContext(session),
+    securityContext: {
+      userId: session.employeeId || 'unknown',
+      role: session.role,
+      sessionId: session.userId,
+    },
+  };
 }
 
 /**
@@ -108,7 +221,7 @@ export async function getProductionSession(): Promise<Session | null> {
   // 2. Configure cookie handling
   // 3. Map Supabase user to Session type
   // 4. Handle JWT refresh
-  
+
   throw new Error(
     'Production authentication not implemented. ' +
     'Configure Supabase Auth before enabling production mode. ' +
@@ -120,37 +233,64 @@ export async function getProductionSession(): Promise<Session | null> {
  * Verify authentication is properly configured
  * Call this at application startup
  */
-export function verifyAuthConfiguration(): { 
-  isConfigured: boolean; 
+export function verifyAuthConfiguration(): {
+  isConfigured: boolean;
   warnings: string[];
   errors: string[];
 } {
   const warnings: string[] = [];
   const errors: string[] = [];
-  
-  // Check environment
-  if (process.env.NODE_ENV === 'production') {
-    if (!IS_PRODUCTION_AUTH_ENABLED) {
+  const inProduction = process.env.NODE_ENV === 'production';
+  const productionAuthEnabled = isProductionAuthEnabled();
+  const mockAuthEnabled = isMockAuthEnabled();
+
+  if (mockAuthEnabled && inProduction) {
+    errors.push('MOCK_AUTH_ENABLED cannot be true in production');
+  }
+
+  if (mockAuthEnabled && productionAuthEnabled) {
+    errors.push('MOCK_AUTH_ENABLED and NEXT_PUBLIC_PRODUCTION_AUTH cannot both be true');
+  }
+
+  if (mockAuthEnabled) {
+    const missingMockFields = MOCK_AUTH_FIELDS.filter((field) => !process.env[field]);
+    if (missingMockFields.length > 0) {
       errors.push(
-        'Production environment detected but NEXT_PUBLIC_PRODUCTION_AUTH is not set to true. ' +
-        'Currently using MOCK AUTHENTICATION which grants ADMIN to ALL users.'
+        `Mock authentication is enabled but missing required variables: ${missingMockFields.join(', ')}`
       );
     }
-    
+
+    if (process.env.MOCK_AUTH_ROLE && !isRole(process.env.MOCK_AUTH_ROLE)) {
+      errors.push(`MOCK_AUTH_ROLE '${process.env.MOCK_AUTH_ROLE}' is invalid`);
+    }
+  }
+
+  if (inProduction) {
+    if (!productionAuthEnabled) {
+      errors.push(
+        'Production environment detected but NEXT_PUBLIC_PRODUCTION_AUTH is not set to true. ' +
+        'Requests will fail closed until real authentication is configured.'
+      );
+    } else {
+      errors.push(
+        'Production authentication is enabled but not implemented. ' +
+        'Configure real authentication before release.'
+      );
+    }
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       errors.push('NEXT_PUBLIC_SUPABASE_URL is not configured');
     }
-    
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured');
     }
-    
+
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       warnings.push('SUPABASE_SERVICE_ROLE_KEY is not configured (needed for admin operations)');
     }
   }
-  
-  // Check for common misconfigurations
+
   if (process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith('NEXT_PUBLIC_')) {
     errors.push(
       'SUPABASE_SERVICE_ROLE_KEY appears to have NEXT_PUBLIC_ prefix. ' +
@@ -158,7 +298,13 @@ export function verifyAuthConfiguration(): {
       'Remove NEXT_PUBLIC_ prefix immediately.'
     );
   }
-  
+
+  if (productionAuthEnabled && !inProduction) {
+    warnings.push(
+      'NEXT_PUBLIC_PRODUCTION_AUTH is enabled outside production, but real production auth is not implemented.'
+    );
+  }
+
   return {
     isConfigured: errors.length === 0,
     warnings,
@@ -183,7 +329,7 @@ export function mapSupabaseUserToSession(
   }
 ): Session {
   const role = supabaseUser.user_metadata?.role || 'employee';
-  
+
   return buildSession(
     supabaseUser.id,
     supabaseUser.user_metadata?.employee_id || supabaseUser.id,
@@ -194,16 +340,15 @@ export function mapSupabaseUserToSession(
   );
 }
 
-/** Build an AgentContext from the current session */
-export function getAgentContext(session?: Session): AgentContext {
-  const s = session || getSession();
+/** Build an AgentContext from a verified session */
+export function getAgentContext(session: Session): AgentContext {
   return {
-    userId: s.userId,
-    role: s.role,
-    scope: s.scope,
-    sensitivityClearance: s.sensitivityClearance,
-    employeeId: s.employeeId,
-    permissions: s.permissions,
+    userId: session.userId,
+    role: session.role,
+    scope: session.scope,
+    sensitivityClearance: session.sensitivityClearance,
+    employeeId: session.employeeId,
+    permissions: session.permissions,
     sessionId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
   };

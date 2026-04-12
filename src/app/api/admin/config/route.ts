@@ -15,7 +15,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, getAgentContext } from '@/lib/auth/session';
+import {
+  requireVerifiedSessionContext,
+  isSessionResolutionError,
+} from '@/lib/auth/session';
 import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent } from '@/lib/security';
 import { hasCapability } from '@/lib/auth/authorization';
@@ -42,15 +45,7 @@ import {
 // ============================================
 export async function GET(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
-
-    // Security middleware
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -98,6 +93,15 @@ export async function GET(req: NextRequest) {
     return addSecurityHeaders(NextResponse.json(result));
 
   } catch (error) {
+    if (isSessionResolutionError(error)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        )
+      );
+    }
+
     const message = error instanceof Error ? error.message : 'Failed to fetch configuration';
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })
@@ -110,15 +114,7 @@ export async function GET(req: NextRequest) {
 // ============================================
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
-
-    // Security middleware
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -215,6 +211,15 @@ export async function POST(req: NextRequest) {
     );
 
   } catch (error) {
+    if (isSessionResolutionError(error)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        )
+      );
+    }
+
     const message = error instanceof Error ? error.message : 'Failed to create configuration';
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })
@@ -227,15 +232,7 @@ export async function POST(req: NextRequest) {
 // ============================================
 export async function PATCH(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
-
-    // Security middleware
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -305,6 +302,15 @@ export async function PATCH(req: NextRequest) {
     );
 
   } catch (error) {
+    if (isSessionResolutionError(error)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        )
+      );
+    }
+
     const message = error instanceof Error ? error.message : 'Update failed';
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })
@@ -317,15 +323,7 @@ export async function PATCH(req: NextRequest) {
 // ============================================
 export async function DELETE(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
-
-    // Security middleware
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -374,6 +372,15 @@ export async function DELETE(req: NextRequest) {
     );
 
   } catch (error) {
+    if (isSessionResolutionError(error)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        )
+      );
+    }
+
     const message = error instanceof Error ? error.message : 'Delete failed';
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })

@@ -6,6 +6,7 @@
 
 import type { OffboardingPlan, OffboardingTask, OffboardingAsset, OffboardingAccess, OffboardingExitSummary } from '@/types';
 import { getEmployeeById, getEmployeeFullName } from './mock-data';
+import { addDaysToDateOnly, toDateOnlyString } from '@/lib/date-only';
 
 // Template definitions (subset of fields used for template creation)
 type OffboardingTemplateTask = {
@@ -146,8 +147,6 @@ export function createOffboardingPlan(
   }
 
   const planId = `ofp-${String(offboardingPlans.length + 1).padStart(3, '0')}`;
-  const termDate = new Date(terminationDate);
-  const targetDate = new Date(termDate);
 
   const plan: OffboardingPlan = {
     id: planId,
@@ -156,7 +155,7 @@ export function createOffboardingPlan(
     initiatedBy: initiatedById,
     status: 'pending',
     checklistTemplate: templateName,
-    targetCompletionDate: targetDate.toISOString().split('T')[0],
+    targetCompletionDate: terminationDate,
     actualCompletionDate: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -166,8 +165,7 @@ export function createOffboardingPlan(
 
   // Create tasks from template
   template.tasks.forEach((taskTemplate, index) => {
-    const dueDate = new Date(termDate);
-    dueDate.setDate(dueDate.getDate() + taskTemplate.dueDateOffset);
+    const dueDate = addDaysToDateOnly(terminationDate, taskTemplate.dueDateOffset);
 
     let assignedTo = taskTemplate.assignedTo;
     if (assignedTo === 'manager') assignedTo = employee.managerId || 'emp-001';
@@ -181,7 +179,7 @@ export function createOffboardingPlan(
       taskName: taskTemplate.taskName,
       category: taskTemplate.category,
       assignedTo,
-      dueDate: dueDate.toISOString().split('T')[0],
+      dueDate,
       completedAt: null,
       completedBy: null,
       status: 'pending',
@@ -194,15 +192,14 @@ export function createOffboardingPlan(
 
   // Create assets from template
   template.assets.forEach((assetTemplate) => {
-    const returnDate = new Date(termDate);
-    returnDate.setDate(returnDate.getDate() + assetTemplate.expectedReturnDateOffset);
+    const returnDate = addDaysToDateOnly(terminationDate, assetTemplate.expectedReturnDateOffset);
 
     offboardingAssets.push({
       id: `ofa-${String(offboardingAssets.length + 1).padStart(3, '0')}`,
       planId,
       assetType: assetTemplate.assetType,
       description: assetTemplate.description,
-      expectedReturnDate: returnDate.toISOString().split('T')[0],
+      expectedReturnDate: returnDate,
       returnedAt: null,
       conditionNotes: null,
       createdAt: new Date().toISOString(),
@@ -212,15 +209,14 @@ export function createOffboardingPlan(
 
   // Create access items from template
   template.access.forEach((accessTemplate) => {
-    const scheduledDate = new Date(termDate);
-    scheduledDate.setDate(scheduledDate.getDate() + accessTemplate.scheduledOffset);
+    const scheduledDate = addDaysToDateOnly(terminationDate, accessTemplate.scheduledOffset);
 
     offboardingAccessItems.push({
       id: `ofc-${String(offboardingAccessItems.length + 1).padStart(3, '0')}`,
       planId,
       systemName: accessTemplate.systemName,
       removalStatus: accessTemplate.removalStatus,
-      scheduledDate: accessTemplate.scheduledOffset === 0 ? null : scheduledDate.toISOString().split('T')[0],
+      scheduledDate: accessTemplate.scheduledOffset === 0 ? null : scheduledDate,
       completedAt: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -246,7 +242,7 @@ export function completeOffboardingTask(taskId: string, completedById: string): 
     const plan = getOffboardingPlanById(task.planId);
     if (plan) {
       plan.status = 'completed';
-      plan.actualCompletionDate = new Date().toISOString().split('T')[0];
+      plan.actualCompletionDate = toDateOnlyString();
       plan.updatedAt = new Date().toISOString();
     }
   }

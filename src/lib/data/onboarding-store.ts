@@ -6,6 +6,7 @@
 
 import type { OnboardingPlan, OnboardingTask, OnboardingBlocker } from '@/types';
 import { employees, getEmployeeById, getEmployeeFullName, getDirectReports } from './mock-data';
+import { addDaysToDateOnly, differenceInDateOnlyDays, toDateOnlyString } from '@/lib/date-only';
 
 // Template task definition (subset of fields used for template creation)
 type OnboardingTemplateTask = {
@@ -60,17 +61,16 @@ export const ONBOARDING_TEMPLATES: Record<string, { name: string; tasks: Onboard
 export function initializeOnboardingStore(): void {
   // Sample onboarding plan for emp-022 (new hire)
   const planId = 'obp-001';
-  const startDate = new Date();
-  const targetDate = new Date(startDate);
-  targetDate.setDate(targetDate.getDate() + 14);
+  const startDate = toDateOnlyString();
+  const targetDate = addDaysToDateOnly(startDate, 14);
 
   onboardingPlans.push({
     id: planId,
     employeeId: 'emp-022',
     assignedTo: 'emp-005', // Alex Thompson as hiring manager
     templateName: 'standard',
-    startDate: startDate.toISOString().split('T')[0],
-    targetCompletionDate: targetDate.toISOString().split('T')[0],
+    startDate,
+    targetCompletionDate: targetDate,
     actualCompletionDate: null,
     status: 'in_progress',
     createdAt: new Date().toISOString(),
@@ -80,8 +80,7 @@ export function initializeOnboardingStore(): void {
   // Create tasks from template
   const template = ONBOARDING_TEMPLATES.standard;
   template.tasks.forEach((taskTemplate, index) => {
-    const dueDate = new Date(startDate);
-    dueDate.setDate(dueDate.getDate() + taskTemplate.dueDateOffset);
+    const dueDate = addDaysToDateOnly(startDate, taskTemplate.dueDateOffset);
 
     let assignedTo = taskTemplate.assignedTo;
     if (assignedTo === 'manager') assignedTo = 'emp-005'; // Alex Thompson
@@ -96,7 +95,7 @@ export function initializeOnboardingStore(): void {
       description: taskTemplate.description || null,
       category: taskTemplate.category,
       assignedTo,
-      dueDate: dueDate.toISOString().split('T')[0],
+      dueDate,
       completedAt: index < 3 ? new Date().toISOString() : null,
       completedBy: index < 3 ? 'emp-001' : null,
       status: index < 3 ? 'completed' : index === 3 ? 'in_progress' : 'pending',
@@ -141,7 +140,7 @@ export function identifyOnboardingBlockers(planId: string): OnboardingBlocker[] 
   const tasks = getOnboardingTasksForPlan(planId);
   const blockers: OnboardingBlocker[] = [];
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateOnlyString();
 
   tasks.forEach(task => {
     if (task.status === 'blocked') {
@@ -152,7 +151,7 @@ export function identifyOnboardingBlockers(planId: string): OnboardingBlocker[] 
         severity: 'blocking',
       });
     } else if (task.status !== 'completed' && task.dueDate < today) {
-      const daysOverdue = Math.floor((new Date(today).getTime() - new Date(task.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+      const daysOverdue = differenceInDateOnlyDays(today, task.dueDate);
       blockers.push({
         taskId: task.id,
         taskName: task.taskName,
@@ -169,7 +168,7 @@ export function createOnboardingPlan(
   employeeId: string,
   assignedTo: string,
   templateName: string,
-  startDate: Date = new Date()
+  startDate: Date | string = new Date()
 ): OnboardingPlan | null {
   const employee = getEmployeeById(employeeId);
   if (!employee) return null;
@@ -183,16 +182,16 @@ export function createOnboardingPlan(
   }
 
   const planId = `obp-${String(onboardingPlans.length + 1).padStart(3, '0')}`;
-  const targetDate = new Date(startDate);
-  targetDate.setDate(targetDate.getDate() + 14);
+  const normalizedStartDate = typeof startDate === 'string' ? startDate : toDateOnlyString(startDate);
+  const targetDate = addDaysToDateOnly(normalizedStartDate, 14);
 
   const plan: OnboardingPlan = {
     id: planId,
     employeeId,
     assignedTo,
     templateName,
-    startDate: startDate.toISOString().split('T')[0],
-    targetCompletionDate: targetDate.toISOString().split('T')[0],
+    startDate: normalizedStartDate,
+    targetCompletionDate: targetDate,
     actualCompletionDate: null,
     status: 'not_started',
     createdAt: new Date().toISOString(),
@@ -203,8 +202,7 @@ export function createOnboardingPlan(
 
   // Create tasks from template
   template.tasks.forEach((taskTemplate, index) => {
-    const dueDate = new Date(startDate);
-    dueDate.setDate(dueDate.getDate() + taskTemplate.dueDateOffset);
+    const dueDate = addDaysToDateOnly(normalizedStartDate, taskTemplate.dueDateOffset);
 
     let taskAssignedTo = taskTemplate.assignedTo;
     if (taskAssignedTo === 'manager') taskAssignedTo = assignedTo;
@@ -217,7 +215,7 @@ export function createOnboardingPlan(
       description: taskTemplate.description || null,
       category: taskTemplate.category,
       assignedTo: taskAssignedTo,
-      dueDate: dueDate.toISOString().split('T')[0],
+      dueDate,
       completedAt: null,
       completedBy: null,
       status: 'pending',
@@ -244,12 +242,12 @@ export function completeOnboardingTask(taskId: string, completedById: string): b
   const planTasks = getOnboardingTasksForPlan(task.planId);
   const allCompleted = planTasks.every(t => t.status === 'completed');
   if (allCompleted) {
-    const plan = getOnboardingPlanById(task.planId);
-    if (plan) {
-      plan.status = 'completed';
-      plan.actualCompletionDate = new Date().toISOString().split('T')[0];
-      plan.updatedAt = new Date().toISOString();
-    }
+      const plan = getOnboardingPlanById(task.planId);
+      if (plan) {
+        plan.status = 'completed';
+        plan.actualCompletionDate = toDateOnlyString();
+        plan.updatedAt = new Date().toISOString();
+      }
   }
 
   return true;

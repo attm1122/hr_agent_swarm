@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { AgentContext } from '@/types';
+import { toDateOnlyString } from '@/lib/date-only';
 
 interface ExportButtonProps {
   context: AgentContext;
@@ -88,7 +89,7 @@ export function ExportButton({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${exportType}_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `${exportType}_export_${toDateOnlyString()}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

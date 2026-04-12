@@ -9,6 +9,7 @@ import {
   AlertCircle, Clock, CheckCircle2, Calendar, FileText, 
   Shield, AlertTriangle
 } from 'lucide-react';
+import { formatDateOnly } from '@/lib/date-only';
 import { cn } from '@/lib/utils';
 import type { ActionItem } from '@/types';
 
@@ -100,7 +101,7 @@ export function ActionQueue({ items, title = 'Action Queue' }: ActionQueueProps)
                         </p>
                         {item.dueDate && (
                           <p className="text-xs text-slate-400 mt-1">
-                            Due: {new Date(item.dueDate).toLocaleDateString()}
+                            Due: {formatDateOnly(item.dueDate)}
                           </p>
                         )}
                       </div>

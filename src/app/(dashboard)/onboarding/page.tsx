@@ -5,12 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserPlus, CheckCircle2, Clock, ArrowRight, Plus, Laptop, FileCheck, Users } from 'lucide-react';
 import { employees, getPositionById, getTeamById } from '@/lib/data/mock-data';
+import { compareDateOnly, formatDateOnly } from '@/lib/date-only';
 
 export default function OnboardingPage() {
   const pendingOnboard = employees.filter(e => e.status === 'pending');
   const recentHires = employees
     .filter(e => e.status === 'active')
-    .sort((a, b) => new Date(b.hireDate).getTime() - new Date(a.hireDate).getTime())
+    .sort((a, b) => compareDateOnly(b.hireDate, a.hireDate))
     .slice(0, 5);
 
   const tasks = [
@@ -75,7 +76,7 @@ export default function OnboardingPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900">{emp.firstName} {emp.lastName}</p>
-                      <p className="text-xs text-slate-500">{pos?.title} · {team?.name} · Starts {new Date(emp.hireDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">{pos?.title} · {team?.name} · Starts {formatDateOnly(emp.hireDate)}</p>
                     </div>
                     <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Pending</Badge>
                     <Link href={`/employees/${emp.id}`}>
@@ -93,7 +94,7 @@ export default function OnboardingPage() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900">{emp.firstName} {emp.lastName}</p>
-                      <p className="text-xs text-slate-500">{pos?.title} · Joined {new Date(emp.hireDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">{pos?.title} · Joined {formatDateOnly(emp.hireDate)}</p>
                     </div>
                     <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Active</Badge>
                     <Link href={`/employees/${emp.id}`}>

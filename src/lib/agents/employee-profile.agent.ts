@@ -13,12 +13,8 @@ import {
   getManagerForEmployee, getDirectReports, getEmployeeFullName,
 } from '@/lib/data/mock-data';
 import { canViewEmployee, hasCapability, isInScope, stripSensitiveFields } from '@/lib/auth/authorization';
-
-/** Resolve team member IDs for scope checks */
-function getTeamIds(ctx: AgentContext): string[] {
-  if (!ctx.employeeId) return [];
-  return getDirectReports(ctx.employeeId).map(r => r.id);
-}
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
+import { getFullYearsSinceDateOnly } from '@/lib/date-only';
 
 export class EmployeeProfileAgent implements Agent {
   readonly type = 'employee_profile' as const;
@@ -57,13 +53,13 @@ export class EmployeeProfileAgent implements Agent {
     const query = String(payload.query || '').toLowerCase();
     const teamFilter = payload.teamId as string | undefined;
     const statusFilter = payload.status as string | undefined;
-    const teamIds = getTeamIds(context);
+    const scopeContext = buildRecordScopeContext(context);
 
     let results = employees.filter(e => e.status !== 'terminated');
 
     // Scope filtering via policy
     results = results.filter(e =>
-      isInScope(context.scope, e.id, { employeeId: context.employeeId, teamEmployeeIds: teamIds })
+      isInScope(context.scope, e.id, scopeContext)
     );
 
     if (query) {
@@ -106,8 +102,8 @@ export class EmployeeProfileAgent implements Agent {
     const employee = getEmployeeById(employeeId);
     if (!employee) return createErrorResult('Employee not found');
 
-    const teamIds = getTeamIds(context);
-    if (!canViewEmployee(context, employeeId, teamIds)) {
+    const scopeContext = buildRecordScopeContext(context);
+    if (!canViewEmployee(context, employeeId, scopeContext.teamEmployeeIds)) {
       return createErrorResult('Access denied: insufficient permissions', ['RBAC violation']);
     }
 
@@ -115,9 +111,7 @@ export class EmployeeProfileAgent implements Agent {
     const position = employee.positionId ? getPositionById(employee.positionId) : null;
     const manager = getManagerForEmployee(employee);
     const reports = getDirectReports(employee.id);
-    const tenure = Math.floor(
-      (Date.now() - new Date(employee.hireDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    );
+    const tenure = getFullYearsSinceDateOnly(employee.hireDate);
 
     const data = stripSensitiveFields(
       {

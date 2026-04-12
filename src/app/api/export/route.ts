@@ -13,13 +13,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, getAgentContext } from '@/lib/auth/session';
+import {
+  requireVerifiedSessionContext,
+  isSessionResolutionError,
+} from '@/lib/auth/session';
 import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent, logSensitiveAction } from '@/lib/security';
 import { hasCapability } from '@/lib/auth/authorization';
 import { getEmployeeList } from '@/lib/services/employee.service';
 import { getCoordinator } from '@/lib/agents';
 import type { AgentContext, Employee } from '@/types';
+import { toDateOnlyString } from '@/lib/date-only';
 
 interface ExportRequestBody {
   type: 'employees' | 'documents' | 'leave' | 'compliance';
@@ -156,16 +160,9 @@ function requiresApproval(
 
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     // 1. Security middleware (rate limit, CSRF, size checks)
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
-
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'report', // Stricter limit for exports
       requireCsrf: true,
@@ -314,7 +311,7 @@ export async function POST(req: NextRequest) {
           status: 200,
           headers: {
             'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename="${body.type}_export_${new Date().toISOString().split('T')[0]}.csv"`,
+            'Content-Disposition': `attachment; filename="${body.type}_export_${toDateOnlyString()}.csv"`,
           },
         })
       );
@@ -335,6 +332,15 @@ export async function POST(req: NextRequest) {
     );
 
   } catch (err) {
+    if (isSessionResolutionError(err)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.status }
+        )
+      );
+    }
+
     const message = err instanceof Error ? err.message : 'Export failed';
     console.error('Export error:', err);
 
@@ -352,16 +358,9 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = getSession();
-    const context = getAgentContext(session);
+    const { session, context, securityContext } = requireVerifiedSessionContext();
 
     // Security middleware
-    const securityContext = {
-      userId: session.employeeId || 'unknown',
-      role: session.role,
-      sessionId: session.userId,
-    };
-
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
       requireCsrf: false,
@@ -408,6 +407,15 @@ export async function GET(req: NextRequest) {
     );
 
   } catch (err) {
+    if (isSessionResolutionError(err)) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.status }
+        )
+      );
+    }
+
     const message = err instanceof Error ? err.message : 'Internal server error';
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })

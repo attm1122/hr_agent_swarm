@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CheckSquare, Clock, AlertTriangle, Calendar, FileText, Shield } from 'lucide-react';
 import { actionQueue, getEmployeeById, leaveRequests } from '@/lib/data/mock-data';
+import { formatDateOnly } from '@/lib/date-only';
 
 export default function ApprovalsPage() {
   const pendingItems = actionQueue;
@@ -69,7 +70,7 @@ export default function ApprovalsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900">{item.title}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
-                    {item.dueDate && <p className="text-xs text-slate-400 mt-0.5">Due: {new Date(item.dueDate).toLocaleDateString()}</p>}
+                    {item.dueDate && <p className="text-xs text-slate-400 mt-0.5">Due: {formatDateOnly(item.dueDate)}</p>}
                   </div>
                   <Badge variant="outline" className={`${priorityStyle} text-xs capitalize`}>{item.priority}</Badge>
                   {item.type === 'leave_request' ? (
