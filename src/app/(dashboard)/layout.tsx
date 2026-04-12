@@ -2,14 +2,23 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShieldX } from 'lucide-react';
-import { getSession } from '@/lib/auth/session';
+import { getSession, getProductionSession } from '@/lib/auth/session';
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = getSession();
+  // Try production auth first (async), fall back to sync mock auth
+  let session = await getProductionSession().catch(() => null);
+  if (!session) {
+    try {
+      session = getSession();
+    } catch {
+      // Auth not configured - show auth required screen
+      session = null;
+    }
+  }
 
   if (!session) {
     return (

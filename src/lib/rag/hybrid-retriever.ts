@@ -19,6 +19,7 @@
 
 import type {
   KnowledgeChunk,
+  KnowledgeDocument,
   RetrievalCandidate,
   QueryClassification,
   RetrievalProfile,
@@ -84,6 +85,83 @@ export const DEFAULT_RETRIEVAL_CONFIG: HybridRetrievalConfig = {
 // In-memory store for POC
 const chunkStore: Map<string, KnowledgeChunk> = new Map();
 const embeddingStore: Map<string, number[]> = new Map();
+
+// In-memory document store for POC
+const documentStore: Map<string, KnowledgeDocument> = new Map();
+
+/**
+ * Store a document (POC)
+ */
+export function storeDocument(document: KnowledgeDocument): void {
+  documentStore.set(document.id, document);
+}
+
+/**
+ * Get document for a chunk, constructing a minimal stub if not found
+ */
+function getDocumentForChunk(chunk: KnowledgeChunk): KnowledgeDocument {
+  const stored = documentStore.get(chunk.documentId);
+  if (stored) return stored;
+
+  // Construct minimal document from chunk metadata when full document not available
+  return {
+    id: chunk.documentId,
+    tenantId: chunk.tenantId,
+    legalEntity: null,
+    title: chunk.titlePath[0] || 'Unknown Document',
+    description: null,
+    sourceType: 'manual',
+    sourceUri: null,
+    sourceSystem: null,
+    documentType: chunk.documentType,
+    knowledgeZone: chunk.knowledgeZone,
+    topic: chunk.topic,
+    topics: chunk.topics,
+    audience: chunk.audience,
+    jurisdiction: chunk.jurisdiction,
+    appliesToLocations: [],
+    appliesToDepartments: [],
+    appliesToEmploymentTypes: [],
+    confidentiality: chunk.confidentiality,
+    approvalStatus: chunk.approvalStatus,
+    approvedBy: null,
+    approvedAt: null,
+    version: chunk.version,
+    effectiveDate: chunk.effectiveDate,
+    reviewDate: null,
+    supersededBy: null,
+    previousVersion: null,
+    isCurrentVersion: chunk.isCurrentVersion,
+    sourceOfTruthRank: 50,
+    contentHash: '',
+    checksumAlgorithm: 'sha256',
+    rawText: chunk.content,
+    parsedStructure: null,
+    totalChunks: 1,
+    totalTokens: chunk.tokenCount,
+    embeddingModel: chunk.embeddingModel,
+    createdBy: 'system',
+    createdAt: chunk.createdAt,
+    updatedBy: 'system',
+    updatedAt: chunk.updatedAt,
+    indexedAt: chunk.indexedAt,
+    lastSyncAt: null,
+    lifecycleState: chunk.approvalStatus === 'approved' ? 'approved' : 'draft',
+    ownership: { documentOwner: 'system', createdBy: 'system', updatedBy: 'system' },
+    governanceMetadata: {
+      sourceAuthorityRank: 'reference',
+      requiresLegalReview: false,
+      requiresHROpsReview: false,
+      requiresComplianceReview: false,
+    },
+    indexingMetadata: {
+      ingestionStatus: 'completed',
+      indexingStatus: 'completed',
+      chunksCreated: 1,
+      chunksIndexed: 1,
+    },
+  } as KnowledgeDocument;
+}
 
 /**
  * Store a chunk with its embedding (POC)
@@ -414,7 +492,7 @@ export async function executeHybridRetrieval(
   // Convert to retrieval candidates
   const candidates: RetrievalCandidate[] = merged.slice(0, finalLimit).map(item => ({
     chunk: item.chunk,
-    document: {} as any, // TODO: Fetch document from repository
+    document: getDocumentForChunk(item.chunk),
     semanticScore: item.semanticScore,
     lexicalScore: item.lexicalScore,
     combinedScore: item.combinedScore,

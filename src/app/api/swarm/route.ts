@@ -18,7 +18,7 @@ import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
-import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
+import { securityMiddleware, validateRequestBody, addSecurityHeaders, withRequestTimeout } from '@/lib/security';
 import { logSecurityEvent } from '@/lib/security';
 import type { AgentIntent } from '@/types';
 
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       return addSecurityHeaders(response);
     }
 
+    // Safe cast: body has been validated and sanitized by validateRequestBody
     const body = bodyValidation.body as unknown as SwarmPostBody;
 
     if (!body || !body.intent) {
@@ -74,12 +75,16 @@ export async function POST(req: NextRequest) {
     // 3. Context is built server-side from the session — client cannot override role/permissions
     // 4. Route to coordinator with full security context
     const coordinator = getCoordinator();
-    const response = await coordinator.route({
-      intent: body.intent,
-      query: body.query || '',
-      payload: body.payload || {},
-      context,
-    });
+    const response = await withRequestTimeout(
+      coordinator.route({
+        intent: body.intent,
+        query: body.query || '',
+        payload: body.payload || {},
+        context,
+      }),
+      30000,
+      `agent:${body.intent}`
+    );
 
     // 5. Add security headers to successful response
     const successResponse = NextResponse.json(response);

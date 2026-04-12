@@ -19,8 +19,10 @@ import {
 } from '@/lib/auth/session';
 import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent, logSensitiveAction } from '@/lib/security';
-import { hasCapability } from '@/lib/auth/authorization';
+import { hasCapability, isInScope } from '@/lib/auth/authorization';
+import { buildRecordScopeContext } from '@/lib/auth/team-scope';
 import { getEmployeeList } from '@/lib/services/employee.service';
+import { documents, leaveRequests, milestones } from '@/lib/data/mock-data';
 import { getCoordinator } from '@/lib/agents';
 import type { AgentContext, Employee } from '@/types';
 import { toDateOnlyString } from '@/lib/date-only';
@@ -205,6 +207,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Safe cast: body has been validated and sanitized by validateRequestBody
     const body = bodyValidation.body as unknown as ExportRequestBody;
 
     if (!body.type || !body.format) {
@@ -270,7 +273,62 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      // TODO: Add other export types (documents, leave, compliance)
+      case 'documents': {
+        const scopeContext = buildRecordScopeContext(context);
+        const filteredDocs = documents.filter(doc =>
+          isInScope(context.scope, doc.employeeId, scopeContext)
+        );
+        exportData = filteredDocs.map(doc => ({
+          id: doc.id,
+          employeeId: doc.employeeId,
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          category: doc.category,
+          status: doc.status,
+          uploadedAt: doc.uploadedAt,
+          expiresAt: doc.expiresAt,
+        } as Record<string, unknown>));
+        break;
+      }
+
+      case 'leave': {
+        const scopeContext = buildRecordScopeContext(context);
+        const filteredLeave = leaveRequests.filter(lr =>
+          isInScope(context.scope, lr.employeeId, scopeContext)
+        );
+        exportData = filteredLeave.map(lr => ({
+          id: lr.id,
+          employeeId: lr.employeeId,
+          leaveType: lr.leaveType,
+          startDate: lr.startDate,
+          endDate: lr.endDate,
+          daysRequested: lr.daysRequested,
+          reason: lr.reason,
+          status: lr.status,
+          approvedBy: lr.approvedBy,
+          approvedAt: lr.approvedAt,
+        } as Record<string, unknown>));
+        break;
+      }
+
+      case 'compliance': {
+        const scopeContext = buildRecordScopeContext(context);
+        const filteredMilestones = milestones.filter(ms =>
+          isInScope(context.scope, ms.employeeId, scopeContext)
+        );
+        exportData = filteredMilestones.map(ms => ({
+          id: ms.id,
+          employeeId: ms.employeeId,
+          milestoneType: ms.milestoneType,
+          milestoneDate: ms.milestoneDate,
+          description: ms.description,
+          alertDaysBefore: ms.alertDaysBefore,
+          status: ms.status,
+        } as Record<string, unknown>));
+        break;
+      }
+
       default:
         return addSecurityHeaders(
           NextResponse.json(
@@ -342,7 +400,12 @@ export async function POST(req: NextRequest) {
     }
 
     const message = err instanceof Error ? err.message : 'Export failed';
-    console.error('Export error:', err);
+    // Log error via audit logger instead of console to prevent detail exposure
+    logSecurityEvent(
+      'security_blocked',
+      { userId: 'unknown', role: 'unknown', sessionId: 'unknown' },
+      { reason: `Export error: ${message}`, resourceType: 'export' }
+    );
 
     const errorResponse = NextResponse.json(
       { error: message },

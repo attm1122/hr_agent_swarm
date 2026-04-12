@@ -140,34 +140,20 @@ export function getSession(): Session | null {
 
   if (inProduction) {
     if (mockAuthEnabled) {
-      throw new SessionResolutionError(
-        'AUTH_CONFIG_INVALID',
-        'Mock authentication is forbidden in production',
-        503,
-      );
+      // Mock auth is forbidden in production - fail closed
+      return null;
     }
 
-    if (!productionAuthEnabled) {
-      throw new SessionResolutionError(
-        'AUTH_CONFIG_INVALID',
-        'Production authentication is not configured; requests must fail closed until real auth is enabled',
-        503,
-      );
-    }
-
-    throw new SessionResolutionError(
-      'AUTH_CONFIG_INVALID',
-      'Production authentication is enabled but not implemented',
-      503,
-    );
+    // In production, synchronous getSession() returns null.
+    // Callers should use getProductionSession() for async Supabase auth.
+    // Returning null (instead of throwing) enables graceful "auth required" UI
+    // during SSG builds and when auth is not yet configured.
+    return null;
   }
 
   if (productionAuthEnabled) {
-    throw new SessionResolutionError(
-      'AUTH_CONFIG_INVALID',
-      'NEXT_PUBLIC_PRODUCTION_AUTH is enabled, but production authentication is not implemented in this environment',
-      503,
-    );
+    // Production auth enabled outside production - allow for staging/testing
+    return null;
   }
 
   if (!mockAuthEnabled) {
@@ -212,21 +198,49 @@ export function requireVerifiedSessionContext(): {
 
 /**
  * Production authentication - Supabase Auth integration
- * Replace getSession() with this function for production
+ * Uses cookie-based session from Supabase SSR
  */
 export async function getProductionSession(): Promise<Session | null> {
-  // This is a placeholder for Supabase Auth integration
-  // Implementation steps:
-  // 1. Install @supabase/ssr: npm install @supabase/ssr
-  // 2. Configure cookie handling
-  // 3. Map Supabase user to Session type
-  // 4. Handle JWT refresh
+  try {
+    const { createServerClient: createSupabaseSSRClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
 
-  throw new Error(
-    'Production authentication not implemented. ' +
-    'Configure Supabase Auth before enabling production mode. ' +
-    'See MIGRATION_GUIDE.md'
-  );
+    const cookieStore = await cookies();
+
+    const supabase = createSupabaseSSRClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // Cookies can only be set in Server Actions or Route Handlers
+            }
+          },
+        },
+      }
+    );
+
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    return mapSupabaseUserToSession(user);
+  } catch (error) {
+    // Log but don't throw - return null for unauthenticated
+    // eslint-disable-next-line no-console
+    console.error('[AUTH] Failed to resolve production session:', error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
 }
 
 /**

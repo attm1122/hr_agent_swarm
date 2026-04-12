@@ -129,7 +129,7 @@ function updateJobStatus(
   job.stage = stage;
   job.progress = progress;
 
-  if (status === 'complete' || status === 'failed' || status === 'superseded') {
+  if (status === 'completed' || status === 'failed') {
     job.completedAt = new Date().toISOString();
   }
 
@@ -263,6 +263,24 @@ export function createDocument(
     updatedAt: now,
     indexedAt: null,
     lastSyncAt: null,
+    lifecycleState: approvalStatus === 'approved' ? 'approved' : 'draft',
+    ownership: {
+      documentOwner: context.employeeId || context.userId,
+      createdBy: context.employeeId || context.userId,
+      updatedBy: context.employeeId || context.userId,
+    },
+    governanceMetadata: {
+      sourceAuthorityRank: zoneConfig.priority >= 90 ? 'authoritative' : 'reference',
+      requiresLegalReview: input.knowledgeZone === 'legal_playbook',
+      requiresHROpsReview: input.knowledgeZone === 'authoritative_policy',
+      requiresComplianceReview: false,
+    },
+    indexingMetadata: {
+      ingestionStatus: 'pending',
+      indexingStatus: 'pending',
+      chunksCreated: 0,
+      chunksIndexed: 0,
+    },
   };
 
   // Create ingestion job

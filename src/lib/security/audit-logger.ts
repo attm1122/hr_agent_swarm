@@ -20,6 +20,13 @@ import type { AgentContext, AgentIntent } from '@/types';
 import { createHash } from 'crypto';
 import { createAdminClient } from '@/infrastructure/database/client';
 
+/** Minimal context for security logging - compatible with both AgentContext and SecurityContext */
+export interface SecurityLogContext {
+  userId: string;
+  role: string;
+  sessionId: string;
+}
+
 export type AuditEventType = 
   | 'agent_execute'
   | 'data_access'
@@ -118,7 +125,7 @@ function redactSensitiveData(entry: Partial<AuditLogEntry>): Partial<AuditLogEnt
  * Log an agent execution event
  */
 export function logAgentExecution(
-  context: AgentContext,
+  context: AgentContext | SecurityLogContext,
   intent: AgentIntent,
   agentType: string,
   success: boolean,
@@ -146,7 +153,7 @@ export function logAgentExecution(
  * Log a data access event
  */
 export function logDataAccess(
-  context: AgentContext,
+  context: AgentContext | SecurityLogContext,
   resourceType: string,
   resourceId: string,
   action: string,
@@ -155,7 +162,8 @@ export function logDataAccess(
   success: boolean
 ): void {
   // Don't log self-access for own records (reduces noise)
-  if (resourceId === context.employeeId && action === 'read') {
+  const employeeId = 'employeeId' in context ? (context as AgentContext).employeeId : undefined;
+  if (resourceId === employeeId && action === 'read') {
     return;
   }
   
@@ -183,7 +191,7 @@ export function logDataAccess(
  */
 export function logSecurityEvent(
   eventType: 'security_blocked' | 'auth_failure' | 'rate_limit_hit' | 'csrf_violation',
-  context: AgentContext,
+  context: SecurityLogContext,
   details: {
     resourceType?: string;
     resourceId?: string;
@@ -219,7 +227,7 @@ export function logSecurityEvent(
  * Log sensitive action requiring approval
  */
 export function logSensitiveAction(
-  context: AgentContext,
+  context: SecurityLogContext,
   action: string,
   resourceType: string,
   resourceId: string,

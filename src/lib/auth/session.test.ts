@@ -84,26 +84,26 @@ describe('getSession', () => {
     expect(() => getSession()).toThrowError(/invalid/i);
   });
 
-  it('throws on production auth misconfiguration when production auth is disabled', () => {
+  it('returns null in production when auth is not configured (fail closed)', () => {
     vi.stubEnv('NODE_ENV', 'production');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/not configured/i);
+    // Production without auth configured returns null for graceful "auth required" UI
+    expect(getSession()).toBeNull();
   });
 
-  it('throws when mock auth is enabled in production', () => {
+  it('returns null when mock auth is enabled in production (forbidden)', () => {
     vi.stubEnv('NODE_ENV', 'production');
     enableMockAuth('employee');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/forbidden in production/i);
+    // Mock auth in production is forbidden - returns null (fail closed)
+    expect(getSession()).toBeNull();
   });
 
-  it('throws when production auth is marked enabled but not implemented', () => {
+  it('returns null when production auth is enabled outside production (staging/testing)', () => {
     vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'true');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/not implemented/i);
+    // Production auth enabled outside production returns null, directing callers to async path
+    expect(getSession()).toBeNull();
   });
 });
 

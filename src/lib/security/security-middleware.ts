@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import type { Role, AgentContext } from '@/types';
+import type { Role } from '@/types';
 import { checkRateLimit, generateRateLimitKey } from './rate-limit';
 import { validateCsrfToken, extractCsrfToken, requiresCsrfProtection } from './csrf';
 import { sanitizeObject, containsXss, containsSqlInjection } from './sanitize';
@@ -24,6 +24,13 @@ interface SecurityContext {
   sensitivityClearance?: string[];
   permissions?: string[];
   timestamp?: string;
+}
+
+/**
+ * Generate unique request correlation ID for tracing
+ */
+export function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 interface SecurityConfig {
@@ -50,6 +57,7 @@ export async function securityMiddleware(
   config: SecurityConfig = {}
 ): Promise<NextResponse | null> {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+  const requestId = generateRequestId();
   const clientIp = getClientIp(request);
   
   // 1. Rate Limiting
@@ -60,10 +68,10 @@ export async function securityMiddleware(
     if (!rateLimit.allowed) {
       logSecurityEvent(
         'rate_limit_hit',
-        userContext as unknown as AgentContext,
+        userContext,
         { reason: `Rate limit exceeded for ${mergedConfig.rateLimitTier}`, ipAddress: clientIp }
       );
-      
+
       return new NextResponse(
         JSON.stringify({
           error: 'Rate limit exceeded',
@@ -76,6 +84,7 @@ export async function securityMiddleware(
             'Retry-After': String(rateLimit.retryAfter || 60),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': String(rateLimit.resetTime),
+            'X-Request-ID': requestId,
           },
         }
       );
@@ -89,10 +98,10 @@ export async function securityMiddleware(
     if (!csrfToken || !validateCsrfToken(csrfToken, userContext.sessionId)) {
       logSecurityEvent(
         'csrf_violation',
-        userContext as unknown as AgentContext,
+        userContext,
         { reason: csrfToken ? 'Invalid CSRF token' : 'Missing CSRF token', ipAddress: clientIp }
       );
-      
+
       return new NextResponse(
         JSON.stringify({
           error: 'CSRF token missing or invalid',
@@ -100,7 +109,10 @@ export async function securityMiddleware(
         }),
         {
           status: 403,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-ID': requestId,
+          },
         }
       );
     }
@@ -116,7 +128,10 @@ export async function securityMiddleware(
       }),
       {
         status: 413,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': requestId,
+        },
       }
     );
   }
@@ -140,7 +155,7 @@ export async function validateRequestBody(
     if (containsXss(bodyString)) {
       logSecurityEvent(
         'security_blocked',
-        userContext as unknown as AgentContext,
+        userContext,
         { reason: 'XSS pattern detected in request body', ipAddress: getClientIp(request) }
       );
       return { success: false, error: 'Invalid content in request body' };
@@ -150,7 +165,7 @@ export async function validateRequestBody(
     if (containsSqlInjection(bodyString)) {
       logSecurityEvent(
         'security_blocked',
-        userContext as unknown as AgentContext,
+        userContext,
         { reason: 'SQL injection pattern detected', ipAddress: getClientIp(request) }
       );
       return { success: false, error: 'Invalid content in request body' };
@@ -249,4 +264,22 @@ export function getSecurityHeaders(): Record<string, string> {
     'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
   };
+}
+
+/**
+ * Wrap an async operation with a timeout
+ * Returns the result or throws a timeout error
+ */
+export async function withRequestTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number = 30000,
+  operationName: string = 'operation'
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Request timeout: ${operationName} exceeded ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([operation, timeoutPromise]);
 }

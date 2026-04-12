@@ -63,6 +63,7 @@ export {
   verifyAuditIntegrity,
   type AuditLogEntry,
   type AuditEventType,
+  type SecurityLogContext,
 } from './audit-logger';
 
 export {
@@ -71,4 +72,6 @@ export {
   addSecurityHeaders,
   createSecurityErrorResponse,
   getSecurityHeaders,
+  withRequestTimeout,
+  generateRequestId,
 } from './security-middleware';
