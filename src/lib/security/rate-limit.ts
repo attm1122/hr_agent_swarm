@@ -49,7 +49,7 @@ const cleanupInterval = setInterval(() => {
   
   // Log cleanup in production
   if (process.env.NODE_ENV === 'production' && cleaned > 0) {
-    // eslint-disable-next-line no-console
+     
     console.log(`[RATE_LIMIT] Cleaned ${cleaned} expired entries`);
   }
 }, 60000); // Clean every minute
@@ -60,7 +60,7 @@ const memoryCheckInterval = setInterval(() => {
   
   // Alert if store is too large
   if (storeSize > MAX_STORE_SIZE * CLEANUP_THRESHOLD) {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[RATE_LIMIT] Store size ${storeSize} approaching limit ${MAX_STORE_SIZE}. Consider migrating to Redis.`);
     
     // Emergency cleanup - remove oldest 20% of entries
@@ -73,7 +73,7 @@ const memoryCheckInterval = setInterval(() => {
         rateLimitStore.delete(sortedByAge[i][0]);
       }
       
-      // eslint-disable-next-line no-console
+       
       console.warn(`[RATE_LIMIT] Emergency cleanup removed ${toRemove} entries`);
     }
   }

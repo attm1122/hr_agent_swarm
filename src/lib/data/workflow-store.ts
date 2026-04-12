@@ -288,5 +288,16 @@ export function identifyOverdueSteps(): WorkflowStep[] {
   );
 }
 
-// Initialize on module load
-initializeWorkflowStore();
+// Track if already initialized to prevent duplicate seed data
+let isWorkflowStoreInitialized = false;
+
+// Initialize on module load (idempotent)
+export function ensureWorkflowStoreInitialized(): void {
+  if (!isWorkflowStoreInitialized) {
+    initializeWorkflowStore();
+    isWorkflowStoreInitialized = true;
+  }
+}
+
+// Auto-initialize on module load for backward compatibility
+ensureWorkflowStoreInitialized();

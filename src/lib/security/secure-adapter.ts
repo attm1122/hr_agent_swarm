@@ -276,7 +276,7 @@ function logIntegrationRequest(
   
   // In production: Send to SIEM, not console
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line no-console
+     
     console.log('[INTEGRATION]', {
       timestamp: new Date().toISOString(),
       integration,
@@ -300,7 +300,7 @@ function logSecurityEvent(
 ): void {
   // In production: Send to security monitoring service
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line no-console
+     
     console.warn('[SECURITY]', {
       timestamp: new Date().toISOString(),
       eventType,

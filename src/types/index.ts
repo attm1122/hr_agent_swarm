@@ -313,7 +313,8 @@ export type AgentType =
   | 'onboarding'
   | 'offboarding'
   | 'workflow_approvals'
-  | 'knowledge_policy';
+  | 'knowledge_policy'
+  | 'manager_support';
 
 export type AgentIntent =
   // Employee & Document
@@ -359,7 +360,13 @@ export type AgentIntent =
   | 'policy_answer'
   | 'policy_citations'
   // Coordinator
-  | 'dashboard_summary';
+  | 'dashboard_summary'
+  // Manager Support
+  | 'manager_team_summary'
+  | 'manager_employee_brief'
+  | 'manager_dashboard'
+  | 'manager_action_items'
+  | 'manager_status_check';
 
 // ============================================
 // Orchestration Types

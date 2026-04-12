@@ -12,6 +12,7 @@ import { OnboardingAgent } from './onboarding.agent';
 import { OffboardingAgent } from './offboarding.agent';
 import { WorkflowAgent } from './workflow.agent';
 import { KnowledgeAgent } from './knowledge.agent';
+import { ManagerSupportAgent } from './manager-support.agent';
 
 let coordinator: SwarmCoordinator | null = null;
 
@@ -26,6 +27,7 @@ export function getCoordinator(): SwarmCoordinator {
   coordinator.register(new OffboardingAgent());
   coordinator.register(new WorkflowAgent());
   coordinator.register(new KnowledgeAgent());
+  coordinator.register(new ManagerSupportAgent());
 
   return coordinator;
 }

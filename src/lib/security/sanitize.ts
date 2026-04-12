@@ -259,7 +259,7 @@ export function logSanitizationEvent(
 ): void {
   // In production: send to security monitoring service
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[SECURITY] ${type} in ${source}:`, {
       timestamp: new Date().toISOString(),
       type,

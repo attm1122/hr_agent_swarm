@@ -5,11 +5,21 @@
  *
  * This is the ONLY entry point for agent execution.
  * Pages and API routes call the coordinator — never agents directly.
+ * 
+ * Persistence: When SUPABASE_SERVICE_ROLE_KEY is available,
+ * all agent runs are persisted to the agent_runs table for
+ * full traceability and observability.
  */
 
 import type { AgentType, AgentIntent, SwarmRequest, SwarmResponse, AgentResult } from '@/types';
 import type { Agent } from './base';
 import { createErrorResult } from './base';
+import {
+  AgentRunRepository,
+  getAgentRunRepository,
+  createServiceRoleClient,
+  AgentRunRecord,
+} from '@/lib/repositories/agent-run-repository';
 
 /** Maps each intent to its owning agent. Only list intents with registered agents. */
 const INTENT_ROUTING: Partial<Record<AgentIntent, AgentType>> = {
@@ -45,6 +55,12 @@ const INTENT_ROUTING: Partial<Record<AgentIntent, AgentType>> = {
   policy_search: 'knowledge_policy',
   policy_answer: 'knowledge_policy',
   policy_citations: 'knowledge_policy',
+  // Manager Support
+  manager_team_summary: 'manager_support',
+  manager_employee_brief: 'manager_support',
+  manager_dashboard: 'manager_support',
+  manager_action_items: 'manager_support',
+  manager_status_check: 'manager_support',
   // Coordinator
   dashboard_summary: 'coordinator',
 };
@@ -78,6 +94,19 @@ export interface AuditEntry {
 export class SwarmCoordinator {
   private agents: Map<AgentType, Agent> = new Map();
   private auditLog: AuditEntry[] = [];
+  private agentRunRepo: AgentRunRepository;
+
+  constructor(agentRunRepo?: AgentRunRepository) {
+    this.agentRunRepo = agentRunRepo || this.initializeRepository();
+  }
+
+  /**
+   * Initialize the agent run repository with service role if available
+   */
+  private initializeRepository(): AgentRunRepository {
+    const serviceClient = createServiceRoleClient();
+    return getAgentRunRepository(serviceClient || undefined);
+  }
 
   register(agent: Agent): void {
     this.agents.set(agent.type, agent);
@@ -86,6 +115,11 @@ export class SwarmCoordinator {
   /** Read-only access to the audit log */
   getAuditLog(): ReadonlyArray<AuditEntry> {
     return this.auditLog;
+  }
+
+  /** Check if coordinator is using persistent storage for agent runs */
+  isUsingPersistence(): boolean {
+    return this.agentRunRepo.isUsingPersistence();
   }
 
   /** Main routing entry point */
@@ -222,7 +256,7 @@ export class SwarmCoordinator {
   ): SwarmResponse {
     const executionTimeMs = Math.round(performance.now() - start);
 
-    // Audit log
+    // Audit log (in-memory)
     this.auditLog.push({
       id: auditId,
       timestamp: new Date().toISOString(),
@@ -238,6 +272,34 @@ export class SwarmCoordinator {
     // Keep log bounded (POC)
     if (this.auditLog.length > 200) this.auditLog.splice(0, this.auditLog.length - 200);
 
+    // Persist to database if available (async, don't block response)
+    this.persistAgentRun({
+      id: auditId,
+      agentType: agentType as AgentType,
+      intent,
+      inputPayload: request.payload,
+      outputResult: result,
+      confidence: result.confidence,
+      executionTimeMs,
+      success: result.success,
+      errorMessage: result.success ? null : result.summary,
+      context: {
+        userId: request.context.userId,
+        role: request.context.role,
+        permissions: request.context.permissions,
+        sessionId: request.context.sessionId,
+        timestamp: request.context.timestamp,
+      },
+      metadata: {
+        isModelBacked: result.confidence > 0,
+        isFallback: result.confidence === 0,
+      },
+      createdAt: new Date().toISOString(),
+    }).catch(err => {
+      // Silently log persistence errors - don't fail the user request
+      console.warn('Failed to persist agent run:', err);
+    });
+
     return {
       agentType: agentType as AgentType,
       intent,
@@ -246,5 +308,26 @@ export class SwarmCoordinator {
       executionTimeMs,
       auditId,
     };
+  }
+
+  /**
+   * Persist agent run to durable storage
+   */
+  private async persistAgentRun(record: AgentRunRecord): Promise<void> {
+    await this.agentRunRepo.saveAgentRun(record);
+  }
+
+  /**
+   * Query persisted agent runs (for observability)
+   */
+  async queryAgentRuns(...args: Parameters<AgentRunRepository['queryAgentRuns']>) {
+    return this.agentRunRepo.queryAgentRuns(...args);
+  }
+
+  /**
+   * Get success statistics (for observability)
+   */
+  async getSuccessStats(...args: Parameters<AgentRunRepository['getSuccessStats']>) {
+    return this.agentRunRepo.getSuccessStats(...args);
   }
 }

@@ -129,7 +129,7 @@ function updateJobStatus(
   job.stage = stage;
   job.progress = progress;
 
-  if (status === 'complete' || status === 'failed' || status === 'superseded') {
+  if (status === 'completed' || status === 'failed') {
     job.completedAt = new Date().toISOString();
   }
 
@@ -257,6 +257,25 @@ export function createDocument(
     totalChunks: 0,
     totalTokens: 0,
     embeddingModel: null,
+    // Governance fields
+    lifecycleState: 'draft',
+    ownership: {
+      documentOwner: context.employeeId || context.userId,
+      createdBy: context.employeeId || context.userId,
+      updatedBy: context.employeeId || context.userId,
+    },
+    governanceMetadata: {
+      sourceAuthorityRank: 'reference',
+      requiresLegalReview: false,
+      requiresHROpsReview: false,
+      requiresComplianceReview: false,
+    },
+    indexingMetadata: {
+      ingestionStatus: 'pending',
+      indexingStatus: 'pending',
+      chunksCreated: 0,
+      chunksIndexed: 0,
+    },
     createdBy: context.employeeId || context.userId,
     createdAt: now,
     updatedBy: context.employeeId || context.userId,

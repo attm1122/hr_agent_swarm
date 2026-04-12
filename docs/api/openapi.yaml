@@ -1,0 +1,542 @@
+openapi: 3.0.3
+info:
+  title: HR Agent Swarm API
+  description: |
+    AI-powered HR management system with multi-agent orchestration.
+    
+    ## Authentication
+    This API uses JWT tokens for authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    The API implements rate limiting per tier:
+    - **strict**: 10 requests/minute
+    - **agent**: 60 requests/minute
+    - **report**: 10 requests/minute
+    
+    ## Error Handling
+    Errors follow RFC 7807 (Problem Details). Common status codes:
+    - `400` - Bad Request
+    - `401` - Unauthorized
+    - `403` - Forbidden
+    - `404` - Not Found
+    - `429` - Rate Limited
+    - `500` - Internal Server Error
+  version: 0.1.0
+  contact:
+    name: API Support
+    url: https://github.com/attm1122/hr_agent_swarm/issues
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development
+  - url: https://api.hr-agent-swarm.example.com
+    description: Production
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the health status of the API and its dependencies
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /swarm:
+    post:
+      summary: Agent Swarm Request
+      description: Send a request to the agent swarm for processing
+      operationId: swarmRequest
+      tags:
+        - Agents
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwarmRequest'
+      responses:
+        '200':
+          description: Request processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwarmResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /export:
+    post:
+      summary: Create Export
+      description: Request a data export (may require approval)
+      operationId: createExport
+      tags:
+        - Exports
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: Export generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportResponse'
+            text/csv:
+              schema:
+                type: string
+        '202':
+          description: Export pending approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportPending'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /export/approval:
+    get:
+      summary: List Export Approvals
+      description: Get list of export requests pending approval
+      operationId: listExportApprovals
+      tags:
+        - Exports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: exportId
+          in: query
+          description: Filter by specific export ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of approvals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportApprovalList'
+    patch:
+      summary: Approve/Reject Export
+      description: Approve or reject a pending export request
+      operationId: updateExportApproval
+      tags:
+        - Exports
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportApprovalAction'
+      responses:
+        '200':
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportApprovalResult'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Export not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Export already processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Clerk authentication
+
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: number
+          description: Uptime in milliseconds
+        checks:
+          type: object
+          properties:
+            database:
+              $ref: '#/components/schemas/HealthCheck'
+            memory:
+              $ref: '#/components/schemas/HealthCheck'
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [pass, fail, warn]
+        responseTime:
+          type: number
+          description: Response time in milliseconds
+        message:
+          type: string
+
+    SwarmRequest:
+      type: object
+      required:
+        - intent
+        - query
+        - payload
+      properties:
+        intent:
+          type: string
+          description: The agent intent to execute
+          example: employee_search
+        query:
+          type: string
+          description: Natural language query
+          example: Find all engineers in the Engineering team
+        payload:
+          type: object
+          description: Additional parameters for the intent
+          example:
+            teamId: team-001
+            status: active
+
+    SwarmResponse:
+      type: object
+      required:
+        - agentType
+        - intent
+        - result
+        - executionTimeMs
+      properties:
+        agentType:
+          type: string
+          example: employee_profile
+        intent:
+          type: string
+          example: employee_search
+        result:
+          $ref: '#/components/schemas/AgentResult'
+        executionTimeMs:
+          type: number
+          example: 45
+        auditId:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    AgentResult:
+      type: object
+      required:
+        - success
+        - summary
+        - confidence
+        - data
+        - risks
+        - requiresApproval
+      properties:
+        success:
+          type: boolean
+        summary:
+          type: string
+          example: Found 5 employees matching the criteria
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.95
+        data:
+          type: object
+        risks:
+          type: array
+          items:
+            type: string
+        requiresApproval:
+          type: boolean
+        proposedActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposedAction'
+
+    ProposedAction:
+      type: object
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+        payload:
+          type: object
+
+    ExportRequest:
+      type: object
+      required:
+        - type
+        - format
+      properties:
+        type:
+          type: string
+          enum: [employees, documents, leave, compliance]
+          example: employees
+        format:
+          type: string
+          enum: [csv, json]
+          example: csv
+        filters:
+          type: object
+          properties:
+            status:
+              type: string
+            dateFrom:
+              type: string
+              format: date
+            dateTo:
+              type: string
+              format: date
+            teamId:
+              type: string
+        fields:
+          type: array
+          items:
+            type: string
+          example: [id, firstName, lastName, email, status]
+
+    ExportResponse:
+      type: object
+      required:
+        - status
+        - type
+        - format
+        - recordCount
+      properties:
+        status:
+          type: string
+          example: success
+        type:
+          type: string
+          example: employees
+        format:
+          type: string
+          example: json
+        recordCount:
+          type: number
+          example: 50
+        fields:
+          type: array
+          items:
+            type: string
+        data:
+          type: array
+          items:
+            type: object
+        exportedAt:
+          type: string
+          format: date-time
+        exportedBy:
+          type: string
+
+    ExportPending:
+      type: object
+      required:
+        - status
+        - exportId
+        - message
+      properties:
+        status:
+          type: string
+          example: pending_approval
+        exportId:
+          type: string
+          example: export-550e8400-e29b-41d4-a716-446655440000
+        message:
+          type: string
+          example: Export requires approval due to sensitive data access
+        requestedFields:
+          type: array
+          items:
+            type: string
+        approverRole:
+          type: string
+          example: admin
+
+    ExportApprovalList:
+      type: object
+      required:
+        - approvals
+        - summary
+      properties:
+        approvals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportApprovalSummary'
+        summary:
+          type: object
+          properties:
+            pending:
+              type: number
+            approved:
+              type: number
+            rejected:
+              type: number
+            total:
+              type: number
+
+    ExportApprovalSummary:
+      type: object
+      properties:
+        exportId:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requesterId:
+          type: string
+        requesterRole:
+          type: string
+        exportType:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        canApprove:
+          type: boolean
+
+    ExportApprovalAction:
+      type: object
+      required:
+        - exportId
+        - action
+      properties:
+        exportId:
+          type: string
+        action:
+          type: string
+          enum: [approve, reject]
+        rejectionReason:
+          type: string
+
+    ExportApprovalResult:
+      type: object
+      properties:
+        status:
+          type: string
+        exportId:
+          type: string
+        approvedAt:
+          type: string
+          format: date-time
+        approvedBy:
+          type: string
+        type:
+          type: string
+        format:
+          type: string
+        recordCount:
+          type: number
+        data:
+          type: array
+          items:
+            type: object
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Invalid request body
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        details:
+          type: object

@@ -253,5 +253,16 @@ export function completeOnboardingTask(taskId: string, completedById: string): b
   return true;
 }
 
-// Initialize on module load
-initializeOnboardingStore();
+// Track if already initialized to prevent duplicate seed data
+let isOnboardingStoreInitialized = false;
+
+// Initialize on module load (idempotent)
+export function ensureOnboardingStoreInitialized(): void {
+  if (!isOnboardingStoreInitialized) {
+    initializeOnboardingStore();
+    isOnboardingStoreInitialized = true;
+  }
+}
+
+// Auto-initialize on module load for backward compatibility
+ensureOnboardingStoreInitialized();
