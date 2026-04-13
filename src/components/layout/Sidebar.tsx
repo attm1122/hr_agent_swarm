@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, Users, FileText, Calendar, DollarSign, 
+import {
+  LayoutDashboard, Users, FileText, Calendar, DollarSign,
   BookOpen, CheckSquare, PieChart, Settings, Sparkles,
-  Shield, UserPlus, MessageSquare, BarChart3
+  Shield, UserPlus, MessageSquare, BarChart3, Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ function buildNavItems(): NavItem[] {
   const b = getBadges();
   return [
     { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
+    { title: 'AI Assistant', href: '/chat', icon: Bot },
     { title: 'Employees', href: '/employees', icon: Users, badge: b.employees, requiredPermission: 'employee:read' },
     { title: 'Approvals', href: '/approvals', icon: CheckSquare, badge: b.approvals, requiredPermission: 'leave:approve' },
     { title: 'Leave', href: '/leave', icon: Calendar, badge: b.leave, requiredPermission: 'leave:read' },
