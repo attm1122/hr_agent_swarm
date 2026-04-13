@@ -23,6 +23,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_MAX_TOKENS,
   MAX_TOOL_ITERATIONS,
+  resolveModelId,
 } from './anthropic-client';
 import { getAnthropicTools, getToolByName } from './tools';
 
@@ -126,6 +127,9 @@ export async function orchestrate(
   const client = getAnthropicClient();
   const tools = getAnthropicTools();
   const coordinator = getCoordinator();
+  // Resolve the provider-qualified model id (adds `anthropic/` prefix when
+  // routing through Vercel AI Gateway).
+  const resolvedModel = resolveModelId(model);
 
   // Working message list Claude will see. Starts with the full prior history
   // plus the incoming user turn.
@@ -152,7 +156,7 @@ export async function orchestrate(
     let response: Anthropic.Message;
     try {
       response = await client.messages.create({
-        model,
+        model: resolvedModel,
         max_tokens: maxTokens,
         system: SYSTEM_PROMPT,
         tools,
