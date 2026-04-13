@@ -23,11 +23,15 @@ import {
   ROLE_CAPABILITIES,
   ROLE_SCOPE,
   ROLE_SENSITIVITY,
+  hasCapability,
 } from './authorization';
+
+export { hasCapability };
 
 export interface Session {
   userId: string;
   employeeId: string;
+  tenantId: string;
   name: string;
   email: string;
   role: Role;
@@ -82,10 +86,12 @@ export function buildSession(
   email: string,
   role: Role,
   title: string,
+  tenantId: string = 'default',
 ): Session {
   return {
     userId,
     employeeId,
+    tenantId,
     name,
     email,
     role,

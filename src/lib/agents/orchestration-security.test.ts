@@ -26,6 +26,45 @@ import { WorkflowAgent } from './workflow.agent';
 import { KnowledgeAgent } from './knowledge.agent';
 import { AgentContext, Role, AgentResult, SwarmRequest } from '@/types';
 import { ROLE_CAPABILITIES, ROLE_SCOPE, ROLE_SENSITIVITY, stripSensitiveFields } from '@/lib/auth/authorization';
+import type { AgentRunRepositoryPort } from '@/lib/ports/repository-ports';
+import type { EventBusPort } from '@/lib/ports/event-bus-port';
+import type { AuditLogPort } from '@/lib/ports/infrastructure-ports';
+
+// ============================================
+// Mock port implementations for testing
+// ============================================
+
+function createMockPorts() {
+  const agentRunRepo: AgentRunRepositoryPort = {
+    async save() {},
+    async findById() { return null; },
+    async findBySession() { return []; },
+    async findByAgent() { return []; },
+    async findByIntent() { return []; },
+    async query() { return []; },
+    async getStats() { return { total: 0, successful: 0, failed: 0, averageExecutionTime: 0 }; },
+  };
+  const eventBus: EventBusPort = {
+    async publish() {},
+    async publishBatch() {},
+    subscribe() {},
+    subscribeAll() {},
+    unsubscribe() {},
+    async query() { return []; },
+    async health() { return { healthy: true }; },
+  };
+  const auditLog: AuditLogPort = {
+    async log() {},
+    async query() { return []; },
+    async verifyIntegrity() { return { valid: true }; },
+  };
+  return { agentRunRepo, eventBus, auditLog };
+}
+
+function createCoordinator(): SwarmCoordinator {
+  const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+  return new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
+}
 
 // ============================================
 // Test Context Factory
@@ -73,7 +112,7 @@ describe('ORCHESTRATION: Unauthorized Context Inclusion', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new LeaveMilestonesAgent());
     coordinator.register(new DocumentComplianceAgent());
@@ -188,7 +227,7 @@ describe('ORCHESTRATION: Unauthorized Output Leakage', () => {
   const empAgent = new EmployeeProfileAgent();
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(empAgent);
     coordinator.register(new LeaveMilestonesAgent());
   });
@@ -271,7 +310,7 @@ describe('ORCHESTRATION: Multi-Agent Composition Leakage', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new LeaveMilestonesAgent());
     coordinator.register(new DocumentComplianceAgent());
@@ -357,7 +396,7 @@ describe('ORCHESTRATION: Prompt Injection from Internal Content', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
   });
 
@@ -423,7 +462,7 @@ describe('ORCHESTRATION: Citation Leakage', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new KnowledgeAgent());
     coordinator.register(new EmployeeProfileAgent());
   });
@@ -472,7 +511,7 @@ describe('ORCHESTRATION: Role Boundary Failures', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new DocumentComplianceAgent());
     coordinator.register(new WorkflowAgent());
@@ -562,7 +601,7 @@ describe('ORCHESTRATION: Action Approval Bypasses', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new WorkflowAgent());
   });
 
@@ -592,7 +631,7 @@ describe('ORCHESTRATION: Action Approval Bypasses', () => {
 
   it('CRITICAL: Unauthorized users cannot approve actions', async () => {
     const ctx = EMPLOYEE_CTX();
-    
+
     const result = await coordinator.route({
       intent: 'workflow_approve',
       query: '',
@@ -601,7 +640,12 @@ describe('ORCHESTRATION: Action Approval Bypasses', () => {
     });
 
     expect(result.result.success).toBe(false);
-    expect(result.result.risks).toContain('RBAC violation');
+    // Coordinator-level permission gating returns 'permission_denied',
+    // agent-level returns 'RBAC violation'
+    const hasPermissionDenied = result.result.risks?.some(
+      r => r === 'permission_denied' || r === 'RBAC violation'
+    );
+    expect(hasPermissionDenied).toBe(true);
   });
 
   it('HIGH: Approval status is verified before execution', async () => {
@@ -632,7 +676,7 @@ describe('ORCHESTRATION: Report Narrative Leakage', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
   });
 
@@ -669,7 +713,7 @@ describe('ORCHESTRATION: Communications Draft Leakage', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new WorkflowAgent());
   });
 
@@ -707,7 +751,7 @@ describe('ORCHESTRATION: Sensitive Field Leakage Through Summaries', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    coordinator = createCoordinator();
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new LeaveMilestonesAgent());
   });

@@ -315,5 +315,16 @@ export function generateExitSummary(planId: string): OffboardingExitSummary | nu
   };
 }
 
-// Initialize on module load
-initializeOffboardingStore();
+// Track if already initialized to prevent duplicate seed data
+let isOffboardingStoreInitialized = false;
+
+// Initialize on module load (idempotent)
+export function ensureOffboardingStoreInitialized(): void {
+  if (!isOffboardingStoreInitialized) {
+    initializeOffboardingStore();
+    isOffboardingStoreInitialized = true;
+  }
+}
+
+// Auto-initialize on module load for backward compatibility
+ensureOffboardingStoreInitialized();

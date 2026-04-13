@@ -28,6 +28,9 @@ import { WorkflowAgent } from '@/lib/agents/workflow.agent';
 import { KnowledgeAgent } from '@/lib/agents/knowledge.agent';
 import { SwarmCoordinator } from '@/lib/agents/coordinator';
 import { SwarmRequest, AgentContext, Role, AgentResult } from '@/types';
+import type { AgentRunRepositoryPort } from '@/lib/ports/repository-ports';
+import type { EventBusPort } from '@/lib/ports/event-bus-port';
+import type { AuditLogPort } from '@/lib/ports/infrastructure-ports';
 import {
   ROLE_CAPABILITIES,
   ROLE_SCOPE,
@@ -61,6 +64,42 @@ import {
   getAuditStats,
 } from './audit-logger';
 import { getSession } from '@/lib/auth/session';
+
+// ============================================
+// Mock port implementations for testing
+// ============================================
+
+function createMockPorts() {
+  const agentRunRepo: AgentRunRepositoryPort = {
+    async save() {},
+    async findById() { return null; },
+    async findBySession() { return []; },
+    async findByAgent() { return []; },
+    async findByIntent() { return []; },
+    async query() { return []; },
+    async getStats() { return { total: 0, successful: 0, failed: 0, averageExecutionTime: 0 }; },
+  };
+  const eventBus: EventBusPort = {
+    async publish() {},
+    async publishBatch() {},
+    subscribe() {},
+    subscribeAll() {},
+    unsubscribe() {},
+    async query() { return []; },
+    async health() { return { healthy: true }; },
+  };
+  const auditLog: AuditLogPort = {
+    async log() {},
+    async query() { return []; },
+    async verifyIntegrity() { return { valid: true }; },
+  };
+  return { agentRunRepo, eventBus, auditLog };
+}
+
+function createCoordinator(): SwarmCoordinator {
+  const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+  return new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
+}
 
 // ============================================
 // Test Context Factory
@@ -347,7 +386,7 @@ describe('SECURITY: Document Leakage', () => {
     });
 
     it('CRITICAL: Compliance classification is admin-only', async () => {
-      const coordinator = new SwarmCoordinator();
+      const coordinator = createCoordinator();
       coordinator.register(docAgent);
 
       const adminResponse = await coordinator.route({
@@ -389,7 +428,7 @@ describe('SECURITY: Document Leakage', () => {
 describe('SECURITY: Coordinator/Agent Data Leakage', () => {
   describe('Coordinator Intent Routing', () => {
     it('CRITICAL: Unknown intents are rejected', async () => {
-      const coordinator = new SwarmCoordinator();
+      const coordinator = createCoordinator();
       coordinator.register(new EmployeeProfileAgent());
 
       const response = await coordinator.route({
@@ -404,7 +443,7 @@ describe('SECURITY: Coordinator/Agent Data Leakage', () => {
     });
 
     it('CRITICAL: Unregistered agents return error', async () => {
-      const coordinator = new SwarmCoordinator();
+      const coordinator = createCoordinator();
       // Don't register any agents
 
       const response = await coordinator.route({
@@ -419,7 +458,7 @@ describe('SECURITY: Coordinator/Agent Data Leakage', () => {
     });
 
     it('CRITICAL: Dashboard summary respects permissions', async () => {
-      const coordinator = new SwarmCoordinator();
+      const coordinator = createCoordinator();
       coordinator.register(new EmployeeProfileAgent());
       coordinator.register(new LeaveMilestonesAgent());
       coordinator.register(new DocumentComplianceAgent());
@@ -437,7 +476,7 @@ describe('SECURITY: Coordinator/Agent Data Leakage', () => {
     });
 
     it('CRITICAL: Coordinator does not leak error details', async () => {
-      const coordinator = new SwarmCoordinator();
+      const coordinator = createCoordinator();
 
       const response = await coordinator.route({
         intent: 'unknown_intent' as any,
@@ -913,7 +952,7 @@ describe('SECURITY: Dependency and Supply Chain', () => {
 // ============================================
 
 describe('SECURITY: Approval Bypass', () => {
-  const coordinator = new SwarmCoordinator();
+  const coordinator = createCoordinator();
   coordinator.register(new WorkflowAgent());
 
   describe('Workflow Approval Gates', () => {

@@ -297,5 +297,16 @@ export function filterChunksByAudience(chunks: PolicyChunk[], role: string): Pol
   });
 }
 
-// Initialize on module load
-initializePolicyStore();
+// Track if already initialized to prevent duplicate seed data
+let isPolicyStoreInitialized = false;
+
+// Initialize on module load (idempotent)
+export function ensurePolicyStoreInitialized(): void {
+  if (!isPolicyStoreInitialized) {
+    initializePolicyStore();
+    isPolicyStoreInitialized = true;
+  }
+}
+
+// Auto-initialize on module load for backward compatibility
+ensurePolicyStoreInitialized();

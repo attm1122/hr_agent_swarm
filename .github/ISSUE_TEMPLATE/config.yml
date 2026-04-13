@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/attm1122/hr_agent_swarm/blob/main/README.md
+    about: Check the documentation before creating an issue
+  
+  - name: Discussions
+    url: https://github.com/attm1122/hr_agent_swarm/discussions
+    about: Ask questions and share ideas in discussions
+  
+  - name: Security Policy
+    url: https://github.com/attm1122/hr_agent_swarm/blob/main/SECURITY.md
+    about: Please review our security policy for reporting vulnerabilities

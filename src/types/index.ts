@@ -313,28 +313,42 @@ export type AgentType =
   | 'onboarding'
   | 'offboarding'
   | 'workflow_approvals'
-  | 'knowledge_policy';
+  | 'knowledge_policy'
+  | 'manager_support';
 
 export type AgentIntent =
   // Employee & Document
   | 'employee_search'
   | 'employee_summary'
+  | 'employee_profile'
+  | 'employee_document_list'
   | 'document_list'
   | 'document_classify'
+  | 'document_find'
+  | 'team_directory'
   // Leave & Compensation
   | 'leave_balance'
   | 'leave_request'
+  | 'leave_balance_check'
+  | 'leave_request_submit'
+  | 'leave_request_status'
+  | 'pending_leave_requests'
   | 'compensation_view'
   | 'compensation_history'
   // Reviews & Milestones
   | 'milestone_list'
+  | 'upcoming_milestones'
+  | 'milestone_acknowledge'
   | 'review_status'
+  // Compliance
+  | 'compliance_check'
   // Communications & Reporting
   | 'communication_draft'
   | 'report_generate'
   // Onboarding
   | 'onboarding_create'
   | 'onboarding_status'
+  | 'onboarding_progress'
   | 'onboarding_task_list'
   | 'onboarding_task_complete'
   | 'onboarding_blockers'
@@ -342,6 +356,7 @@ export type AgentIntent =
   // Offboarding
   | 'offboarding_create'
   | 'offboarding_status'
+  | 'offboarding_progress'
   | 'offboarding_task_list'
   | 'offboarding_task_complete'
   | 'offboarding_assets'
@@ -354,12 +369,27 @@ export type AgentIntent =
   | 'workflow_reject'
   | 'workflow_history'
   | 'approval_inbox'
+  | 'pending_workflows'
   // Knowledge & Policy
   | 'policy_search'
   | 'policy_answer'
+  | 'policy_lookup'
+  | 'policy_compare'
   | 'policy_citations'
+  | 'knowledge_search'
+  | 'knowledge_summary'
+  // Manager Support
+  | 'manager_team_overview'
+  | 'manager_employee_brief'
+  | 'manager_action_items'
   // Coordinator
-  | 'dashboard_summary';
+  | 'dashboard_summary'
+  // Manager Support
+  | 'manager_team_summary'
+  | 'manager_employee_brief'
+  | 'manager_dashboard'
+  | 'manager_action_items'
+  | 'manager_status_check';
 
 // ============================================
 // Orchestration Types
@@ -384,6 +414,7 @@ export interface AgentContext {
   employeeId?: string;
   managerId?: string;
   teamId?: string;
+  tenantId?: string;
   permissions: string[];
   sessionId: string;
   timestamp: string;
@@ -400,9 +431,34 @@ export interface SwarmResponse {
   agentType: AgentType;
   intent: AgentIntent;
   result: AgentResult;
-  routingConfidence: number;
+  routingConfidence?: number;
   executionTimeMs: number;
   auditId: string;
+  timestamp?: string;
+  context?: {
+    userId: string;
+    role: string;
+    tenantId: string;
+  };
+}
+
+// ============================================
+// Agent Run Record
+// ============================================
+
+export interface AgentRunRecord {
+  id: string;
+  agentType: string;
+  intent: string;
+  inputPayload: Record<string, unknown>;
+  outputResult: Record<string, unknown> | AgentResult | null;
+  confidence: number | null;
+  executionTimeMs: number;
+  success: boolean;
+  errorMessage: string | null;
+  context: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  createdAt: string;
 }
 
 // ============================================
@@ -655,3 +711,24 @@ export interface ReportColumn {
 
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 export type WorkflowStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
+
+// ============================================
+// Export Domain
+// ============================================
+
+export interface ExportApproval {
+  id: string;
+  requesterId: string;
+  requesterEmail: string;
+  fields: string[];
+  format: string;
+  filters?: Record<string, unknown>;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  approverId: string | null;
+  approvedAt: string | null;
+  rejectionReason?: string;
+  completedAt: string | null;
+  downloadUrl: string | null;
+  expiresAt: string;
+}

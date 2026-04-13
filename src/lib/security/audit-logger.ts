@@ -290,6 +290,37 @@ function isSystemField(field: string): boolean {
 }
 
 /**
+ * Map camelCase entry to snake_case database columns
+ */
+function mapToDbColumns(entry: AuditLogEntry, tenantId: string) {
+  return {
+    tenant_id: tenantId,
+    event_id: entry.id,
+    timestamp: entry.timestamp,
+    event_type: entry.eventType,
+    user_id: entry.userId,
+    role: entry.role,
+    session_id: entry.sessionId,
+    ip_address: entry.ipAddress,
+    user_agent: entry.userAgent,
+    intent: entry.intent,
+    agent_type: entry.agentType,
+    success: entry.success,
+    error_message: entry.errorMessage,
+    resource_type: entry.resourceType,
+    resource_id: entry.resourceId,
+    action: entry.action,
+    fields_accessed: entry.fieldsAccessed,
+    sensitivity_level: entry.sensitivityLevel,
+    risk_score: entry.riskScore,
+    requires_approval: entry.requiresApproval,
+    approval_status: entry.approvalStatus,
+    previous_hash: entry.previousHash,
+    integrity_hash: entry.integrityHash,
+  };
+}
+
+/**
  * Flush buffer to persistent storage
  * Production: Write to Supabase/PostgreSQL
  */
@@ -300,20 +331,24 @@ async function flushBuffer(): Promise<void> {
   auditBuffer.length = 0; // Clear buffer
   
   try {
+    // Get tenant ID from env or default
+    const tenantId = process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000000';
+    
+    // Map to database columns (snake_case)
+    const dbEntries = entries.map(e => mapToDbColumns(e, tenantId));
+    
     if (process.env.NODE_ENV === 'production') {
       // Production: Persist to Supabase database
       const supabase = createAdminClient();
-      const { error } = await supabase.from('audit_logs').insert(entries);
+      const { error } = await supabase.from('audit_logs').insert(dbEntries);
       
       if (error) {
         throw error;
       }
       
-      // eslint-disable-next-line no-console
       console.log('[AUDIT_FLUSH]', { count: entries.length, status: 'persisted' });
     } else {
       // Development: Log to console for visibility
-      // eslint-disable-next-line no-console
       entries.forEach(e => console.log('[AUDIT]', e.eventType, e.userId, e.resourceType));
     }
   } catch (error) {
@@ -322,7 +357,6 @@ async function flushBuffer(): Promise<void> {
     auditBuffer.unshift(...entries);
     
     // Alert on audit failure - this is a security incident
-    // eslint-disable-next-line no-console
     console.error('[CRITICAL AUDIT FAILURE] Failed to persist audit logs:', error);
     
     // In production: Alert security team immediately
@@ -347,7 +381,7 @@ async function flushBuffer(): Promise<void> {
 function alertSecurityTeam(entry: Omit<AuditLogEntry, 'integrityHash'>): void {
   // POC: Console alert
   // Production: Send to security monitoring
-  // eslint-disable-next-line no-console
+   
   console.error('[SECURITY_ALERT]', {
     eventType: entry.eventType,
     userId: entry.userId,

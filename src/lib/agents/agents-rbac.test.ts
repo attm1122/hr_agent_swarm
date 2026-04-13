@@ -24,6 +24,40 @@ import {
   ROLE_SCOPE,
   ROLE_SENSITIVITY,
 } from '@/lib/auth/authorization';
+import type { AgentRunRepositoryPort } from '@/lib/ports/repository-ports';
+import type { EventBusPort } from '@/lib/ports/event-bus-port';
+import type { AuditLogPort } from '@/lib/ports/infrastructure-ports';
+
+// ============================================
+// Mock port implementations for testing
+// ============================================
+
+function createMockPorts() {
+  const agentRunRepo: AgentRunRepositoryPort = {
+    async save() {},
+    async findById() { return null; },
+    async findBySession() { return []; },
+    async findByAgent() { return []; },
+    async findByIntent() { return []; },
+    async query() { return []; },
+    async getStats() { return { total: 0, successful: 0, failed: 0, averageExecutionTime: 0 }; },
+  };
+  const eventBus: EventBusPort = {
+    async publish() {},
+    async publishBatch() {},
+    subscribe() {},
+    subscribeAll() {},
+    unsubscribe() {},
+    async query() { return []; },
+    async health() { return { healthy: true }; },
+  };
+  const auditLog: AuditLogPort = {
+    async log() {},
+    async query() { return []; },
+    async verifyIntegrity() { return { valid: true }; },
+  };
+  return { agentRunRepo, eventBus, auditLog };
+}
 
 // ============================================
 // Test context factory
@@ -450,7 +484,8 @@ describe('SwarmCoordinator RBAC', () => {
   let coordinator: SwarmCoordinator;
 
   beforeEach(() => {
-    coordinator = new SwarmCoordinator();
+    const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+    coordinator = new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new LeaveMilestonesAgent());
     coordinator.register(new DocumentComplianceAgent());
@@ -750,7 +785,8 @@ describe('Negative & data-leakage tests', () => {
   });
 
   it('coordinator never merges unauthorized compliance data for non-admin', async () => {
-    const coordinator = new SwarmCoordinator();
+    const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+    const coordinator = new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
     coordinator.register(new EmployeeProfileAgent());
     coordinator.register(new LeaveMilestonesAgent());
     coordinator.register(new DocumentComplianceAgent());
@@ -765,7 +801,8 @@ describe('Negative & data-leakage tests', () => {
   });
 
   it('PAYROLL can never access document_list through coordinator', async () => {
-    const coordinator = new SwarmCoordinator();
+    const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+    const coordinator = new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
     coordinator.register(new DocumentComplianceAgent());
     const response = await coordinator.route({
       intent: 'document_list', query: '', payload: {}, context: PAYROLL_CTX(),
@@ -795,7 +832,8 @@ describe('Agent RBAC regression', () => {
   });
 
   it('coordinator audit log is bounded', async () => {
-    const coordinator = new SwarmCoordinator();
+    const { agentRunRepo, eventBus, auditLog } = createMockPorts();
+    const coordinator = new SwarmCoordinator(agentRunRepo, eventBus, auditLog);
     coordinator.register(new EmployeeProfileAgent());
     for (let i = 0; i < 210; i++) {
       await coordinator.route({

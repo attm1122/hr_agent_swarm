@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Handle each type separately to avoid union type issues
-    let responseData: Record<string, unknown> = { success: true };
+    const responseData: Record<string, unknown> = { success: true };
 
     switch (body.type) {
       case 'document': {
@@ -272,7 +272,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    let responseData: Record<string, unknown> = { success: true };
+    const responseData: Record<string, unknown> = { success: true };
 
     switch (body.type) {
       case 'document': {

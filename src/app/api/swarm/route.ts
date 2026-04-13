@@ -1,154 +1,166 @@
 /**
- * POST /api/swarm
- * Single entry point for all agent interactions.
- * Client sends intent + payload only.
- * Server builds AgentContext from the authenticated session — never trust the client.
- *
- * SECURITY: Protected by:
- * - Rate limiting (agent tier: 60/min)
- * - CSRF token validation
- * - Input sanitization (XSS/SQL injection prevention)
- * - Request size limits (1MB)
- * - Security headers
+ * Swarm API Route - Agent Orchestration Endpoint
+ * 
+ * Production-ready with:
+ * - Zod validation
+ * - Rate limiting
+ * - Idempotency support
+ * - Structured error responses
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getCoordinator } from '@/lib/agents';
-import {
-  requireVerifiedSessionContext,
-  isSessionResolutionError,
-} from '@/lib/auth/session';
-import { securityMiddleware, validateRequestBody, addSecurityHeaders, withRequestTimeout } from '@/lib/security';
-import { logSecurityEvent } from '@/lib/security';
-import type { AgentIntent } from '@/types';
+import { SwarmRequestSchema } from '@/lib/validation/schemas';
+import { IdempotencyStore } from '@/lib/validation/idempotency';
+import { getCoordinator } from '@/lib/agents/coordinator';
+import { requireSession } from '@/lib/auth/session';
+import { createCacheAdapter } from '@/lib/infrastructure/redis/redis-cache-adapter';
+import { RedisRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit-redis';
+import { z } from 'zod';
 
-interface SwarmPostBody {
-  intent: AgentIntent;
-  query?: string;
-  payload?: Record<string, unknown>;
+// Initialize infrastructure
+const cache = createCacheAdapter();
+const idempotencyStore = new IdempotencyStore(cache);
+const rateLimiter = new RedisRateLimiter(cache);
+
+// Error response helper
+function createErrorResponse(
+  message: string,
+  code: string,
+  status: number,
+  details?: unknown
+) {
+  return NextResponse.json(
+    {
+      error: {
+        message,
+        code,
+        details,
+        timestamp: new Date().toISOString(),
+      },
+    },
+    { status }
+  );
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = performance.now();
+  
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
-
-    // 1. Apply security middleware (rate limit, CSRF, size checks)
-    const securityCheck = await securityMiddleware(req, securityContext, {
-      rateLimitTier: 'agent',
-      requireCsrf: true,
-      validateInput: true,
-      maxBodySize: 1024 * 1024, // 1MB
-    });
-
-    if (securityCheck) {
-      // Security check failed - return the error response with headers
-      return addSecurityHeaders(securityCheck);
+    // Authentication
+    const session = await requireSession();
+    if (!session) {
+      return createErrorResponse('Authentication required', 'AUTH_REQUIRED', 401);
     }
 
-    // 2. Validate and sanitize request body
-    const bodyValidation = await validateRequestBody(req, securityContext);
-    if (!bodyValidation.success) {
-      logSecurityEvent(
-        'security_blocked',
-        context,
-        { reason: bodyValidation.error || 'Body validation failed' }
-      );
-      const response = NextResponse.json(
-        { error: bodyValidation.error || 'Invalid request body' },
-        { status: 400 }
-      );
-      return addSecurityHeaders(response);
-    }
-
-    // Safe cast: body has been validated and sanitized by validateRequestBody
-    const body = bodyValidation.body as unknown as SwarmPostBody;
-
-    if (!body || !body.intent) {
-      return addSecurityHeaders(
-        NextResponse.json(
-          { error: 'Missing required field: intent' },
-          { status: 400 }
-        )
-      );
-    }
-
-    // 3. Context is built server-side from the session — client cannot override role/permissions
-    // 4. Route to coordinator with full security context
-    const coordinator = getCoordinator();
-    const response = await withRequestTimeout(
-      coordinator.route({
-        intent: body.intent,
-        query: body.query || '',
-        payload: body.payload || {},
-        context,
-      }),
-      30000,
-      `agent:${body.intent}`
+    // Rate limiting
+    const rateLimitResult = await rateLimiter.check(
+      session.userId,
+      RATE_LIMITS.swarm
     );
-
-    // 5. Add security headers to successful response
-    const successResponse = NextResponse.json(response);
-    return addSecurityHeaders(successResponse);
-  } catch (err) {
-    if (isSessionResolutionError(err)) {
-      return addSecurityHeaders(
-        NextResponse.json(
-          { error: err.message, code: err.code },
-          { status: err.status }
-        )
+    
+    if (!rateLimitResult.allowed) {
+      return createErrorResponse(
+        'Rate limit exceeded',
+        'RATE_LIMIT_EXCEEDED',
+        429,
+        { retryAfter: rateLimitResult.retryAfter }
       );
     }
 
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    const errorResponse = NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
-    return addSecurityHeaders(errorResponse);
-  }
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    const { session, securityContext } = requireVerifiedSessionContext();
-
-    // Auth-gate: only admin can see audit log (contains employee names & action summaries)
-    if (session.role !== 'admin') {
-      const response = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      return addSecurityHeaders(response);
+    // Parse and validate body
+    const rawBody = await req.json();
+    const validationResult = SwarmRequestSchema.safeParse(rawBody);
+    
+    if (!validationResult.success) {
+      return createErrorResponse(
+        'Invalid request body',
+        'VALIDATION_ERROR',
+        400,
+        validationResult.error.issues
+      );
     }
 
-    const securityCheck = await securityMiddleware(req, securityContext, {
-      rateLimitTier: 'report', // Lower limit for audit access
-      requireCsrf: false, // GET doesn't require CSRF
-      validateInput: false,
-    });
+    const body = validationResult.data;
 
-    if (securityCheck) {
-      return addSecurityHeaders(securityCheck);
+    // Idempotency check
+    const idempotencyKey = req.headers.get('Idempotency-Key');
+    if (idempotencyKey) {
+      const existing = await idempotencyStore.check(idempotencyKey);
+      
+      if (existing.exists) {
+        if (existing.status === 'processing') {
+          return createErrorResponse(
+            'Request is already being processed',
+            'IDEMPOTENCY_PROCESSING',
+            409
+          );
+        }
+        
+        if (existing.status === 'completed' && existing.response) {
+          // Return cached response
+          return NextResponse.json(existing.response, {
+            headers: {
+              'X-Idempotency-Replay': 'true',
+              'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            },
+          });
+        }
+      }
     }
 
+    // Get coordinator
     const coordinator = getCoordinator();
-    const response = NextResponse.json({
-      status: 'ok',
-      agents: ['employee_profile', 'leave_milestones', 'document_compliance'],
-      recentAudit: coordinator.getAuditLog().slice(-10),
+
+    // Execute agent
+    const result = await coordinator.route({
+      intent: body.intent,
+      query: body.query || '',
+      payload: body.payload || {},
+      context: {
+        userId: session.userId,
+        employeeId: session.employeeId,
+        tenantId: session.tenantId,
+        role: session.role,
+        scope: session.scope,
+        sensitivityClearance: session.sensitivityClearance,
+        permissions: session.permissions,
+        sessionId: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+      },
     });
 
-    return addSecurityHeaders(response);
-  } catch (err) {
-    if (isSessionResolutionError(err)) {
-      return addSecurityHeaders(
-        NextResponse.json(
-          { error: err.message, code: err.code },
-          { status: err.status }
-        )
-      );
+    // Track idempotency
+    if (idempotencyKey) {
+      await idempotencyStore.complete(idempotencyKey, result);
     }
 
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return addSecurityHeaders(
-      NextResponse.json({ error: message }, { status: 500 })
+    // Return response
+    return NextResponse.json(result, {
+      headers: {
+        'X-Request-ID': result.auditId,
+        'X-Execution-Time': `${Math.round(performance.now() - startTime)}ms`,
+        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+        'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+      },
+    });
+
+  } catch (error) {
+    console.error('Swarm API error:', error);
+    
+    if (error instanceof z.ZodError) {
+      return createErrorResponse(
+        'Validation error',
+        'VALIDATION_ERROR',
+        400,
+        error.issues
+      );
+    }
+    
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Internal server error',
+      'INTERNAL_ERROR',
+      500
     );
   }
 }

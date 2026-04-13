@@ -226,6 +226,8 @@ export interface AgentRun {
   success: boolean;
   error_message: string | null;
   context: Json | null;
+  metadata: Json | null;
+  tenant_id: string;
   created_at: string;
 }
 
@@ -336,33 +338,33 @@ export interface OffboardingAccess {
 export interface Database {
   public: {
     Tables: {
-      employees: { Row: Employee; Insert: Omit<Employee, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Employee, 'id' | 'created_at' | 'updated_at'>> };
-      teams: { Row: Team; Insert: Omit<Team, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Team, 'id' | 'created_at' | 'updated_at'>> };
-      positions: { Row: Position; Insert: Omit<Position, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Position, 'id' | 'created_at' | 'updated_at'>> };
-      employee_documents: { Row: EmployeeDocument; Insert: Omit<EmployeeDocument, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<EmployeeDocument, 'id' | 'created_at' | 'updated_at'>> };
-      document_requirements: { Row: DocumentRequirement; Insert: Omit<DocumentRequirement, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<DocumentRequirement, 'id' | 'created_at' | 'updated_at'>> };
-      leave_balances: { Row: LeaveBalance; Insert: Omit<LeaveBalance, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<LeaveBalance, 'id' | 'created_at' | 'updated_at'>> };
-      leave_requests: { Row: LeaveRequest; Insert: Omit<LeaveRequest, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<LeaveRequest, 'id' | 'created_at' | 'updated_at'>> };
-      compensation_records: { Row: CompensationRecord; Insert: Omit<CompensationRecord, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<CompensationRecord, 'id' | 'created_at' | 'updated_at'>> };
-      milestones: { Row: Milestone; Insert: Omit<Milestone, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Milestone, 'id' | 'created_at' | 'updated_at'>> };
-      onboarding_plans: { Row: OnboardingPlan; Insert: Omit<OnboardingPlan, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OnboardingPlan, 'id' | 'created_at' | 'updated_at'>> };
-      onboarding_tasks: { Row: OnboardingTask; Insert: Omit<OnboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OnboardingTask, 'id' | 'created_at' | 'updated_at'>> };
-      workflows: { Row: Workflow; Insert: Omit<Workflow, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Workflow, 'id' | 'created_at' | 'updated_at'>> };
-      approval_steps: { Row: ApprovalStep; Insert: Omit<ApprovalStep, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ApprovalStep, 'id' | 'created_at' | 'updated_at'>> };
-      audit_events: { Row: AuditEvent; Insert: Omit<AuditEvent, 'id' | 'created_at'>; Update: Partial<Omit<AuditEvent, 'id' | 'created_at'>> };
-      agent_runs: { Row: AgentRun; Insert: Omit<AgentRun, 'id' | 'created_at'>; Update: Partial<Omit<AgentRun, 'id' | 'created_at'>> };
-      report_definitions: { Row: ReportDefinition; Insert: Omit<ReportDefinition, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ReportDefinition, 'id' | 'created_at' | 'updated_at'>> };
-      report_runs: { Row: ReportRun; Insert: Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>> };
-      policy_documents: { Row: PolicyDocument; Insert: Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>> };
-      policy_chunks: { Row: PolicyChunk; Insert: Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>> };
-      offboarding_plans: { Row: OffboardingPlan; Insert: Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>> };
-      offboarding_tasks: { Row: OffboardingTask; Insert: Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>> };
-      offboarding_assets: { Row: OffboardingAsset; Insert: Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>> };
-      offboarding_access: { Row: OffboardingAccess; Insert: Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>> };
+      employees: { Row: Employee; Insert: Omit<Employee, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Employee, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      teams: { Row: Team; Insert: Omit<Team, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Team, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      positions: { Row: Position; Insert: Omit<Position, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Position, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      employee_documents: { Row: EmployeeDocument; Insert: Omit<EmployeeDocument, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<EmployeeDocument, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      document_requirements: { Row: DocumentRequirement; Insert: Omit<DocumentRequirement, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<DocumentRequirement, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      leave_balances: { Row: LeaveBalance; Insert: Omit<LeaveBalance, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<LeaveBalance, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      leave_requests: { Row: LeaveRequest; Insert: Omit<LeaveRequest, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<LeaveRequest, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      compensation_records: { Row: CompensationRecord; Insert: Omit<CompensationRecord, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<CompensationRecord, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      milestones: { Row: Milestone; Insert: Omit<Milestone, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Milestone, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      onboarding_plans: { Row: OnboardingPlan; Insert: Omit<OnboardingPlan, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OnboardingPlan, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      onboarding_tasks: { Row: OnboardingTask; Insert: Omit<OnboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OnboardingTask, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      workflows: { Row: Workflow; Insert: Omit<Workflow, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Workflow, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      approval_steps: { Row: ApprovalStep; Insert: Omit<ApprovalStep, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ApprovalStep, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      audit_events: { Row: AuditEvent; Insert: Omit<AuditEvent, 'id' | 'created_at'>; Update: Partial<Omit<AuditEvent, 'id' | 'created_at'>>; Relationships: [] };
+      agent_runs: { Row: AgentRun; Insert: AgentRun; Update: Partial<Omit<AgentRun, 'id'>>; Relationships: [] };
+      report_definitions: { Row: ReportDefinition; Insert: Omit<ReportDefinition, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ReportDefinition, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      report_runs: { Row: ReportRun; Insert: Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ReportRun, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      policy_documents: { Row: PolicyDocument; Insert: Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyDocument, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      policy_chunks: { Row: PolicyChunk; Insert: Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<PolicyChunk, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      offboarding_plans: { Row: OffboardingPlan; Insert: Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingPlan, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      offboarding_tasks: { Row: OffboardingTask; Insert: Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      offboarding_assets: { Row: OffboardingAsset; Insert: Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
+      offboarding_access: { Row: OffboardingAccess; Insert: Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>>; Relationships: [] };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
-    Enums: Record<string, never>;
+    Views: {};
+    Functions: {};
+    Enums: {};
   };
 }
 
