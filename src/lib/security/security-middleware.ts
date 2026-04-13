@@ -10,8 +10,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import type { Role } from '@/types';
-import { checkRateLimit, generateRateLimitKey } from './rate-limit';
-import { validateCsrfToken, extractCsrfToken, requiresCsrfProtection } from './csrf';
+import { checkRateLimit, checkRateLimitAsync, generateRateLimitKey } from './rate-limit';
+import {
+  validateCsrfToken,
+  validateCsrfTokenAsync,
+  extractCsrfToken,
+  requiresCsrfProtection,
+} from './csrf';
 import { sanitizeObject, containsXss, containsSqlInjection } from './sanitize';
 import { logSecurityEvent } from './audit-logger';
 
@@ -60,10 +65,17 @@ export async function securityMiddleware(
   const requestId = generateRequestId();
   const clientIp = getClientIp(request);
   
+  // When REDIS_URL is set, use the KV-backed async variants so counters /
+  // CSRF tokens are shared across Vercel instances. Otherwise the in-memory
+  // sync path is slightly faster and perfectly correct for single-instance.
+  const useDistributed = Boolean(process.env.REDIS_URL);
+
   // 1. Rate Limiting
   if (mergedConfig.rateLimitTier) {
     const rateLimitKey = generateRateLimitKey(userContext.userId, clientIp, userContext.sessionId);
-    const rateLimit = checkRateLimit(rateLimitKey, mergedConfig.rateLimitTier, userContext.role);
+    const rateLimit = useDistributed
+      ? await checkRateLimitAsync(rateLimitKey, mergedConfig.rateLimitTier, userContext.role)
+      : checkRateLimit(rateLimitKey, mergedConfig.rateLimitTier, userContext.role);
     
     if (!rateLimit.allowed) {
       logSecurityEvent(
@@ -95,7 +107,13 @@ export async function securityMiddleware(
   if (mergedConfig.requireCsrf && requiresCsrfProtection(request.method)) {
     const csrfToken = extractCsrfToken(request.headers);
     
-    if (!csrfToken || !validateCsrfToken(csrfToken, userContext.sessionId)) {
+    const csrfValid = csrfToken
+      ? useDistributed
+        ? await validateCsrfTokenAsync(csrfToken, userContext.sessionId)
+        : validateCsrfToken(csrfToken, userContext.sessionId)
+      : false;
+
+    if (!csrfValid) {
       logSecurityEvent(
         'csrf_violation',
         userContext,

@@ -1,22 +1,24 @@
 /**
  * Onboarding Agent
  * Handles new employee onboarding workflows, task tracking, and progress monitoring.
- * Data source: onboarding-store.ts (POC; production: Supabase)
+ *
+ * Data source: `getOnboardingStore()` — transparently reads from Supabase when
+ * `SUPABASE_SERVICE_ROLE_KEY` is configured, or falls back to mock data in
+ * dev. No agent changes needed to switch modes.
+ *
  * Deterministic logic only — no AI reasoning.
  */
 
-import type { AgentResult, AgentContext, AgentIntent, OnboardingPlan, OnboardingTask } from '@/types';
+import type { AgentResult, AgentContext, AgentIntent, OnboardingPlan } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  onboardingPlans,
-  onboardingTasks,
+  getOnboardingStore,
   createOnboardingPlan,
   completeOnboardingTask,
   calculateOnboardingProgress,
   identifyOnboardingBlockers,
   ONBOARDING_TEMPLATES,
-  initializeOnboardingStore,
 } from '@/lib/data/onboarding-store';
 import {
   canViewOnboarding,
@@ -25,11 +27,8 @@ import {
   hasCapability,
   isInScope,
 } from '@/lib/auth/authorization';
-import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
+import { getEmployeeStore } from '@/lib/data/employee-store';
 import { buildRecordScopeContext } from '@/lib/auth/team-scope';
-
-// Ensure store is initialized
-initializeOnboardingStore();
 
 /** Check if user can view specific onboarding plan */
 function canViewPlan(context: AgentContext, plan: OnboardingPlan, teamIds: string[]): boolean {
@@ -93,25 +92,26 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Employee ID is required');
     }
 
-    const employee = getEmployeeById(employeeId);
+    const empStore = getEmployeeStore();
+    const onbStore = getOnboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const employee = await empStore.findById(employeeId, tenantId);
     if (!employee) {
       return createErrorResult('Employee not found');
     }
 
-    // Default to current user as hiring manager if not specified
     const effectiveManagerId = assignedTo || context.employeeId;
-
-    // Use default template if not specified
     const effectiveTemplateName = templateName || 'standard';
     if (!ONBOARDING_TEMPLATES[effectiveTemplateName]) {
       return createErrorResult(`Unknown template: ${effectiveTemplateName}`);
     }
 
     // Check if plan already exists
-    const existingPlan = onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed');
+    const existingPlan = await onbStore.getActivePlanByEmployee(employeeId, tenantId);
     if (existingPlan) {
       return createErrorResult(
-        `Active onboarding plan already exists for ${getEmployeeFullName(employee)}`,
+        `Active onboarding plan already exists for ${employee.firstName} ${employee.lastName}`,
         [`Existing plan ID: ${existingPlan.id}`]
       );
     }
@@ -127,15 +127,19 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Failed to create onboarding plan');
     }
 
+    const tasks = await onbStore.getTasksForPlan(plan.id, tenantId);
+
+    const citationSource = onbStore.backend === 'supabase' ? 'Supabase' : 'HR System';
+
     return createAgentResult(
       {
         plan,
-        tasksCreated: onboardingTasks.filter(t => t.planId === plan.id).length,
+        tasksCreated: tasks.length,
       },
       {
-        summary: `Onboarding plan created for ${getEmployeeFullName(employee)} with ${ONBOARDING_TEMPLATES[effectiveTemplateName].name}`,
+        summary: `Onboarding plan created for ${employee.firstName} ${employee.lastName} with ${ONBOARDING_TEMPLATES[effectiveTemplateName].name}`,
         confidence: 1.0,
-        citations: [{ source: 'HR System', reference: plan.id }],
+        citations: [{ source: citationSource, reference: plan.id }],
       }
     );
   }
@@ -147,24 +151,34 @@ export class OnboardingAgent implements Agent {
     const planId = payload.planId as string | undefined;
     const employeeId = payload.employeeId as string | undefined;
 
-    let plan: OnboardingPlan | undefined;
+    const empStore = getEmployeeStore();
+    const onbStore = getOnboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    let plan: OnboardingPlan | null = null;
 
     if (planId) {
-      plan = onboardingPlans.find(p => p.id === planId);
+      plan = await onbStore.getPlanById(planId, tenantId);
     } else if (employeeId) {
-      plan = onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed');
+      plan = await onbStore.getActivePlanByEmployee(employeeId, tenantId);
     } else {
       // Return all accessible plans
       const scopeContext = buildRecordScopeContext(context);
-      const accessiblePlans = onboardingPlans.filter((plan) =>
-        canViewPlan(context, plan, scopeContext.teamEmployeeIds)
+      const allPlans = await onbStore.getAllPlans(tenantId);
+      const accessiblePlans = allPlans.filter((p) =>
+        canViewPlan(context, p, scopeContext.teamEmployeeIds)
       );
 
-      const enriched = accessiblePlans.map(p => ({
-        ...p,
-        employeeName: getEmployeeById(p.employeeId)?.firstName + ' ' + getEmployeeById(p.employeeId)?.lastName,
-        hiringManagerName: getEmployeeById(p.assignedTo)?.firstName + ' ' + getEmployeeById(p.assignedTo)?.lastName,
-        progress: calculateOnboardingProgress(p.id).percentage,
+      const enriched = await Promise.all(accessiblePlans.map(async (p) => {
+        const emp = await empStore.findById(p.employeeId, tenantId);
+        const mgr = await empStore.findById(p.assignedTo, tenantId);
+        const tasks = await onbStore.getTasksForPlan(p.id, tenantId);
+        return {
+          ...p,
+          employeeName: emp ? `${emp.firstName} ${emp.lastName}` : p.employeeId,
+          hiringManagerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : p.assignedTo,
+          progress: calculateOnboardingProgress(tasks).percentage,
+        };
       }));
 
       return createAgentResult(enriched, {
@@ -182,16 +196,18 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this onboarding plan', ['RBAC violation']);
     }
 
-    const tasks = onboardingTasks.filter(t => t.planId === plan!.id);
-    const progress = calculateOnboardingProgress(plan.id);
+    const tasks = await onbStore.getTasksForPlan(plan.id, tenantId);
+    const progress = calculateOnboardingProgress(tasks);
+    const emp = await empStore.findById(plan.employeeId, tenantId);
+    const mgr = await empStore.findById(plan.assignedTo, tenantId);
 
     return createAgentResult(
       {
         plan,
         tasks,
         progress: progress.percentage,
-        employeeName: getEmployeeFullName(getEmployeeById(plan.employeeId)!),
-        hiringManagerName: getEmployeeFullName(getEmployeeById(plan.assignedTo)!),
+        employeeName: emp ? `${emp.firstName} ${emp.lastName}` : plan.employeeId,
+        hiringManagerName: mgr ? `${mgr.firstName} ${mgr.lastName}` : plan.assignedTo,
       },
       {
         summary: `Onboarding ${progress.percentage}% complete — ${tasks.filter(t => t.status === 'completed').length}/${tasks.length} tasks done`,
@@ -213,7 +229,11 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = onboardingPlans.find(p => p.id === planId);
+    const empStore = getEmployeeStore();
+    const onbStore = getOnboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await onbStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Onboarding plan not found');
     }
@@ -223,7 +243,7 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    let tasks = onboardingTasks.filter(t => t.planId === planId);
+    let tasks = await onbStore.getTasksForPlan(planId, tenantId);
 
     if (assignedTo) {
       tasks = tasks.filter(t => t.assignedTo === assignedTo);
@@ -235,9 +255,12 @@ export class OnboardingAgent implements Agent {
       tasks = tasks.filter(t => t.status === status);
     }
 
-    const enriched = tasks.map(t => ({
-      ...t,
-      assigneeName: getEmployeeById(t.assignedTo)?.firstName || t.assignedTo,
+    const enriched = await Promise.all(tasks.map(async (t) => {
+      const assignee = await empStore.findById(t.assignedTo, tenantId);
+      return {
+        ...t,
+        assigneeName: assignee?.firstName || t.assignedTo,
+      };
     }));
 
     return createAgentResult(enriched, {
@@ -260,19 +283,32 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Task ID is required');
     }
 
-    const task = onboardingTasks.find(t => t.id === taskId);
-    if (!task) {
+    const onbStore = getOnboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    // Find the task by scanning plan tasks (store has no direct task-by-id lookup
+    // but completeOnboardingTask works on the mock arrays)
+    const allPlans = await onbStore.getAllPlans(tenantId);
+    let foundTask: { taskName: string; planId: string; assignedTo: string } | null = null;
+    let foundPlan: { assignedTo: string } | null = null;
+
+    for (const plan of allPlans) {
+      const tasks = await onbStore.getTasksForPlan(plan.id, tenantId);
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        foundTask = task;
+        foundPlan = plan;
+        break;
+      }
+    }
+
+    if (!foundTask || !foundPlan) {
       return createErrorResult('Task not found');
     }
 
-    const plan = onboardingPlans.find(p => p.id === task.planId);
-    if (!plan) {
-      return createErrorResult('Parent onboarding plan not found');
-    }
-
     // Additional scope check: can only complete tasks if admin, manager of plan, or assigned to task
-    const isAssigned = task.assignedTo === context.employeeId;
-    const isManager = plan.assignedTo === context.employeeId;
+    const isAssigned = foundTask.assignedTo === context.employeeId;
+    const isManager = foundPlan.assignedTo === context.employeeId;
     const isAdmin = hasCapability(context.role, 'onboarding:manage:all');
 
     if (!isAssigned && !isManager && !isAdmin) {
@@ -285,7 +321,8 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Failed to complete task');
     }
 
-    const progress = calculateOnboardingProgress(plan.id);
+    const tasks = await onbStore.getTasksForPlan(foundTask.planId, tenantId);
+    const progress = calculateOnboardingProgress(tasks);
 
     return createAgentResult(
       {
@@ -293,7 +330,7 @@ export class OnboardingAgent implements Agent {
         planComplete: progress.percentage === 100,
       },
       {
-        summary: `Task "${task.taskName}" completed. Plan is now ${progress.percentage}% complete.`,
+        summary: `Task "${foundTask.taskName}" completed. Plan is now ${progress.percentage}% complete.`,
         confidence: 1.0,
       }
     );
@@ -309,7 +346,10 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = onboardingPlans.find(p => p.id === planId);
+    const onbStore = getOnboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await onbStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Onboarding plan not found');
     }
@@ -319,8 +359,9 @@ export class OnboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    const blockers = identifyOnboardingBlockers(planId);
-    const criticalBlockers = blockers.filter((b: { severity: string }) => b.severity === 'blocking');
+    const tasks = await onbStore.getTasksForPlan(planId, tenantId);
+    const blockers = identifyOnboardingBlockers(tasks);
+    const criticalBlockers = blockers.filter((b) => b.severity === 'blocking');
 
     return createAgentResult(
       {

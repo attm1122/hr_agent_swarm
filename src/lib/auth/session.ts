@@ -177,6 +177,30 @@ export function requireSession(): Session {
   return session;
 }
 
+/**
+ * Async session resolver. In production, consults Supabase Auth via cookies.
+ * In non-production with mock auth enabled, returns the mock session.
+ * Returns null for unauthenticated requests.
+ */
+export async function resolveSession(): Promise<Session | null> {
+  const inProduction = process.env.NODE_ENV === 'production';
+  const productionAuthEnabled = isProductionAuthEnabled();
+
+  if (inProduction || productionAuthEnabled) {
+    return getProductionSession();
+  }
+  return getSession();
+}
+
+/** Async equivalent of requireSession. Throws 401 if no session. */
+export async function requireResolvedSession(): Promise<Session> {
+  const session = await resolveSession();
+  if (!session) {
+    throw new SessionResolutionError('AUTH_REQUIRED', 'Authentication required', 401);
+  }
+  return session;
+}
+
 export function isSessionResolutionError(error: unknown): error is SessionResolutionError {
   return error instanceof SessionResolutionError;
 }
@@ -291,12 +315,9 @@ export function verifyAuthConfiguration(): {
         'Production environment detected but NEXT_PUBLIC_PRODUCTION_AUTH is not set to true. ' +
         'Requests will fail closed until real authentication is configured.'
       );
-    } else {
-      errors.push(
-        'Production authentication is enabled but not implemented. ' +
-        'Configure real authentication before release.'
-      );
     }
+    // Production auth is implemented via getProductionSession() using Supabase SSR.
+    // Requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to be set.
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       errors.push('NEXT_PUBLIC_SUPABASE_URL is not configured');

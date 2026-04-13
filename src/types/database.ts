@@ -170,7 +170,7 @@ export interface OnboardingTask {
 
 export interface Workflow {
   id: string;
-  workflow_type: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval';
+  workflow_type: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval' | 'communication_approval' | 'review';
   reference_type: string;
   reference_id: string;
   initiator_id: string;

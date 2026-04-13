@@ -160,16 +160,29 @@ describe('verifyAuthConfiguration', () => {
     expect(result.errors.some((error) => error.includes('missing required variables'))).toBe(true);
   });
 
-  it('flags production auth as release-blocking until implemented', () => {
+  it('flags missing Supabase config in production even when production auth is enabled', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'true');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '');
 
     const result = verifyAuthConfiguration();
 
     expect(result.isConfigured).toBe(false);
-    expect(result.errors).toContain(
-      'Production authentication is enabled but not implemented. Configure real authentication before release.'
-    );
+    expect(result.errors).toContain('NEXT_PUBLIC_SUPABASE_URL is not configured');
+    expect(result.errors).toContain('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured');
+  });
+
+  it('accepts production auth configuration when Supabase credentials are present', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'true');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+
+    const result = verifyAuthConfiguration();
+
+    expect(result.isConfigured).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 });
 

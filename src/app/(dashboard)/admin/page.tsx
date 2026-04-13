@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Settings, Database, Shield, Users, Bell, Palette, Key, Globe } from 'lucide-react';
+import { Database, Shield, Users, Bell, Palette, Key, Globe, Rocket, ArrowRight } from 'lucide-react';
 
 const settingsGroups = [
   {
@@ -40,6 +40,26 @@ export default function AdminPage() {
           <p className="text-sm text-slate-500 mt-0.5">Manage your HR Agent Swarm configuration</p>
         </div>
       </div>
+
+      <Link href="/admin/setup" className="block group">
+        <Card className="border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white shadow-sm hover:shadow transition-shadow">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-700">
+              <Rocket className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Production setup</p>
+              <p className="text-xs text-slate-600">
+                Verify Supabase + Microsoft Graph, seed the tenant, and sync employees from Azure AD.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-indigo-700 group-hover:bg-indigo-100">
+              Open
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </CardContent>
+        </Card>
+      </Link>
 
       {settingsGroups.map((group, gi) => (
         <div key={gi}>

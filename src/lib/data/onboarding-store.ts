@@ -1,14 +1,28 @@
 /**
- * Onboarding Data Store
- * In-memory store for onboarding plans and tasks (POC).
- * Production: Replace with Supabase database calls.
+ * Onboarding data store.
+ *
+ * A thin abstraction that gives agents a single read/write API over either the
+ * Supabase `onboarding_plans` / `onboarding_tasks` tables (in production) or
+ * the in-memory mock data (in dev / when Supabase isn't configured yet).
+ *
+ * Usage:
+ *   const store = getOnboardingStore();
+ *   const plan = await store.getPlanById('obp-001', 'tenant-leap');
+ *
+ * Pure helper functions (calculateOnboardingProgress, identifyOnboardingBlockers,
+ * createOnboardingPlan, completeOnboardingTask) and ONBOARDING_TEMPLATES are
+ * re-exported for backward compatibility.
  */
 
 import type { OnboardingPlan, OnboardingTask, OnboardingBlocker } from '@/types';
-import { employees, getEmployeeById, getEmployeeFullName, getDirectReports } from './mock-data';
+import { getEmployeeById, getEmployeeFullName } from './mock-data';
 import { addDaysToDateOnly, differenceInDateOnlyDays, toDateOnlyString } from '@/lib/date-only';
+import { onboardingPlanFromRow, onboardingTaskFromRow } from './mappers';
 
-// Template task definition (subset of fields used for template creation)
+// ==========================================
+// Template definitions (shared by both mock and agent)
+// ==========================================
+
 type OnboardingTemplateTask = {
   taskName: string;
   description?: string;
@@ -18,11 +32,6 @@ type OnboardingTemplateTask = {
   priority: OnboardingTask['priority'];
 };
 
-// In-memory stores
-export const onboardingPlans: OnboardingPlan[] = [];
-export const onboardingTasks: OnboardingTask[] = [];
-
-// Templates for onboarding plans
 export const ONBOARDING_TEMPLATES: Record<string, { name: string; tasks: OnboardingTemplateTask[] }> = {
   standard: {
     name: 'Standard Employee Onboarding',
@@ -57,9 +66,16 @@ export const ONBOARDING_TEMPLATES: Record<string, { name: string; tasks: Onboard
   },
 };
 
-// Initialize with sample data
-export function initializeOnboardingStore(): void {
-  // Sample onboarding plan for emp-022 (new hire)
+// ==========================================
+// In-memory mock data
+// ==========================================
+
+export const onboardingPlans: OnboardingPlan[] = [];
+export const onboardingTasks: OnboardingTask[] = [];
+
+function seedMockData(): void {
+  if (onboardingPlans.length > 0) return; // already seeded
+
   const planId = 'obp-001';
   const startDate = toDateOnlyString();
   const targetDate = addDaysToDateOnly(startDate, 14);
@@ -67,7 +83,7 @@ export function initializeOnboardingStore(): void {
   onboardingPlans.push({
     id: planId,
     employeeId: 'emp-022',
-    assignedTo: 'emp-005', // Alex Thompson as hiring manager
+    assignedTo: 'emp-005',
     templateName: 'standard',
     startDate,
     targetCompletionDate: targetDate,
@@ -77,13 +93,12 @@ export function initializeOnboardingStore(): void {
     updatedAt: new Date().toISOString(),
   });
 
-  // Create tasks from template
   const template = ONBOARDING_TEMPLATES.standard;
   template.tasks.forEach((taskTemplate, index) => {
     const dueDate = addDaysToDateOnly(startDate, taskTemplate.dueDateOffset);
 
     let assignedTo = taskTemplate.assignedTo;
-    if (assignedTo === 'manager') assignedTo = 'emp-005'; // Alex Thompson
+    if (assignedTo === 'manager') assignedTo = 'emp-005';
     if (assignedTo === 'new_hire') assignedTo = 'emp-022';
     if (assignedTo === 'tech_lead') assignedTo = 'emp-006';
     if (assignedTo === 'buddy') assignedTo = 'emp-008';
@@ -107,27 +122,11 @@ export function initializeOnboardingStore(): void {
   });
 }
 
-// Helper functions
-export function getOnboardingPlanById(id: string): OnboardingPlan | undefined {
-  return onboardingPlans.find(p => p.id === id);
-}
+// ==========================================
+// Pure helper functions (shared, no store dependency)
+// ==========================================
 
-export function getOnboardingPlanByEmployee(employeeId: string): OnboardingPlan | undefined {
-  return onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed');
-}
-
-export function getOnboardingTasksForPlan(planId: string): OnboardingTask[] {
-  return onboardingTasks.filter(t => t.planId === planId);
-}
-
-export function getOnboardingTasksForEmployee(employeeId: string): OnboardingTask[] {
-  const plan = getOnboardingPlanByEmployee(employeeId);
-  if (!plan) return [];
-  return getOnboardingTasksForPlan(plan.id);
-}
-
-export function calculateOnboardingProgress(planId: string): { completed: number; total: number; percentage: number } {
-  const tasks = getOnboardingTasksForPlan(planId);
+export function calculateOnboardingProgress(tasks: OnboardingTask[]): { completed: number; total: number; percentage: number } {
   const completed = tasks.filter(t => t.status === 'completed').length;
   return {
     completed,
@@ -136,10 +135,8 @@ export function calculateOnboardingProgress(planId: string): { completed: number
   };
 }
 
-export function identifyOnboardingBlockers(planId: string): OnboardingBlocker[] {
-  const tasks = getOnboardingTasksForPlan(planId);
+export function identifyOnboardingBlockers(tasks: OnboardingTask[]): OnboardingBlocker[] {
   const blockers: OnboardingBlocker[] = [];
-
   const today = toDateOnlyString();
 
   tasks.forEach(task => {
@@ -164,22 +161,313 @@ export function identifyOnboardingBlockers(planId: string): OnboardingBlocker[] 
   return blockers;
 }
 
+// ==========================================
+// Store interface
+// ==========================================
+
+export interface OnboardingStore {
+  readonly backend: 'supabase' | 'mock';
+  getPlanById(id: string, tenantId: string): Promise<OnboardingPlan | null>;
+  getActivePlanByEmployee(employeeId: string, tenantId: string): Promise<OnboardingPlan | null>;
+  getAllPlans(tenantId: string): Promise<OnboardingPlan[]>;
+  getTasksForPlan(planId: string, tenantId: string): Promise<OnboardingTask[]>;
+  createPlan(plan: Omit<OnboardingPlan, 'createdAt' | 'updatedAt'>, tenantId: string): Promise<OnboardingPlan | null>;
+  createTask(task: Omit<OnboardingTask, 'createdAt' | 'updatedAt'>, tenantId: string): Promise<OnboardingTask | null>;
+  updateTask(taskId: string, fields: Partial<OnboardingTask>, tenantId: string): Promise<OnboardingTask | null>;
+  updatePlan(planId: string, fields: Partial<OnboardingPlan>, tenantId: string): Promise<OnboardingPlan | null>;
+}
+
+// ==========================================
+// Mock-backed implementation
+// ==========================================
+
+const mockStore: OnboardingStore = {
+  backend: 'mock',
+
+  async getPlanById(id: string) {
+    seedMockData();
+    return onboardingPlans.find(p => p.id === id) ?? null;
+  },
+  async getActivePlanByEmployee(employeeId: string) {
+    seedMockData();
+    return onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed') ?? null;
+  },
+  async getAllPlans() {
+    seedMockData();
+    return [...onboardingPlans];
+  },
+  async getTasksForPlan(planId: string) {
+    seedMockData();
+    return onboardingTasks.filter(t => t.planId === planId);
+  },
+  async createPlan(plan) {
+    seedMockData();
+    const full: OnboardingPlan = { ...plan, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    onboardingPlans.push(full);
+    return full;
+  },
+  async createTask(task) {
+    seedMockData();
+    const full: OnboardingTask = { ...task, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    onboardingTasks.push(full);
+    return full;
+  },
+  async updateTask(taskId: string, fields: Partial<OnboardingTask>) {
+    seedMockData();
+    const task = onboardingTasks.find(t => t.id === taskId);
+    if (!task) return null;
+    Object.assign(task, fields, { updatedAt: new Date().toISOString() });
+    return { ...task };
+  },
+  async updatePlan(planId: string, fields: Partial<OnboardingPlan>) {
+    seedMockData();
+    const plan = onboardingPlans.find(p => p.id === planId);
+    if (!plan) return null;
+    Object.assign(plan, fields, { updatedAt: new Date().toISOString() });
+    return { ...plan };
+  },
+};
+
+// ==========================================
+// Supabase-backed implementation
+// ==========================================
+
+function createSupabaseStore(): OnboardingStore {
+  const adminClientPromise = import('@/infrastructure/database/client').then(
+    (m) => m.createAdminClient(),
+  );
+
+  const table = async (name: string) => {
+    const client = await adminClientPromise;
+    return (client as unknown as { from: (n: string) => unknown }).from(name);
+  };
+
+  return {
+    backend: 'supabase',
+
+    async getPlanById(id: string, tenantId: string) {
+      const t = (await table('onboarding_plans')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingPlanFromRow(data as never) : null;
+    },
+
+    async getActivePlanByEmployee(employeeId: string, tenantId: string) {
+      const t = (await table('onboarding_plans')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              neq: (c: string, v: string) => {
+                maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+              };
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('employee_id', employeeId)
+        .neq('status', 'completed')
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingPlanFromRow(data as never) : null;
+    },
+
+    async getAllPlans(tenantId: string) {
+      const t = (await table('onboarding_plans')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => Promise<{ data: unknown[]; error: unknown }>;
+        };
+      };
+      const { data, error } = await t.select('*').eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (data ?? []).map((r) => onboardingPlanFromRow(r as never));
+    },
+
+    async getTasksForPlan(planId: string, tenantId: string) {
+      const t = (await table('onboarding_tasks')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => Promise<{ data: unknown[]; error: unknown }>;
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('plan_id', planId);
+      if (error) throw error;
+      return (data ?? []).map((r) => onboardingTaskFromRow(r as never));
+    },
+
+    async createPlan(plan, tenantId: string) {
+      const t = (await table('onboarding_plans')) as {
+        insert: (v: Record<string, unknown>) => {
+          select: (c: string) => {
+            maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+          };
+        };
+      };
+      const { data, error } = await t
+        .insert({
+          id: plan.id,
+          tenant_id: tenantId,
+          employee_id: plan.employeeId,
+          template_name: plan.templateName,
+          start_date: plan.startDate,
+          target_completion_date: plan.targetCompletionDate,
+          actual_completion_date: plan.actualCompletionDate,
+          status: plan.status,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingPlanFromRow(data as never) : null;
+    },
+
+    async createTask(task, tenantId: string) {
+      const t = (await table('onboarding_tasks')) as {
+        insert: (v: Record<string, unknown>) => {
+          select: (c: string) => {
+            maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+          };
+        };
+      };
+      const { data, error } = await t
+        .insert({
+          id: task.id,
+          tenant_id: tenantId,
+          plan_id: task.planId,
+          task_name: task.taskName,
+          description: task.description,
+          category: task.category,
+          assigned_to: task.assignedTo,
+          due_date: task.dueDate,
+          completed_at: task.completedAt,
+          completed_by: task.completedBy,
+          status: task.status,
+          priority: task.priority,
+          depends_on: task.dependsOn,
+        })
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingTaskFromRow(data as never) : null;
+    },
+
+    async updateTask(taskId: string, fields: Partial<OnboardingTask>, tenantId: string) {
+      const row: Record<string, unknown> = {};
+      if (fields.status !== undefined) row.status = fields.status;
+      if (fields.completedAt !== undefined) row.completed_at = fields.completedAt;
+      if (fields.completedBy !== undefined) row.completed_by = fields.completedBy;
+
+      const t = (await table('onboarding_tasks')) as {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              select: (c: string) => {
+                maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+              };
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .update(row)
+        .eq('tenant_id', tenantId)
+        .eq('id', taskId)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingTaskFromRow(data as never) : null;
+    },
+
+    async updatePlan(planId: string, fields: Partial<OnboardingPlan>, tenantId: string) {
+      const row: Record<string, unknown> = {};
+      if (fields.status !== undefined) row.status = fields.status;
+      if (fields.actualCompletionDate !== undefined) row.actual_completion_date = fields.actualCompletionDate;
+
+      const t = (await table('onboarding_plans')) as {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              select: (c: string) => {
+                maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+              };
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .update(row)
+        .eq('tenant_id', tenantId)
+        .eq('id', planId)
+        .select('*')
+        .maybeSingle();
+      if (error) throw error;
+      return data ? onboardingPlanFromRow(data as never) : null;
+    },
+  };
+}
+
+// ==========================================
+// Resolver
+// ==========================================
+
+function isSupabaseConfigured(): boolean {
+  return (
+    typeof window === 'undefined' &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  );
+}
+
+let cachedStore: OnboardingStore | null = null;
+
+export function getOnboardingStore(): OnboardingStore {
+  if (cachedStore) return cachedStore;
+  cachedStore = isSupabaseConfigured() ? createSupabaseStore() : mockStore;
+  return cachedStore;
+}
+
+/** For tests: reset the cached singleton so env changes take effect. */
+export function __resetOnboardingStore(): void {
+  cachedStore = null;
+}
+
+// ==========================================
+// Backward-compat helpers (used by agent and external consumers)
+// ==========================================
+
+/** @deprecated Use getOnboardingStore() + createPlan/createTask instead. */
 export function createOnboardingPlan(
   employeeId: string,
   assignedTo: string,
   templateName: string,
   startDate: Date | string = new Date()
 ): OnboardingPlan | null {
+  seedMockData();
   const employee = getEmployeeById(employeeId);
   if (!employee) return null;
 
   const template = ONBOARDING_TEMPLATES[templateName];
   if (!template) return null;
 
-  const existingPlan = getOnboardingPlanByEmployee(employeeId);
-  if (existingPlan && existingPlan.status !== 'completed') {
-    return null; // Already has an active plan
-  }
+  const existingPlan = onboardingPlans.find(p => p.employeeId === employeeId && p.status !== 'completed');
+  if (existingPlan) return null;
 
   const planId = `obp-${String(onboardingPlans.length + 1).padStart(3, '0')}`;
   const normalizedStartDate = typeof startDate === 'string' ? startDate : toDateOnlyString(startDate);
@@ -200,7 +488,6 @@ export function createOnboardingPlan(
 
   onboardingPlans.push(plan);
 
-  // Create tasks from template
   template.tasks.forEach((taskTemplate, index) => {
     const dueDate = addDaysToDateOnly(normalizedStartDate, taskTemplate.dueDateOffset);
 
@@ -229,7 +516,9 @@ export function createOnboardingPlan(
   return plan;
 }
 
+/** @deprecated Use getOnboardingStore() + updateTask instead. */
 export function completeOnboardingTask(taskId: string, completedById: string): boolean {
+  seedMockData();
   const task = onboardingTasks.find(t => t.id === taskId);
   if (!task || task.status === 'completed') return false;
 
@@ -238,31 +527,29 @@ export function completeOnboardingTask(taskId: string, completedById: string): b
   task.completedBy = completedById;
   task.updatedAt = new Date().toISOString();
 
-  // Update plan status if all tasks completed
-  const planTasks = getOnboardingTasksForPlan(task.planId);
+  const planTasks = onboardingTasks.filter(t => t.planId === task.planId);
   const allCompleted = planTasks.every(t => t.status === 'completed');
   if (allCompleted) {
-      const plan = getOnboardingPlanById(task.planId);
-      if (plan) {
-        plan.status = 'completed';
-        plan.actualCompletionDate = toDateOnlyString();
-        plan.updatedAt = new Date().toISOString();
-      }
+    const plan = onboardingPlans.find(p => p.id === task.planId);
+    if (plan) {
+      plan.status = 'completed';
+      plan.actualCompletionDate = toDateOnlyString();
+      plan.updatedAt = new Date().toISOString();
+    }
   }
 
   return true;
 }
 
-// Track if already initialized to prevent duplicate seed data
-let isOnboardingStoreInitialized = false;
-
-// Initialize on module load (idempotent)
-export function ensureOnboardingStoreInitialized(): void {
-  if (!isOnboardingStoreInitialized) {
-    initializeOnboardingStore();
-    isOnboardingStoreInitialized = true;
-  }
+/** @deprecated Kept for backward compatibility only. */
+export function initializeOnboardingStore(): void {
+  seedMockData();
 }
 
-// Auto-initialize on module load for backward compatibility
-ensureOnboardingStoreInitialized();
+/** @deprecated Kept for backward compatibility only. */
+export function ensureOnboardingStoreInitialized(): void {
+  seedMockData();
+}
+
+// Auto-seed on module load for backward compat
+seedMockData();

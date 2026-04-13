@@ -1,27 +1,24 @@
 /**
  * Workflow & Approvals Agent
  * Handles workflow instances, approval steps, escalation, inbox, and history.
- * Data source: workflow-store.ts (POC; production: Supabase)
+ *
+ * Data source: `getWorkflowStore()` — transparently reads from Supabase when
+ * `SUPABASE_SERVICE_ROLE_KEY` is configured, or falls back to mock data in
+ * dev. No agent changes needed to switch modes.
+ *
  * Deterministic logic only — no AI reasoning.
  */
 
-import type { AgentResult, AgentContext, AgentIntent, WorkflowInstance, WorkflowStep } from '@/types';
+import type { AgentResult, AgentContext, AgentIntent, WorkflowInstance } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  workflowInstances,
-  workflowSteps,
+  getWorkflowStore,
   createWorkflow,
   approveWorkflowStep,
   rejectWorkflowStep,
-  getWorkflowById,
-  getWorkflowSteps,
-  getPendingWorkflowsForApprover,
   getApprovalInboxForUser,
-  getWorkflowHistory,
-  identifyOverdueSteps,
   WORKFLOW_CONFIGS,
-  initializeWorkflowStore,
 } from '@/lib/data/workflow-store';
 import {
   canCreateWorkflow,
@@ -29,10 +26,7 @@ import {
   canViewWorkflow,
   hasCapability,
 } from '@/lib/auth/authorization';
-import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
-
-// Ensure store is initialized
-initializeWorkflowStore();
+import { getEmployeeStore } from '@/lib/data/employee-store';
 
 export class WorkflowAgent implements Agent {
   readonly type = 'workflow_approvals' as const;
@@ -94,18 +88,24 @@ export class WorkflowAgent implements Agent {
       return createErrorResult(`Unknown workflow type: ${workflowType}`);
     }
 
+    const wfStore = getWorkflowStore();
+    const tenantId = context.tenantId || 'default';
+
     const workflow = createWorkflow(workflowType, referenceType, referenceId, context.employeeId!);
 
     if (!workflow) {
       return createErrorResult('Failed to create workflow');
     }
 
+    const steps = await wfStore.getStepsForWorkflow(workflow.id, tenantId);
+    const citationSource = wfStore.backend === 'supabase' ? 'Supabase' : 'Workflow System';
+
     return createAgentResult(
-      { workflow, steps: getWorkflowSteps(workflow.id) },
+      { workflow, steps },
       {
         summary: `${WORKFLOW_CONFIGS[workflowType].name} created with ${workflow.totalSteps} steps`,
         confidence: 1.0,
-        citations: [{ source: 'Workflow System', reference: workflow.id }],
+        citations: [{ source: citationSource, reference: workflow.id }],
       }
     );
   }
@@ -117,22 +117,30 @@ export class WorkflowAgent implements Agent {
     const workflowId = payload.workflowId as string | undefined;
     const referenceId = payload.referenceId as string | undefined;
 
-    let workflow: WorkflowInstance | undefined;
+    const empStore = getEmployeeStore();
+    const wfStore = getWorkflowStore();
+    const tenantId = context.tenantId || 'default';
+
+    let workflow: WorkflowInstance | null = null;
 
     if (workflowId) {
-      workflow = getWorkflowById(workflowId);
+      workflow = await wfStore.getWorkflowById(workflowId, tenantId);
     } else if (referenceId) {
-      workflow = workflowInstances.find(w => w.referenceId === referenceId);
+      workflow = await wfStore.getWorkflowByReference(referenceId, tenantId);
     } else {
       // Return all accessible workflows
-      const workflows = workflowInstances.filter(w =>
+      const allWorkflows = await wfStore.getAllWorkflows(tenantId);
+      const workflows = allWorkflows.filter(w =>
         hasCapability(context.role, 'workflow:manage:all') ||
         w.initiatorId === context.employeeId
       );
 
-      const enriched = workflows.map(w => ({
-        ...w,
-        initiatorName: getEmployeeFullName(getEmployeeById(w.initiatorId)!),
+      const enriched = await Promise.all(workflows.map(async (w) => {
+        const initiator = await empStore.findById(w.initiatorId, tenantId);
+        return {
+          ...w,
+          initiatorName: initiator ? `${initiator.firstName} ${initiator.lastName}` : w.initiatorId,
+        };
       }));
 
       return createAgentResult(enriched, {
@@ -149,9 +157,10 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Access denied: cannot view this workflow', ['RBAC violation']);
     }
 
-    const steps = getWorkflowSteps(workflow.id);
+    const steps = await wfStore.getStepsForWorkflow(workflow.id, tenantId);
     const currentStep = steps.find(s => s.stepNumber === workflow!.currentStep);
     const pendingSteps = steps.filter(s => s.status === 'pending');
+    const initiator = await empStore.findById(workflow.initiatorId, tenantId);
 
     return createAgentResult(
       {
@@ -159,7 +168,7 @@ export class WorkflowAgent implements Agent {
         steps,
         currentStep,
         pendingSteps,
-        initiatorName: getEmployeeFullName(getEmployeeById(workflow.initiatorId)!),
+        initiatorName: initiator ? `${initiator.firstName} ${initiator.lastName}` : workflow.initiatorId,
       },
       {
         summary: `Workflow ${workflow.status} — step ${workflow.currentStep}/${workflow.totalSteps}${currentStep ? ` (${currentStep.stepName})` : ''}`,
@@ -183,13 +192,27 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Step ID is required');
     }
 
-    const step = workflowSteps.find(s => s.id === stepId);
-    if (!step) {
+    const wfStore = getWorkflowStore();
+    const tenantId = context.tenantId || 'default';
+
+    // Find the step to check approver assignment
+    const allWorkflows = await wfStore.getAllWorkflows(tenantId);
+    let foundStep: { approverId: string | null; workflowId: string } | null = null;
+
+    for (const wf of allWorkflows) {
+      const steps = await wfStore.getStepsForWorkflow(wf.id, tenantId);
+      const step = steps.find(s => s.id === stepId);
+      if (step) {
+        foundStep = step;
+        break;
+      }
+    }
+
+    if (!foundStep) {
       return createErrorResult('Workflow step not found');
     }
 
-    if (step.approverId && step.approverId !== context.employeeId) {
-      // Check if admin can override
+    if (foundStep.approverId && foundStep.approverId !== context.employeeId) {
       if (!hasCapability(context.role, 'workflow:manage:all')) {
         return createErrorResult('Access denied: not assigned to approve this step', ['RBAC violation']);
       }
@@ -201,14 +224,14 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Failed to approve workflow step');
     }
 
-    const workflow = getWorkflowById(step.workflowId)!;
+    const workflow = await wfStore.getWorkflowById(foundStep.workflowId, tenantId);
 
     return createAgentResult(
-      { workflow, step, completed: workflow.status === 'completed' },
+      { workflow, step: foundStep, completed: workflow?.status === 'completed' },
       {
-        summary: workflow.status === 'completed'
+        summary: workflow?.status === 'completed'
           ? 'Step approved — workflow is now complete'
-          : `Step approved — workflow proceeding to step ${workflow.currentStep}`,
+          : `Step approved — workflow proceeding to step ${workflow?.currentStep ?? 'next'}`,
         confidence: 1.0,
       }
     );
@@ -232,12 +255,27 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Rejection reason (comments) is required');
     }
 
-    const step = workflowSteps.find(s => s.id === stepId);
-    if (!step) {
+    const wfStore = getWorkflowStore();
+    const tenantId = context.tenantId || 'default';
+
+    // Find the step to check approver assignment
+    const allWorkflows = await wfStore.getAllWorkflows(tenantId);
+    let foundStep: { approverId: string | null; workflowId: string } | null = null;
+
+    for (const wf of allWorkflows) {
+      const steps = await wfStore.getStepsForWorkflow(wf.id, tenantId);
+      const step = steps.find(s => s.id === stepId);
+      if (step) {
+        foundStep = step;
+        break;
+      }
+    }
+
+    if (!foundStep) {
       return createErrorResult('Workflow step not found');
     }
 
-    if (step.approverId && step.approverId !== context.employeeId) {
+    if (foundStep.approverId && foundStep.approverId !== context.employeeId) {
       if (!hasCapability(context.role, 'workflow:manage:all')) {
         return createErrorResult('Access denied: not assigned to reject this step', ['RBAC violation']);
       }
@@ -249,12 +287,12 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Failed to reject workflow step');
     }
 
-    const workflow = getWorkflowById(step.workflowId)!;
+    const workflow = await wfStore.getWorkflowById(foundStep.workflowId, tenantId);
 
     return createAgentResult(
-      { workflow, step },
+      { workflow, step: foundStep },
       {
-        summary: `Step rejected — workflow status: ${workflow.status}`,
+        summary: `Step rejected — workflow status: ${workflow?.status ?? 'unknown'}`,
         confidence: 1.0,
       }
     );
@@ -290,7 +328,11 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Workflow ID is required');
     }
 
-    const workflow = getWorkflowById(workflowId);
+    const empStore = getEmployeeStore();
+    const wfStore = getWorkflowStore();
+    const tenantId = context.tenantId || 'default';
+
+    const workflow = await wfStore.getWorkflowById(workflowId, tenantId);
     if (!workflow) {
       return createErrorResult('Workflow not found');
     }
@@ -299,11 +341,15 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Access denied: cannot view this workflow', ['RBAC violation']);
     }
 
-    const history = getWorkflowHistory(workflowId);
+    const steps = await wfStore.getStepsForWorkflow(workflowId, tenantId);
+    const history = steps.filter(s => s.status !== 'pending');
 
-    const enriched = history.map(h => ({
-      ...h,
-      approverName: h.approverId ? getEmployeeFullName(getEmployeeById(h.approverId)!) : 'Unassigned',
+    const enriched = await Promise.all(history.map(async (h) => {
+      const approver = h.approverId ? await empStore.findById(h.approverId, tenantId) : null;
+      return {
+        ...h,
+        approverName: approver ? `${approver.firstName} ${approver.lastName}` : 'Unassigned',
+      };
     }));
 
     return createAgentResult(enriched, {
@@ -311,5 +357,4 @@ export class WorkflowAgent implements Agent {
       confidence: 1.0,
     });
   }
-
 }

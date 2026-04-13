@@ -1,17 +1,115 @@
 /**
  * Policy & Knowledge Data Store
- * In-memory store for policy documents and chunks (POC).
- * Production: Replace with Supabase database calls.
+ *
+ * A thin abstraction that gives agents a single read API over either the
+ * Supabase `policy_documents` / `policy_chunks` tables (in production) or
+ * the in-memory mock data (in dev / when Supabase isn't configured yet).
+ *
+ * Usage:
+ *   const store = getPolicyStore();
+ *   const docs = await store.getAllDocuments('tenant-leap');
+ *
+ * The search / answer / filterChunksByAudience helpers are pure functions
+ * re-exported from this module for backward compatibility.
  */
 
 import type { PolicyDocument, PolicyChunk, PolicySearchResult, PolicyAnswer } from '@/types';
 
-// In-memory stores
+// ==========================================
+// Pure helpers (used in both mock and agent)
+// ==========================================
+
+export function searchPolicyChunks(query: string, documents: PolicyDocument[], chunks: PolicyChunk[]): PolicySearchResult[] {
+  const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2);
+  const results: PolicySearchResult[] = [];
+
+  chunks.forEach(chunk => {
+    const content = chunk.content.toLowerCase();
+    let relevanceScore = 0;
+
+    searchTerms.forEach(term => {
+      if (content.includes(term)) {
+        relevanceScore += 1;
+        if (content.includes(term + ' ')) relevanceScore += 0.5;
+      }
+    });
+
+    if (relevanceScore > 0) {
+      const document = documents.find(d => d.id === chunk.document_id);
+      results.push({
+        chunkId: chunk.id,
+        documentId: chunk.document_id,
+        documentTitle: document?.title || 'Unknown',
+        chunkIndex: chunk.chunk_index,
+        content: chunk.content,
+        relevanceScore: Math.min(relevanceScore / searchTerms.length, 1),
+        citations: [{ source: document?.title || 'Policy', reference: `v${document?.version || '1.0'}` }],
+      });
+    }
+  });
+
+  return results
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
+    .slice(0, 5);
+}
+
+export function generatePolicyAnswer(query: string, documents: PolicyDocument[], chunks: PolicyChunk[]): PolicyAnswer {
+  const results = searchPolicyChunks(query, documents, chunks);
+
+  if (results.length === 0) {
+    return {
+      answer: 'I could not find any relevant policy information for your question. Please contact HR for assistance.',
+      confidence: 0,
+      citations: [],
+      relatedQuestions: [],
+      requiresEscalation: true,
+      escalationReason: 'No relevant policy content found',
+    };
+  }
+
+  const topResult = results[0];
+  const confidence = topResult.relevanceScore;
+
+  let answer: string;
+  if (confidence > 0.7) {
+    answer = `Based on the ${topResult.documentTitle}: ${topResult.content}`;
+  } else if (confidence > 0.4) {
+    answer = `I found some relevant information from ${topResult.documentTitle}: ${topResult.content}. For complete details, please refer to the full policy document.`;
+  } else {
+    answer = `I found limited information that may be relevant: ${topResult.content}. I recommend reviewing the full policy or contacting HR for clarification.`;
+  }
+
+  const relatedQuestions = results
+    .slice(1, 3)
+    .map(r => `What does the policy say about ${r.documentTitle.toLowerCase()}?`);
+
+  return {
+    answer,
+    confidence,
+    citations: results.slice(0, 3).flatMap(r => r.citations),
+    relatedQuestions,
+    requiresEscalation: confidence < 0.5,
+    escalationReason: confidence < 0.5 ? 'Low confidence match - manual review recommended' : undefined,
+  };
+}
+
+export function filterChunksByAudience(chunks: PolicyChunk[], role: string): PolicyChunk[] {
+  return chunks.filter(chunk => {
+    const audience = (chunk.metadata as { audience?: string[] })?.audience;
+    if (!audience || audience.includes('all')) return true;
+    return audience.includes(role);
+  });
+}
+
+// ==========================================
+// In-memory mock data
+// ==========================================
+
 export const policyDocuments: PolicyDocument[] = [];
 export const policyChunks: PolicyChunk[] = [];
 
-// Initialize with sample policy data
-export function initializePolicyStore(): void {
+function seedMockData(): void {
+  if (policyDocuments.length > 0) return; // already seeded
   const now = new Date().toISOString();
 
   // Sample leave policy
@@ -193,120 +291,210 @@ export function initializePolicyStore(): void {
   );
 }
 
-// Helper functions
+// ==========================================
+// Store interface
+// ==========================================
+
+export interface PolicyStore {
+  readonly backend: 'supabase' | 'mock';
+  getAllDocuments(tenantId: string): Promise<PolicyDocument[]>;
+  getDocumentById(id: string, tenantId: string): Promise<PolicyDocument | null>;
+  getDocumentsByCategory(category: string, tenantId: string): Promise<PolicyDocument[]>;
+  getChunksByDocument(documentId: string, tenantId: string): Promise<PolicyChunk[]>;
+  getAllChunks(tenantId: string): Promise<PolicyChunk[]>;
+}
+
+// ==========================================
+// Mock-backed implementation
+// ==========================================
+
+const mockStore: PolicyStore = {
+  backend: 'mock',
+
+  async getAllDocuments() {
+    seedMockData();
+    return [...policyDocuments];
+  },
+  async getDocumentById(id: string) {
+    seedMockData();
+    return policyDocuments.find(d => d.id === id) ?? null;
+  },
+  async getDocumentsByCategory(category: string) {
+    seedMockData();
+    return policyDocuments.filter(d => d.category === category);
+  },
+  async getChunksByDocument(documentId: string) {
+    seedMockData();
+    return policyChunks
+      .filter(c => c.document_id === documentId)
+      .sort((a, b) => a.chunk_index - b.chunk_index);
+  },
+  async getAllChunks() {
+    seedMockData();
+    return [...policyChunks];
+  },
+};
+
+// ==========================================
+// Supabase-backed implementation
+// ==========================================
+
+function createSupabaseStore(): PolicyStore {
+  const adminClientPromise = import('@/infrastructure/database/client').then(
+    (m) => m.createAdminClient(),
+  );
+
+  const table = async (name: string) => {
+    const client = await adminClientPromise;
+    return (client as unknown as { from: (n: string) => unknown }).from(name);
+  };
+
+  return {
+    backend: 'supabase',
+
+    async getAllDocuments(tenantId: string) {
+      const t = (await table('policy_documents')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => Promise<{ data: unknown[]; error: unknown }>;
+        };
+      };
+      const { data, error } = await t.select('*').eq('tenant_id', tenantId);
+      if (error) throw error;
+      // PolicyDocument is already snake_case — no mapper needed
+      return (data ?? []) as unknown as PolicyDocument[];
+    },
+
+    async getDocumentById(id: string, tenantId: string) {
+      const t = (await table('policy_documents')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? (data as unknown as PolicyDocument) : null;
+    },
+
+    async getDocumentsByCategory(category: string, tenantId: string) {
+      const t = (await table('policy_documents')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => Promise<{ data: unknown[]; error: unknown }>;
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('category', category);
+      if (error) throw error;
+      return (data ?? []) as unknown as PolicyDocument[];
+    },
+
+    async getChunksByDocument(documentId: string, tenantId: string) {
+      const t = (await table('policy_chunks')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            eq: (c: string, v: string) => {
+              order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown[]; error: unknown }>;
+            };
+          };
+        };
+      };
+      const { data, error } = await t
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('document_id', documentId)
+        .order('chunk_index', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as PolicyChunk[];
+    },
+
+    async getAllChunks(tenantId: string) {
+      const t = (await table('policy_chunks')) as {
+        select: (c: string) => {
+          eq: (c: string, v: string) => Promise<{ data: unknown[]; error: unknown }>;
+        };
+      };
+      const { data, error } = await t.select('*').eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (data ?? []) as unknown as PolicyChunk[];
+    },
+  };
+}
+
+// ==========================================
+// Resolver
+// ==========================================
+
+function isSupabaseConfigured(): boolean {
+  return (
+    typeof window === 'undefined' &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  );
+}
+
+let cachedStore: PolicyStore | null = null;
+
+export function getPolicyStore(): PolicyStore {
+  if (cachedStore) return cachedStore;
+  cachedStore = isSupabaseConfigured() ? createSupabaseStore() : mockStore;
+  return cachedStore;
+}
+
+/** For tests: reset the cached singleton so env changes take effect. */
+export function __resetPolicyStore(): void {
+  cachedStore = null;
+}
+
+// ==========================================
+// Backward-compat exports
+// ==========================================
+
+/** @deprecated Use `getPolicyStore()` instead. */
 export function getPolicyDocumentById(id: string): PolicyDocument | undefined {
+  seedMockData();
   return policyDocuments.find(d => d.id === id);
 }
 
+/** @deprecated Use `getPolicyStore()` instead. */
 export function getPolicyChunksByDocument(documentId: string): PolicyChunk[] {
+  seedMockData();
   return policyChunks
     .filter(c => c.document_id === documentId)
     .sort((a, b) => a.chunk_index - b.chunk_index);
 }
 
-export function searchPolicyChunks(query: string): PolicySearchResult[] {
-  const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2);
-  const results: PolicySearchResult[] = [];
-
-  policyChunks.forEach(chunk => {
-    const content = chunk.content.toLowerCase();
-    let relevanceScore = 0;
-
-    searchTerms.forEach(term => {
-      if (content.includes(term)) {
-        relevanceScore += 1;
-        // Boost score for exact phrase matches
-        if (content.includes(term + ' ')) relevanceScore += 0.5;
-      }
-    });
-
-    if (relevanceScore > 0) {
-      const document = getPolicyDocumentById(chunk.document_id);
-      results.push({
-        chunkId: chunk.id,
-        documentId: chunk.document_id,
-        documentTitle: document?.title || 'Unknown',
-        chunkIndex: chunk.chunk_index,
-        content: chunk.content,
-        relevanceScore: Math.min(relevanceScore / searchTerms.length, 1),
-        citations: [{ source: document?.title || 'Policy', reference: `v${document?.version || '1.0'}` }],
-      });
-    }
-  });
-
-  return results
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 5);
-}
-
-export function generatePolicyAnswer(query: string): PolicyAnswer {
-  const results = searchPolicyChunks(query);
-
-  if (results.length === 0) {
-    return {
-      answer: 'I could not find any relevant policy information for your question. Please contact HR for assistance.',
-      confidence: 0,
-      citations: [],
-      relatedQuestions: [],
-      requiresEscalation: true,
-      escalationReason: 'No relevant policy content found',
-    };
-  }
-
-  // Simple answer generation based on top result
-  const topResult = results[0];
-  const confidence = topResult.relevanceScore;
-
-  let answer: string;
-  if (confidence > 0.7) {
-    answer = `Based on the ${topResult.documentTitle}: ${topResult.content}`;
-  } else if (confidence > 0.4) {
-    answer = `I found some relevant information from ${topResult.documentTitle}: ${topResult.content}. For complete details, please refer to the full policy document.`;
-  } else {
-    answer = `I found limited information that may be relevant: ${topResult.content}. I recommend reviewing the full policy or contacting HR for clarification.`;
-  }
-
-  // Generate related questions
-  const relatedQuestions = results
-    .slice(1, 3)
-    .map(r => `What does the policy say about ${r.documentTitle.toLowerCase()}?`);
-
-  return {
-    answer,
-    confidence,
-    citations: results.slice(0, 3).flatMap(r => r.citations),
-    relatedQuestions,
-    requiresEscalation: confidence < 0.5,
-    escalationReason: confidence < 0.5 ? 'Low confidence match - manual review recommended' : undefined,
-  };
-}
-
+/** @deprecated Use `getPolicyStore()` instead. */
 export function getPolicyCategories(): string[] {
+  seedMockData();
   return [...new Set(policyDocuments.map(d => d.category))];
 }
 
+/** @deprecated Use `getPolicyStore()` instead. */
 export function getPoliciesByCategory(category: string): PolicyDocument[] {
+  seedMockData();
   return policyDocuments.filter(d => d.category === category);
 }
 
-export function filterChunksByAudience(chunks: PolicyChunk[], role: string): PolicyChunk[] {
-  return chunks.filter(chunk => {
-    const audience = (chunk.metadata as { audience?: string[] })?.audience;
-    if (!audience || audience.includes('all')) return true;
-    return audience.includes(role);
-  });
+/** @deprecated Kept for backward compatibility only. */
+export function initializePolicyStore(): void {
+  seedMockData();
 }
 
-// Track if already initialized to prevent duplicate seed data
-let isPolicyStoreInitialized = false;
-
-// Initialize on module load (idempotent)
+/** @deprecated Kept for backward compatibility only. */
 export function ensurePolicyStoreInitialized(): void {
-  if (!isPolicyStoreInitialized) {
-    initializePolicyStore();
-    isPolicyStoreInitialized = true;
-  }
+  seedMockData();
 }
 
-// Auto-initialize on module load for backward compatibility
-ensurePolicyStoreInitialized();
+// Auto-seed on module load for backward compat
+seedMockData();

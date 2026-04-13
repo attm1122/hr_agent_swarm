@@ -1,18 +1,19 @@
 /**
  * Offboarding Agent
  * Handles employee exit workflows, asset returns, access removal tracking, and exit summaries.
- * Data source: offboarding-store.ts (POC; production: Supabase)
+ *
+ * Data source: `getOffboardingStore()` — transparently reads from Supabase when
+ * `SUPABASE_SERVICE_ROLE_KEY` is configured, or falls back to mock data in
+ * dev. No agent changes needed to switch modes.
+ *
  * Deterministic logic only — no AI reasoning.
  */
 
-import type { AgentResult, AgentContext, AgentIntent, OffboardingPlan, OffboardingTask, OffboardingAccess } from '@/types';
+import type { AgentResult, AgentContext, AgentIntent, OffboardingAccess } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  offboardingPlans,
-  offboardingTasks,
-  offboardingAssets,
-  offboardingAccessItems,
+  getOffboardingStore,
   createOffboardingPlan,
   completeOffboardingTask,
   calculateOffboardingProgress,
@@ -22,7 +23,6 @@ import {
   updateAccessRemovalStatus,
   generateExitSummary,
   OFFBOARDING_TEMPLATES,
-  initializeOffboardingStore,
 } from '@/lib/data/offboarding-store';
 import {
   canViewOffboarding,
@@ -30,11 +30,8 @@ import {
   canManageOffboarding,
   hasCapability,
 } from '@/lib/auth/authorization';
-import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
+import { getEmployeeStore } from '@/lib/data/employee-store';
 import { buildRecordScopeContext } from '@/lib/auth/team-scope';
-
-// Ensure store is initialized
-initializeOffboardingStore();
 
 export class OffboardingAgent implements Agent {
   readonly type = 'offboarding' as const;
@@ -99,7 +96,11 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Termination date is required');
     }
 
-    const employee = getEmployeeById(employeeId);
+    const empStore = getEmployeeStore();
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const employee = await empStore.findById(employeeId, tenantId);
     if (!employee) {
       return createErrorResult('Employee not found');
     }
@@ -122,17 +123,23 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Failed to create offboarding plan or active plan already exists');
     }
 
+    const tasks = await offStore.getTasksForPlan(plan.id, tenantId);
+    const assets = await offStore.getAssetsForPlan(plan.id, tenantId);
+    const accessItems = await offStore.getAccessForPlan(plan.id, tenantId);
+
+    const citationSource = offStore.backend === 'supabase' ? 'Supabase' : 'HR System';
+
     return createAgentResult(
       {
         plan,
-        tasksCreated: offboardingTasks.filter(t => t.planId === plan.id).length,
-        assetsCreated: offboardingAssets.filter(a => a.planId === plan.id).length,
-        accessItemsCreated: offboardingAccessItems.filter(a => a.planId === plan.id).length,
+        tasksCreated: tasks.length,
+        assetsCreated: assets.length,
+        accessItemsCreated: accessItems.length,
       },
       {
-        summary: `Offboarding plan created for ${getEmployeeFullName(employee)} with termination date ${terminationDate}`,
+        summary: `Offboarding plan created for ${employee.firstName} ${employee.lastName} with termination date ${terminationDate}`,
         confidence: 1.0,
-        citations: [{ source: 'HR System', reference: plan.id }],
+        citations: [{ source: citationSource, reference: plan.id }],
       }
     );
   }
@@ -144,24 +151,31 @@ export class OffboardingAgent implements Agent {
     const planId = payload.planId as string | undefined;
     const employeeId = payload.employeeId as string | undefined;
 
-    let plan: OffboardingPlan | undefined;
+    const empStore = getEmployeeStore();
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
 
     if (planId) {
-      plan = offboardingPlans.find(p => p.id === planId);
+      // Lookup by planId
     } else if (employeeId) {
-      plan = offboardingPlans.find(p => p.employeeId === employeeId && !['completed', 'cancelled'].includes(p.status));
+      // Lookup by employeeId
     } else {
       // Return all accessible plans
-      const plans = offboardingPlans.filter(p => 
+      const allPlans = await offStore.getAllPlans(tenantId);
+      const plans = allPlans.filter(p =>
         hasCapability(context.role, 'offboarding:manage:all') ||
         p.initiatedBy === context.employeeId ||
         p.employeeId === context.employeeId
       );
 
-      const enriched = plans.map(p => ({
-        ...p,
-        employeeName: getEmployeeFullName(getEmployeeById(p.employeeId)!),
-        progress: calculateOffboardingProgress(p.id).percentage,
+      const enriched = await Promise.all(plans.map(async (p) => {
+        const emp = await empStore.findById(p.employeeId, tenantId);
+        const tasks = await offStore.getTasksForPlan(p.id, tenantId);
+        return {
+          ...p,
+          employeeName: emp ? `${emp.firstName} ${emp.lastName}` : p.employeeId,
+          progress: calculateOffboardingProgress(tasks).percentage,
+        };
       }));
 
       return createAgentResult(enriched, {
@@ -169,6 +183,12 @@ export class OffboardingAgent implements Agent {
         confidence: 1.0,
       });
     }
+
+    let plan = planId
+      ? await offStore.getPlanById(planId, tenantId)
+      : employeeId
+        ? await offStore.getActivePlanByEmployee(employeeId, tenantId)
+        : null;
 
     if (!plan) {
       return createErrorResult('Offboarding plan not found');
@@ -179,23 +199,24 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this offboarding plan', ['RBAC violation']);
     }
 
-    const tasks = offboardingTasks.filter(t => t.planId === plan!.id);
-    const assets = offboardingAssets.filter(a => a.planId === plan!.id);
-    const access = offboardingAccessItems.filter(a => a.planId === plan!.id);
-    const progress = calculateOffboardingProgress(plan.id);
-    const assetStatus = getOffboardingAssetStatus(plan.id);
-    const accessStatus = getOffboardingAccessStatus(plan.id);
+    const tasks = await offStore.getTasksForPlan(plan.id, tenantId);
+    const assets = await offStore.getAssetsForPlan(plan.id, tenantId);
+    const accessItems = await offStore.getAccessForPlan(plan.id, tenantId);
+    const progress = calculateOffboardingProgress(tasks);
+    const assetStatus = getOffboardingAssetStatus(assets);
+    const accessStatus = getOffboardingAccessStatus(accessItems);
+    const emp = await empStore.findById(plan.employeeId, tenantId);
 
     return createAgentResult(
       {
         plan,
         tasks,
         assets,
-        access,
+        access: accessItems,
         progress: progress.percentage,
         assetStatus,
         accessStatus,
-        employeeName: getEmployeeFullName(getEmployeeById(plan.employeeId)!),
+        employeeName: emp ? `${emp.firstName} ${emp.lastName}` : plan.employeeId,
       },
       {
         summary: `Offboarding ${progress.percentage}% complete — ${progress.completed}/${progress.total} tasks, ${assetStatus.returned}/${assetStatus.total} assets returned, ${accessStatus.completed}/${accessStatus.total} access items removed`,
@@ -214,7 +235,11 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = offboardingPlans.find(p => p.id === planId);
+    const empStore = getEmployeeStore();
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await offStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Offboarding plan not found');
     }
@@ -224,11 +249,14 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    const tasks = offboardingTasks.filter(t => t.planId === planId);
+    const tasks = await offStore.getTasksForPlan(planId, tenantId);
 
-    const enriched = tasks.map(t => ({
-      ...t,
-      assigneeName: getEmployeeById(t.assignedTo)?.firstName || t.assignedTo,
+    const enriched = await Promise.all(tasks.map(async (t) => {
+      const assignee = await empStore.findById(t.assignedTo, tenantId);
+      return {
+        ...t,
+        assigneeName: assignee?.firstName || t.assignedTo,
+      };
     }));
 
     return createAgentResult(enriched, {
@@ -251,19 +279,31 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Task ID is required');
     }
 
-    const task = offboardingTasks.find(t => t.id === taskId);
-    if (!task) {
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    // Find the task by scanning plan tasks
+    const allPlans = await offStore.getAllPlans(tenantId);
+    let foundTask: { taskName: string; planId: string; assignedTo: string } | null = null;
+    let foundPlan: { initiatedBy: string } | null = null;
+
+    for (const plan of allPlans) {
+      const tasks = await offStore.getTasksForPlan(plan.id, tenantId);
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        foundTask = task;
+        foundPlan = plan;
+        break;
+      }
+    }
+
+    if (!foundTask || !foundPlan) {
       return createErrorResult('Task not found');
     }
 
-    const plan = offboardingPlans.find(p => p.id === task.planId);
-    if (!plan) {
-      return createErrorResult('Parent offboarding plan not found');
-    }
-
     // Additional scope check
-    const isAssigned = task.assignedTo === context.employeeId;
-    const isInitiator = plan.initiatedBy === context.employeeId;
+    const isAssigned = foundTask.assignedTo === context.employeeId;
+    const isInitiator = foundPlan.initiatedBy === context.employeeId;
     const isAdmin = hasCapability(context.role, 'offboarding:manage:all');
 
     if (!isAssigned && !isInitiator && !isAdmin) {
@@ -276,7 +316,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Failed to complete task');
     }
 
-    const progress = calculateOffboardingProgress(plan.id);
+    const tasks = await offStore.getTasksForPlan(foundTask.planId, tenantId);
+    const progress = calculateOffboardingProgress(tasks);
 
     return createAgentResult(
       {
@@ -284,7 +325,7 @@ export class OffboardingAgent implements Agent {
         planComplete: progress.percentage === 100,
       },
       {
-        summary: `Task "${task.taskName}" completed. Plan is now ${progress.percentage}% complete.`,
+        summary: `Task "${foundTask.taskName}" completed. Plan is now ${progress.percentage}% complete.`,
         confidence: 1.0,
       }
     );
@@ -300,7 +341,10 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = offboardingPlans.find(p => p.id === planId);
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await offStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Offboarding plan not found');
     }
@@ -310,8 +354,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    const assets = offboardingAssets.filter(a => a.planId === planId);
-    const status = getOffboardingAssetStatus(planId);
+    const assets = await offStore.getAssetsForPlan(planId, tenantId);
+    const status = getOffboardingAssetStatus(assets);
 
     // If action is record_return
     const assetId = payload.assetId as string | undefined;
@@ -328,9 +372,10 @@ export class OffboardingAgent implements Agent {
         return createErrorResult('Failed to record asset return');
       }
 
-      const updatedStatus = getOffboardingAssetStatus(planId);
+      const updatedAssets = await offStore.getAssetsForPlan(planId, tenantId);
+      const updatedStatus = getOffboardingAssetStatus(updatedAssets);
       return createAgentResult(
-        { assets, status: updatedStatus },
+        { assets: updatedAssets, status: updatedStatus },
         {
           summary: `Asset return recorded. ${updatedStatus.returned}/${updatedStatus.total} assets returned.`,
           confidence: 1.0,
@@ -357,7 +402,10 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = offboardingPlans.find(p => p.id === planId);
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await offStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Offboarding plan not found');
     }
@@ -367,8 +415,8 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    const access = offboardingAccessItems.filter(a => a.planId === planId);
-    const status = getOffboardingAccessStatus(planId);
+    const accessItems = await offStore.getAccessForPlan(planId, tenantId);
+    const status = getOffboardingAccessStatus(accessItems);
 
     // If action is update_status
     const accessId = payload.accessId as string | undefined;
@@ -385,9 +433,10 @@ export class OffboardingAgent implements Agent {
         return createErrorResult('Failed to update access status');
       }
 
-      const updatedStatus = getOffboardingAccessStatus(planId);
+      const updatedAccess = await offStore.getAccessForPlan(planId, tenantId);
+      const updatedStatus = getOffboardingAccessStatus(updatedAccess);
       return createAgentResult(
-        { access, status: updatedStatus },
+        { access: updatedAccess, status: updatedStatus },
         {
           summary: `Access status updated. ${updatedStatus.completed}/${updatedStatus.total} access items completed.`,
           confidence: 1.0,
@@ -396,9 +445,9 @@ export class OffboardingAgent implements Agent {
     }
 
     return createAgentResult(
-      { access, status },
+      { access: accessItems, status },
       {
-        summary: `${status.completed}/${status.total} access items removed (${access.filter(a => a.removalStatus !== 'completed').length} pending)`,
+        summary: `${status.completed}/${status.total} access items removed (${accessItems.filter(a => a.removalStatus !== 'completed').length} pending)`,
         confidence: 1.0,
       }
     );
@@ -414,7 +463,11 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Plan ID is required');
     }
 
-    const plan = offboardingPlans.find(p => p.id === planId);
+    const empStore = getEmployeeStore();
+    const offStore = getOffboardingStore();
+    const tenantId = context.tenantId || 'default';
+
+    const plan = await offStore.getPlanById(planId, tenantId);
     if (!plan) {
       return createErrorResult('Offboarding plan not found');
     }
@@ -424,11 +477,17 @@ export class OffboardingAgent implements Agent {
       return createErrorResult('Access denied: cannot view this plan', ['RBAC violation']);
     }
 
-    const summary = generateExitSummary(planId);
-
-    if (!summary) {
-      return createErrorResult('Failed to generate exit summary');
+    const employee = await empStore.findById(plan.employeeId, tenantId);
+    if (!employee) {
+      return createErrorResult('Employee not found');
     }
+
+    const tasks = await offStore.getTasksForPlan(planId, tenantId);
+    const assets = await offStore.getAssetsForPlan(planId, tenantId);
+    const accessItems = await offStore.getAccessForPlan(planId, tenantId);
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const summary = generateExitSummary(plan, employeeName, tasks, assets, accessItems);
 
     return createAgentResult(summary, {
       summary: `Exit summary for ${summary.employeeName} — ${summary.tasksCompleted}/${summary.tasksTotal} tasks, ${summary.assetsReturned}/${summary.assetsTotal} assets, ${summary.accessRemoved}/${summary.accessTotal} access items`,

@@ -14,6 +14,7 @@
  */
 
 import type { Role } from '@/types';
+import { getKvStore } from './kv-store';
 
 interface RateLimitEntry {
   count: number;
@@ -258,6 +259,51 @@ export function resetRateLimit(key: string, tier?: string): void {
       }
     }
   }
+}
+
+/**
+ * Distributed rate-limit check using the shared KV store.
+ *
+ * Prefer this over the sync `checkRateLimit` for API routes deployed to
+ * multi-instance environments (Vercel regions). When `REDIS_URL` is set,
+ * counters are atomic across instances; otherwise it degrades to the same
+ * process-local behaviour as `checkRateLimit`.
+ */
+export async function checkRateLimitAsync(
+  key: string,
+  tier: keyof typeof RATE_LIMITS,
+  role: Role,
+): Promise<RateLimitResult> {
+  const config = RATE_LIMITS[tier][role] || RATE_LIMITS[tier].default;
+  const fullKey = `rl:${tier}:${key}`;
+  const kv = getKvStore();
+  const now = Date.now();
+
+  // INCR is atomic — if this is the first hit in the window, the counter
+  // goes from 0→1 and we set the TTL. If we're mid-window, TTL already
+  // exists from the first hit and we just increment.
+  const count = await kv.incr(fullKey);
+  if (count === 1) {
+    await kv.expire(fullKey, config.windowMs);
+  }
+
+  if (count > config.maxRequests) {
+    // We don't know exactly when the window started in Redis without a
+    // round-trip for PTTL; use conservative retryAfter = windowMs / 1000.
+    const retryAfter = Math.ceil(config.windowMs / 1000);
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime: now + config.windowMs,
+      retryAfter,
+    };
+  }
+
+  return {
+    allowed: true,
+    remaining: Math.max(0, config.maxRequests - count),
+    resetTime: now + config.windowMs,
+  };
 }
 
 /**

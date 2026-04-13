@@ -1,28 +1,26 @@
 /**
  * Knowledge & Policy Agent
  * Handles policy document search, grounded answers with citations.
- * Data source: policy-store.ts (POC; production: Supabase)
+ *
+ * Data source: `getPolicyStore()` — transparently reads from Supabase when
+ * `SUPABASE_SERVICE_ROLE_KEY` is configured, or falls back to mock data in
+ * dev. No agent changes needed to switch modes.
+ *
  * Deterministic logic only — no AI reasoning.
  */
 
-import type { AgentResult, AgentContext, AgentIntent, PolicyDocument } from '@/types';
+import type { AgentResult, AgentContext, AgentIntent } from '@/types';
 import type { Agent } from './base';
 import { createAgentResult, createErrorResult } from './base';
 import {
-  policyDocuments,
-  getPolicyDocumentById,
-  getPolicyChunksByDocument,
+  getPolicyStore,
   searchPolicyChunks,
   generatePolicyAnswer,
   filterChunksByAudience,
-  initializePolicyStore,
 } from '@/lib/data/policy-store';
 import {
   canViewPolicy,
 } from '@/lib/auth/authorization';
-
-// Ensure store is initialized
-initializePolicyStore();
 
 export class KnowledgeAgent implements Agent {
   readonly type = 'knowledge_policy' as const;
@@ -70,18 +68,24 @@ export class KnowledgeAgent implements Agent {
       return createErrorResult('Search query is required');
     }
 
-    let results = searchPolicyChunks(query);
+    const store = getPolicyStore();
+    const tenantId = context.tenantId || 'default';
+
+    const allDocuments = await store.getAllDocuments(tenantId);
+    const allChunks = await store.getAllChunks(tenantId);
+
+    let results = searchPolicyChunks(query, allDocuments, allChunks);
 
     // Filter by category if specified
     if (category && category !== 'all') {
-      const docsInCategory = policyDocuments.filter(d => d.category === category).map(d => d.id);
+      const docsInCategory = allDocuments.filter(d => d.category === category).map(d => d.id);
       results = results.filter(r => docsInCategory.includes(r.documentId));
     }
 
     // Filter by role-based audience access
-    const accessibleDocIds = policyDocuments
+    const accessibleDocIds = allDocuments
       .filter(d => {
-        const chunks = getPolicyChunksByDocument(d.id);
+        const chunks = allChunks.filter(c => c.document_id === d.id);
         const accessible = filterChunksByAudience(chunks, context.role);
         return accessible.length > 0;
       })
@@ -89,9 +93,14 @@ export class KnowledgeAgent implements Agent {
 
     results = results.filter(r => accessibleDocIds.includes(r.documentId));
 
+    const citationSource = store.backend === 'supabase' ? 'Supabase' : 'Policy Documents';
+
     return createAgentResult(results, {
       summary: `Found ${results.length} relevant policy section${results.length !== 1 ? 's' : ''}`,
       confidence: results.length > 0 ? Math.max(...results.map(r => r.relevanceScore)) : 0,
+      citations: results.length > 0
+        ? [{ source: citationSource, reference: `${results.length} sections` }]
+        : [],
     });
   }
 
@@ -109,14 +118,20 @@ export class KnowledgeAgent implements Agent {
       return createErrorResult('Question is required');
     }
 
+    const store = getPolicyStore();
+    const tenantId = context.tenantId || 'default';
+
+    const allDocuments = await store.getAllDocuments(tenantId);
+    const allChunks = await store.getAllChunks(tenantId);
+
     // Generate answer from policy content
-    const answer = generatePolicyAnswer(question);
+    const answer = generatePolicyAnswer(question, allDocuments, allChunks);
 
     // Filter citations to only include accessible documents
     const accessibleCitations = answer.citations.filter(c => {
-      const doc = policyDocuments.find(d => d.title === c.source);
+      const doc = allDocuments.find(d => d.title === c.source);
       if (!doc) return true; // Keep if source not found (external refs)
-      const chunks = getPolicyChunksByDocument(doc.id);
+      const chunks = allChunks.filter(ch => ch.document_id === doc.id);
       const accessible = filterChunksByAudience(chunks, context.role);
       return accessible.length > 0;
     });
@@ -169,12 +184,15 @@ export class KnowledgeAgent implements Agent {
       return createErrorResult('Document ID is required');
     }
 
-    const document = getPolicyDocumentById(documentId);
+    const store = getPolicyStore();
+    const tenantId = context.tenantId || 'default';
+
+    const document = await store.getDocumentById(documentId, tenantId);
     if (!document) {
       return createErrorResult('Policy document not found');
     }
 
-    let chunks = getPolicyChunksByDocument(documentId);
+    let chunks = await store.getChunksByDocument(documentId, tenantId);
     chunks = filterChunksByAudience(chunks, context.role);
 
     if (chunks.length === 0) {
@@ -198,6 +216,10 @@ export class KnowledgeAgent implements Agent {
       {
         summary: `${chunks.length} citation${chunks.length !== 1 ? 's' : ''} from ${document.title}`,
         confidence: 1.0,
+        citations: [{
+          source: store.backend === 'supabase' ? 'Supabase' : 'Policy Documents',
+          reference: document.title,
+        }],
       }
     );
   }

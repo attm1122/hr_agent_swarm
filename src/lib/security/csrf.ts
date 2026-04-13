@@ -12,6 +12,7 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
+import { getKvStore } from './kv-store';
 
 interface CsrfToken {
   token: string;
@@ -137,6 +138,46 @@ export function rotateCsrfToken(oldToken: string, sessionId: string): string | n
   
   // Generate new token
   return generateCsrfToken(sessionId);
+}
+
+// ---------------------------------------------------------------------------
+// Distributed variants (KV-backed). Prefer these in production.
+// Keys: `csrf:<sessionId>:<token>` → JSON{ sessionId }
+// TTL matches TOKEN_EXPIRY_MS so Redis auto-purges.
+// ---------------------------------------------------------------------------
+
+function csrfKey(sessionId: string, token: string): string {
+  return `csrf:${sessionId}:${token}`;
+}
+
+/** Generate + store a token in the shared KV store. */
+export async function generateCsrfTokenAsync(sessionId: string): Promise<string> {
+  const random = randomBytes(32).toString('hex');
+  const token = createHash('sha256')
+    .update(`${sessionId}:${random}:${Date.now()}`)
+    .digest('hex');
+  const kv = getKvStore();
+  await kv.set(csrfKey(sessionId, token), '1', TOKEN_EXPIRY_MS);
+  return token;
+}
+
+/** Validate a token against the shared KV store. */
+export async function validateCsrfTokenAsync(
+  token: string,
+  sessionId: string,
+): Promise<boolean> {
+  if (!token || !sessionId) return false;
+  const kv = getKvStore();
+  const hit = await kv.get(csrfKey(sessionId, token));
+  return hit !== null;
+}
+
+/** Invalidate every token for a session (logout). */
+export async function invalidateSessionTokensAsync(
+  sessionId: string,
+): Promise<void> {
+  const kv = getKvStore();
+  await kv.deleteByPrefix(`csrf:${sessionId}:`);
 }
 
 /**
