@@ -74,6 +74,15 @@ function isMockAuthEnabled(): boolean {
   return process.env.MOCK_AUTH_ENABLED === 'true';
 }
 
+/**
+ * Demo-mode override: allow mock auth in production when the operator
+ * explicitly opts in. Used for stakeholder previews before real auth
+ * (Azure / Supabase) is wired up. MUST be removed before real users.
+ */
+function isProductionMockAuthAllowed(): boolean {
+  return process.env.ALLOW_PRODUCTION_MOCK_AUTH === 'true';
+}
+
 function isRole(value: string): value is Role {
   return ['admin', 'manager', 'team_lead', 'employee', 'payroll'].includes(value);
 }
@@ -146,7 +155,14 @@ export function getSession(): Session | null {
 
   if (inProduction) {
     if (mockAuthEnabled) {
-      // Mock auth is forbidden in production - fail closed
+      // Demo-mode escape hatch: allow mock auth in production only when
+      // the operator has explicitly opted in via ALLOW_PRODUCTION_MOCK_AUTH.
+      // This exists so stakeholders can preview the app before real auth
+      // (Azure / Supabase) is configured. Must be removed before launch.
+      if (isProductionMockAuthAllowed()) {
+        return getMockSession();
+      }
+      // Otherwise mock auth is forbidden in production - fail closed
       return null;
     }
 
