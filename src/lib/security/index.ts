@@ -75,3 +75,5 @@ export {
   withRequestTimeout,
   generateRequestId,
 } from './security-middleware';
+
+export { securityLog } from './logger';

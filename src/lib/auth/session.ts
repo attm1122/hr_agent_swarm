@@ -25,6 +25,7 @@ import {
   ROLE_SENSITIVITY,
   hasCapability,
 } from './authorization';
+import { securityLog } from '@/lib/security/logger';
 
 export { hasCapability };
 
@@ -75,13 +76,11 @@ function isMockAuthEnabled(): boolean {
 }
 
 /**
- * Demo-mode override: allow mock auth in production when the operator
- * explicitly opts in. Used for stakeholder previews before real auth
- * (Azure / Supabase) is wired up. MUST be removed before real users.
+ * SECURITY: Production mock auth escape hatch has been permanently removed.
+ * Mock auth is NEVER permitted in production. There is no env var override.
+ * If you need a demo environment, deploy to a non-production environment
+ * with MOCK_AUTH_ENABLED=true and NODE_ENV=development.
  */
-function isProductionMockAuthAllowed(): boolean {
-  return process.env.ALLOW_PRODUCTION_MOCK_AUTH === 'true';
-}
 
 function isRole(value: string): value is Role {
   return ['admin', 'manager', 'team_lead', 'employee', 'payroll'].includes(value);
@@ -155,14 +154,10 @@ export function getSession(): Session | null {
 
   if (inProduction) {
     if (mockAuthEnabled) {
-      // Demo-mode escape hatch: allow mock auth in production only when
-      // the operator has explicitly opted in via ALLOW_PRODUCTION_MOCK_AUTH.
-      // This exists so stakeholders can preview the app before real auth
-      // (Azure / Supabase) is configured. Must be removed before launch.
-      if (isProductionMockAuthAllowed()) {
-        return getMockSession();
-      }
-      // Otherwise mock auth is forbidden in production - fail closed
+      // SECURITY: Mock auth is unconditionally forbidden in production.
+      // No env var override exists. Deploy to a non-production environment
+      // for demos. This is a hard security boundary.
+      securityLog.error('auth', 'MOCK_AUTH_ENABLED=true in production — blocked. Mock auth is never permitted in production.');
       return null;
     }
 
@@ -237,7 +232,7 @@ export function requireVerifiedSessionContext(): {
     securityContext: {
       userId: session.employeeId || 'unknown',
       role: session.role,
-      sessionId: session.userId,
+      sessionId: crypto.randomUUID(),
     },
   };
 }
@@ -283,8 +278,7 @@ export async function getProductionSession(): Promise<Session | null> {
     return mapSupabaseUserToSession(user);
   } catch (error) {
     // Log but don't throw - return null for unauthenticated
-    // eslint-disable-next-line no-console
-    console.error('[AUTH] Failed to resolve production session:', error instanceof Error ? error.message : 'Unknown error');
+    securityLog.error('auth', 'Failed to resolve production session', { error: error instanceof Error ? error.message : 'Unknown error' });
     return null;
   }
 }
@@ -306,6 +300,13 @@ export function verifyAuthConfiguration(): {
 
   if (mockAuthEnabled && inProduction) {
     errors.push('MOCK_AUTH_ENABLED cannot be true in production');
+  }
+
+  if (process.env.ALLOW_PRODUCTION_MOCK_AUTH) {
+    errors.push(
+      'ALLOW_PRODUCTION_MOCK_AUTH is no longer supported and must be removed. ' +
+      'Mock auth is unconditionally forbidden in production. Use a non-production environment for demos.',
+    );
   }
 
   if (mockAuthEnabled && productionAuthEnabled) {

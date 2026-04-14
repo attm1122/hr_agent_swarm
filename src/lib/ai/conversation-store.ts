@@ -101,6 +101,7 @@ export interface ConversationStore {
   listMessages(
     conversationId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<ChatMessage[]>;
   appendMessage(input: AppendMessageInput): Promise<ChatMessage>;
 }
@@ -200,7 +201,21 @@ class SupabaseConversationStore implements ConversationStore {
   async listMessages(
     conversationId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<ChatMessage[]> {
+    // SECURITY: When userId is provided, verify conversation ownership
+    // before returning messages. This is defense-in-depth alongside RLS.
+    if (userId) {
+      const { data: convo } = await this.client
+        .from('conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', tenantId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!convo) return []; // Conversation doesn't belong to this user
+    }
+
     const { data, error } = await this.client
       .from('chat_messages')
       .select('*')
@@ -365,7 +380,13 @@ class MemoryConversationStore implements ConversationStore {
   async listMessages(
     conversationId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<ChatMessage[]> {
+    // SECURITY: Verify conversation ownership in memory store too
+    if (userId) {
+      const convo = this.conversations.get(conversationId);
+      if (!convo || convo.userId !== userId || convo.tenantId !== tenantId) return [];
+    }
     const list = this.messages.get(conversationId) ?? [];
     return list.filter((m) => m.tenantId === tenantId);
   }
@@ -408,8 +429,12 @@ export function getConversationStore(): ConversationStore {
     cached = new SupabaseConversationStore(client);
   } else {
     if (process.env.NODE_ENV === 'production') {
-      console.warn(
-        '[conversation-store] SUPABASE_SERVICE_ROLE_KEY not set — falling back to in-memory store. History will not persist.',
+      // SECURITY: In production, missing service role key means conversations
+      // silently disappear. Log as ERROR (not warn) so monitoring picks it up.
+      console.error(
+        '[CRITICAL] conversation-store: SUPABASE_SERVICE_ROLE_KEY not set in production. ' +
+        'Conversations will NOT persist. This is a data loss condition. ' +
+        'Set SUPABASE_SERVICE_ROLE_KEY to fix.',
       );
     }
     cached = new MemoryConversationStore();

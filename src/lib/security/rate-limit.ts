@@ -50,8 +50,8 @@ const cleanupInterval = setInterval(() => {
   
   // Log cleanup in production
   if (process.env.NODE_ENV === 'production' && cleaned > 0) {
-     
-    console.log(`[RATE_LIMIT] Cleaned ${cleaned} expired entries`);
+    const { securityLog } = require('./logger');
+    securityLog.info('rate-limit', `Cleaned ${cleaned} expired entries`, { cleaned });
   }
 }, 60000); // Clean every minute
 
@@ -62,20 +62,20 @@ const memoryCheckInterval = setInterval(() => {
   // Alert if store is too large
   if (storeSize > MAX_STORE_SIZE * CLEANUP_THRESHOLD) {
      
-    console.warn(`[RATE_LIMIT] Store size ${storeSize} approaching limit ${MAX_STORE_SIZE}. Consider migrating to Redis.`);
-    
+    const { securityLog } = require('./logger');
+    securityLog.warn('rate-limit', `Store size ${storeSize} approaching limit ${MAX_STORE_SIZE}. Consider migrating to Redis.`, { storeSize, limit: MAX_STORE_SIZE });
+
     // Emergency cleanup - remove oldest 20% of entries
     if (storeSize > MAX_STORE_SIZE) {
       const entries = Array.from(rateLimitStore.entries());
       const sortedByAge = entries.sort((a, b) => a[1].windowStart - b[1].windowStart);
       const toRemove = Math.floor(storeSize * 0.2); // Remove 20%
-      
+
       for (let i = 0; i < toRemove; i++) {
         rateLimitStore.delete(sortedByAge[i][0]);
       }
-      
-       
-      console.warn(`[RATE_LIMIT] Emergency cleanup removed ${toRemove} entries`);
+
+      securityLog.warn('rate-limit', `Emergency cleanup removed ${toRemove} entries`, { toRemove });
     }
   }
 }, MEMORY_CHECK_INTERVAL);

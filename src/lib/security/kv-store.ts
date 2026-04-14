@@ -112,7 +112,8 @@ function createRedisStore(url: string): KvStore {
       client.on('error', (err: unknown) => {
         // Don't crash on transient network blips; next call will retry.
         const msg = err instanceof Error ? err.message : String(err);
-        console.warn('[kv-store:redis] error', msg);
+        const { securityLog: kvLog } = require('./logger');
+        kvLog.warn('integration', 'Redis client error', { error: msg });
       });
       await client.connect();
       return client;
@@ -178,10 +179,10 @@ export function getKvStore(): KvStore {
     } catch (err) {
       // Fall through to memory if Redis init throws synchronously (the
       // import is dynamic, so this is mostly belt-and-braces).
-      console.warn(
-        '[kv-store] Redis init failed, using memory fallback:',
-        err instanceof Error ? err.message : err,
-      );
+      const { securityLog: kvLog } = require('./logger');
+      kvLog.warn('integration', 'Redis init failed, using memory fallback', {
+        error: err instanceof Error ? err.message : err,
+      });
     }
   }
   cached = createMemoryStore();

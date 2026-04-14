@@ -15,6 +15,8 @@ import { getCoordinator } from '@/lib/agents/coordinator';
 import { requireSession } from '@/lib/auth/session';
 import { createCacheAdapter } from '@/lib/infrastructure/redis/redis-cache-adapter';
 import { RedisRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit-redis';
+import { extractCsrfToken, validateCsrfToken } from '@/lib/security/csrf';
+import { securityLog } from '@/lib/security/logger';
 import { z } from 'zod';
 
 // Initialize infrastructure
@@ -52,12 +54,25 @@ export async function POST(req: NextRequest) {
       return createErrorResponse('Authentication required', 'AUTH_REQUIRED', 401);
     }
 
+    // CSRF validation
+    const csrfToken = extractCsrfToken(req.headers);
+    const strictCsrf = process.env.STRICT_CSRF === 'true';
+    if (csrfToken) {
+      if (!validateCsrfToken(csrfToken, session.userId)) {
+        securityLog.warn('csrf', 'Invalid CSRF token on /api/swarm', { userId: session.userId });
+        return createErrorResponse('CSRF token invalid or expired', 'CSRF_VIOLATION', 403);
+      }
+    } else if (strictCsrf) {
+      securityLog.warn('csrf', 'Missing CSRF token on /api/swarm (strict mode)', { userId: session.userId });
+      return createErrorResponse('CSRF token required', 'CSRF_VIOLATION', 403);
+    }
+
     // Rate limiting
     const rateLimitResult = await rateLimiter.check(
       session.userId,
       RATE_LIMITS.swarm
     );
-    
+
     if (!rateLimitResult.allowed) {
       return createErrorResponse(
         'Rate limit exceeded',
@@ -83,7 +98,19 @@ export async function POST(req: NextRequest) {
     const body = validationResult.data;
 
     // Idempotency check
-    const idempotencyKey = req.headers.get('Idempotency-Key');
+    const rawIdempotencyKey = req.headers.get('Idempotency-Key');
+    // SECURITY: Validate idempotency key format — prevent memory exhaustion
+    // via arbitrarily long keys and cache pollution via malformed keys.
+    const idempotencyKey = rawIdempotencyKey && rawIdempotencyKey.length <= 128 && /^[\w\-]+$/.test(rawIdempotencyKey)
+      ? rawIdempotencyKey
+      : null;
+    if (rawIdempotencyKey && !idempotencyKey) {
+      return createErrorResponse(
+        'Invalid Idempotency-Key: must be 1-128 alphanumeric/hyphen/underscore characters',
+        'INVALID_IDEMPOTENCY_KEY',
+        400,
+      );
+    }
     if (idempotencyKey) {
       const existing = await idempotencyStore.check(idempotencyKey);
       
@@ -146,7 +173,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Swarm API error:', error);
+    securityLog.error('integration', 'Swarm API error', { error: error instanceof Error ? error.message : error });
     
     if (error instanceof z.ZodError) {
       return createErrorResponse(
@@ -158,7 +185,7 @@ export async function POST(req: NextRequest) {
     }
     
     return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
+      'An internal error occurred. Please try again.',
       'INTERNAL_ERROR',
       500
     );

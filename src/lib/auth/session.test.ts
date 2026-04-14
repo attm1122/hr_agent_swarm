@@ -141,11 +141,12 @@ describe('requireVerifiedSessionContext', () => {
     expect(session.role).toBe('payroll');
     expect(context.role).toBe('payroll');
     expect(context.employeeId).toBe('emp-test');
-    expect(securityContext).toEqual({
-      userId: 'emp-test',
-      role: 'payroll',
-      sessionId: 'user-test',
-    });
+    expect(securityContext.userId).toBe('emp-test');
+    expect(securityContext.role).toBe('payroll');
+    // sessionId is now a random UUID per request (session rotation fix)
+    expect(securityContext.sessionId).toBeDefined();
+    expect(securityContext.sessionId).not.toBe('user-test');
+    expect(securityContext.sessionId.length).toBeGreaterThan(0);
   });
 });
 

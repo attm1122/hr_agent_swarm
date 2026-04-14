@@ -17,6 +17,9 @@ import { RedisRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit-redis';
 import { RepositoryFactory } from '@/lib/ports';
 import { createSupabaseRepositoryFactory } from '@/lib/repositories/supabase-factory';
 import { createId } from '@/lib/utils/ids';
+import { signDownloadUrl, storeExportFile } from '@/app/api/export/download/route';
+import { extractCsrfToken, validateCsrfToken } from '@/lib/security/csrf';
+import { securityLog } from '@/lib/security/logger';
 import type { ExportApproval } from '@/types';
 
 // Initialize infrastructure
@@ -95,7 +98,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ approvals });
 
   } catch (error) {
-    console.error('Export GET error:', error);
+    securityLog.error('export', 'Export GET error', { error: error instanceof Error ? error.message : error });
     return createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500);
   }
 }
@@ -138,8 +141,18 @@ export async function POST(req: NextRequest) {
 
     const body = validationResult.data;
 
-    // Check idempotency
-    const idempotencyKey = req.headers.get('Idempotency-Key');
+    // Check idempotency — validate key format to prevent memory exhaustion
+    const rawIdempotencyKey = req.headers.get('Idempotency-Key');
+    const idempotencyKey = rawIdempotencyKey && rawIdempotencyKey.length <= 128 && /^[\w\-]+$/.test(rawIdempotencyKey)
+      ? rawIdempotencyKey
+      : null;
+    if (rawIdempotencyKey && !idempotencyKey) {
+      return createErrorResponse(
+        'Invalid Idempotency-Key: must be 1-128 alphanumeric/hyphen/underscore characters',
+        'INVALID_IDEMPOTENCY_KEY',
+        400,
+      );
+    }
     if (idempotencyKey) {
       const existing = await idempotencyStore.check(idempotencyKey);
       
@@ -253,9 +266,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Export POST error:', error);
+    // SECURITY: Never leak raw error details to client
+    securityLog.error('export', 'Export POST error', { error: error instanceof Error ? error.message : error });
     return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
+      'An internal error occurred processing the export.',
       'INTERNAL_ERROR',
       500
     );
@@ -357,21 +371,30 @@ export async function PATCH(req: NextRequest) {
     approval.approverId = session.userId;
     approval.approvedAt = new Date().toISOString();
     approval.completedAt = new Date().toISOString();
-    approval.downloadUrl = `data:${approval.format === 'csv' ? 'text/csv' : 'application/json'};base64,${Buffer.from(content).toString('base64')}`;
+
+    // SECURITY: Use signed, time-limited download URLs instead of data URIs.
+    // Data URIs embed full export content in the URL — polluting browser history,
+    // proxy logs, and exceeding URL length limits for large exports.
+    const contentType = approval.format === 'csv' ? 'text/csv' : 'application/json';
+    const filename = `export_${body.approvalId}.${approval.format === 'csv' ? 'csv' : 'json'}`;
+    storeExportFile(body.approvalId, content, contentType, filename, session.userId);
+    const { url: downloadUrl } = signDownloadUrl(body.approvalId, session.userId);
+    approval.downloadUrl = downloadUrl;
 
     approvalStore.set(body.approvalId, approval);
 
     return NextResponse.json({
       status: 'approved',
       approvalId: body.approvalId,
-      downloadUrl: approval.downloadUrl,
+      downloadUrl,
       recordCount: filteredData.length,
     });
 
   } catch (error) {
-    console.error('Export PATCH error:', error);
+    // SECURITY: Never leak raw error details to client
+    securityLog.error('export', 'Export PATCH error', { error: error instanceof Error ? error.message : error });
     return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
+      'An internal error occurred processing the export.',
       'INTERNAL_ERROR',
       500
     );

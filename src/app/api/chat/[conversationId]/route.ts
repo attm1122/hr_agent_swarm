@@ -42,10 +42,17 @@ export async function GET(
     return jsonError('Conversation not found', 'NOT_FOUND', 404);
   }
 
-  const messages = await store.listMessages(conversationId, tenantId);
+  const messages = await store.listMessages(conversationId, tenantId, session.userId);
   return new Response(
     JSON.stringify({ conversation, messages }),
-    { status: 200, headers: { 'content-type': 'application/json' } },
+    {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': 'no-store, must-revalidate',
+        'x-content-type-options': 'nosniff',
+      },
+    },
   );
 }
 
@@ -65,5 +72,11 @@ export async function DELETE(
   const tenantId = session.tenantId || 'default';
   const store = getConversationStore();
   await store.deleteConversation(conversationId, session.userId, tenantId);
-  return new Response(null, { status: 204 });
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }

@@ -274,11 +274,10 @@ function logIntegrationRequest(
 ): void {
   const redactedData = redactSensitiveFields(data, sensitiveFields);
   
-  // In production: Send to SIEM, not console
+  // In production: Send to SIEM via structured logger
   if (process.env.NODE_ENV === 'production') {
-     
-    console.log('[INTEGRATION]', {
-      timestamp: new Date().toISOString(),
+    const { securityLog } = require('./logger');
+    securityLog.info('integration', `${integration} ${method} ${endpoint} → ${statusCode}`, {
       integration,
       endpoint,
       method,
@@ -300,14 +299,12 @@ function logSecurityEvent(
 ): void {
   // In production: Send to security monitoring service
   if (process.env.NODE_ENV === 'production') {
-     
-    console.warn('[SECURITY]', {
-      timestamp: new Date().toISOString(),
+    const { securityLog: sLog } = require('./logger');
+    sLog.warn('integration', `Security event: ${eventType}`, {
       eventType,
       details,
       userId: context?.userId,
       role: context?.role,
-      sessionId: context?.sessionId,
     });
   }
 }

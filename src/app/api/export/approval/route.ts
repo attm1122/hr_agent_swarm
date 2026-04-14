@@ -19,6 +19,8 @@ import { securityMiddleware, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent, logSensitiveAction } from '@/lib/security';
 import { hasCapability } from '@/lib/auth/authorization';
 import { getEmployeeList } from '@/lib/services/employee.service';
+import { securityLog } from '@/lib/security/logger';
+import { signDownloadUrl, storeExportFile } from '@/app/api/export/download/route';
 import type { AgentContext } from '@/types';
 import { toDateOnlyString } from '@/lib/date-only';
 
@@ -27,7 +29,7 @@ interface ExportApproval {
   exportId: string;
   requesterId: string;
   requesterRole: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'processing' | 'approved' | 'rejected';
   approverId?: string;
   approverRole?: string;
   approvedAt?: string;
@@ -304,6 +306,10 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // SECURITY: Atomic check-and-lock to prevent TOCTOU race condition.
+    // Two concurrent approvers could both read status='pending', pass the
+    // check, then both mutate the approval. We atomically swap status to
+    // 'processing' so only the first request wins.
     if (approval.status !== 'pending') {
       return addSecurityHeaders(
         NextResponse.json(
@@ -312,12 +318,16 @@ export async function PATCH(req: NextRequest) {
         )
       );
     }
+    // Atomically claim — any concurrent request will now see 'processing'
+    approval.status = 'processing' as ExportApproval['status'];
 
     if (!canApprove(context, approval)) {
+      // Release lock — revert to pending so another approver can try
+      approval.status = 'pending';
       logSecurityEvent(
         'security_blocked',
         context,
-        { 
+        {
           reason: 'User attempted to approve export without proper authorization',
           resourceType: 'export_approval',
           resourceId: exportId,
@@ -406,25 +416,29 @@ export async function PATCH(req: NextRequest) {
       false
     );
 
+    // SECURITY: Use signed, time-limited download URLs instead of embedding
+    // export data directly in API responses (leaks into logs, caches, etc.).
+    const dateStr = toDateOnlyString();
+    let content: string;
+    let contentType: string;
+    let filename: string;
+
     if (approval.exportFormat === 'csv') {
-      const headers = Object.keys(filteredData[0] || {}).join(',');
+      const csvHeaders = Object.keys(filteredData[0] || {}).join(',');
       const rows = filteredData.map(row =>
         Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
       );
-      const csv = [headers, ...rows].join('\n');
-
-      return addSecurityHeaders(
-        new NextResponse(csv, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename="${approval.exportType}_export_${toDateOnlyString()}.csv"`,
-            'X-Export-Id': exportId,
-            'X-Approved-By': context.userId,
-          },
-        })
-      );
+      content = [csvHeaders, ...rows].join('\n');
+      contentType = 'text/csv';
+      filename = `${approval.exportType}_export_${dateStr}.csv`;
+    } else {
+      content = JSON.stringify(filteredData, null, 2);
+      contentType = 'application/json';
+      filename = `${approval.exportType}_export_${dateStr}.json`;
     }
+
+    storeExportFile(exportId, content, contentType, filename, context.userId);
+    const { url: downloadUrl } = signDownloadUrl(exportId, context.userId);
 
     return addSecurityHeaders(
       NextResponse.json({
@@ -436,7 +450,7 @@ export async function PATCH(req: NextRequest) {
         format: approval.exportFormat,
         recordCount: filteredData.length,
         fields: Object.keys(filteredData[0] || {}),
-        data: filteredData,
+        downloadUrl,
       })
     );
 
@@ -450,11 +464,14 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const message = err instanceof Error ? err.message : 'Approval action failed';
-    console.error('Export approval error:', err);
+    // SECURITY: Never leak raw error details to client
+    securityLog.error('export', 'Export approval error', { error: err instanceof Error ? err.message : err });
 
     return addSecurityHeaders(
-      NextResponse.json({ error: message }, { status: 500 })
+      NextResponse.json(
+        { error: 'An internal error occurred processing the approval.' },
+        { status: 500 },
+      )
     );
   }
 }

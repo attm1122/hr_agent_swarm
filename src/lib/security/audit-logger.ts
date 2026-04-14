@@ -102,23 +102,49 @@ function createIntegrityHash(entry: Omit<AuditLogEntry, 'integrityHash'>): strin
  */
 function redactSensitiveData(entry: Partial<AuditLogEntry>): Partial<AuditLogEntry> {
   const redacted = { ...entry };
-  
+
   // Never log full error messages that might contain sensitive data
   if (redacted.errorMessage) {
-    // Keep only first 100 chars, remove any PII patterns
-    redacted.errorMessage = redacted.errorMessage
-      .substring(0, 100)
-      .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]')  // SSN pattern
-      .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]');  // Email
+    redacted.errorMessage = redactPiiFromString(
+      redacted.errorMessage.substring(0, 200),
+    );
   }
-  
+
   // Limit fields accessed array size
   if (redacted.fieldsAccessed && redacted.fieldsAccessed.length > 50) {
     redacted.fieldsAccessed = redacted.fieldsAccessed.slice(0, 50);
     redacted.fieldsAccessed.push('...[truncated]');
   }
-  
+
   return redacted;
+}
+
+/**
+ * Redact common PII patterns from a string.
+ * Covers: SSN, email, credit card, AU TFN, AU Medicare, phone numbers,
+ * base64-encoded blobs (often contain encoded PII), and JWT tokens.
+ */
+function redactPiiFromString(text: string): string {
+  return text
+    // SSN (US): 123-45-6789
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED:SSN]')
+    // Email
+    .replace(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b/g, '[REDACTED:EMAIL]')
+    // Credit card (Visa/MC/Amex loose patterns)
+    .replace(/\b(?:\d[ -]*?){13,19}\b/g, (m) => {
+      const digits = m.replace(/\D/g, '');
+      return digits.length >= 13 && digits.length <= 19 ? '[REDACTED:CC]' : m;
+    })
+    // AU Tax File Number: 123 456 789
+    .replace(/\b\d{3}\s?\d{3}\s?\d{3}\b/g, '[REDACTED:TFN]')
+    // AU Medicare: 2123 45678 1
+    .replace(/\b\d{4}\s?\d{5}\s?\d{1,2}\b/g, '[REDACTED:MEDICARE]')
+    // Phone numbers (international + AU)
+    .replace(/\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, '[REDACTED:PHONE]')
+    // JWT tokens (three base64 segments separated by dots)
+    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[REDACTED:JWT]')
+    // Long base64 blobs (40+ chars, often encoded PII)
+    .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, '[REDACTED:B64]');
 }
 
 /**

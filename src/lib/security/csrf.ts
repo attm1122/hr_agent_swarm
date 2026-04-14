@@ -11,7 +11,7 @@
  * Production: Store tokens in Redis with expiration.
  */
 
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { getKvStore } from './kv-store';
 
 interface CsrfToken {
@@ -59,29 +59,37 @@ export function generateCsrfToken(sessionId: string): string {
 }
 
 /**
- * Validate a CSRF token
+ * Validate a CSRF token.
+ *
+ * Uses constant-time comparison to prevent timing side-channels that could
+ * let an attacker brute-force a valid token byte-by-byte.
+ * Tokens are single-use: consumed on successful validation to prevent
+ * replay attacks on completed operations.
  */
 export function validateCsrfToken(token: string, sessionId: string): boolean {
   if (!token || !sessionId) return false;
-  
+
   const stored = csrfTokens.get(token);
-  
+
   if (!stored) {
     return false; // Token not found
   }
-  
+
   if (Date.now() > stored.expiresAt) {
     csrfTokens.delete(token);
     return false; // Token expired
   }
-  
-  if (stored.sessionId !== sessionId) {
+
+  // Constant-time session comparison — prevent timing attacks
+  const storedBuf = Buffer.from(stored.sessionId, 'utf-8');
+  const givenBuf = Buffer.from(sessionId, 'utf-8');
+  if (storedBuf.length !== givenBuf.length || !timingSafeEqual(storedBuf, givenBuf)) {
     return false; // Token not bound to this session
   }
-  
-  // Token is valid - optionally rotate for security
-  // csrfTokens.delete(token); // Uncomment for single-use tokens
-  
+
+  // Single-use: delete after successful validation to prevent replay
+  csrfTokens.delete(token);
+
   return true;
 }
 

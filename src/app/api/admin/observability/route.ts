@@ -22,6 +22,7 @@ import {
 import { hasCapability } from '@/lib/auth/authorization';
 import { securityMiddleware, addSecurityHeaders } from '@/lib/security';
 import { logSecurityEvent } from '@/lib/security';
+import { securityLog } from '@/lib/security/logger';
 import {
   getAgentMetrics,
   getSecurityMetrics,
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.error('Observability endpoint error:', error);
+    securityLog.error('middleware', 'Observability endpoint error', { error: error instanceof Error ? error.message : error });
     
     const errorResponse = NextResponse.json(
       {

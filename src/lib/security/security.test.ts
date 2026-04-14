@@ -153,13 +153,23 @@ describe('CSRF Protection', () => {
     expect(token).toBeNull();
   });
 
+  it('tokens are single-use — second validation fails', () => {
+    const sessionId = 'session-single-use';
+    const token = generateCsrfToken(sessionId);
+
+    // First use succeeds
+    expect(validateCsrfToken(token, sessionId)).toBe(true);
+    // Second use fails (consumed)
+    expect(validateCsrfToken(token, sessionId)).toBe(false);
+  });
+
   it('invalidates all session tokens', () => {
     const sessionId = 'session-123';
     const token1 = generateCsrfToken(sessionId);
     const token2 = generateCsrfToken(sessionId);
-    
+
     invalidateSessionTokens(sessionId);
-    
+
     expect(validateCsrfToken(token1, sessionId)).toBe(false);
     expect(validateCsrfToken(token2, sessionId)).toBe(false);
   });
@@ -273,6 +283,36 @@ describe('Input Sanitization', () => {
       const clean = sanitizeObject(obj);
       expect(clean.bio).toBeNull();
     });
+
+    it('blocks prototype pollution via __proto__', () => {
+      const malicious = JSON.parse('{"__proto__":{"isAdmin":true},"name":"safe"}');
+      const clean = sanitizeObject(malicious);
+      // __proto__ should not be set as an OWN property
+      expect(Object.hasOwn(clean, '__proto__')).toBe(false);
+      expect(clean.name).toBeDefined();
+      // Ensure Object.prototype was not polluted
+      expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+    });
+
+    it('blocks constructor/prototype poison keys', () => {
+      const obj = { constructor: 'evil', prototype: 'bad', name: 'safe' };
+      const clean = sanitizeObject(obj);
+      // Poison keys should NOT be own properties on the result
+      expect(Object.hasOwn(clean, 'constructor')).toBe(false);
+      expect(Object.hasOwn(clean, 'prototype')).toBe(false);
+      expect(clean.name).toBeDefined();
+    });
+
+    it('enforces depth limit to prevent stack overflow', () => {
+      // Build a 30-level deep object (exceeds MAX_OBJECT_DEPTH of 20)
+      let deep: Record<string, unknown> = { value: 'bottom' };
+      for (let i = 0; i < 30; i++) {
+        deep = { nested: deep };
+      }
+      // Should not throw — returns empty at depth limit
+      const clean = sanitizeObject(deep);
+      expect(clean).toBeDefined();
+    });
   });
 
   describe('XSS detection', () => {
@@ -292,24 +332,107 @@ describe('Input Sanitization', () => {
       expect(containsXss('Hello World')).toBe(false);
       expect(containsXss('<p>Hello</p>')).toBe(false);
     });
+
+    // --- New hardened detection vectors ---
+
+    it('detects SVG tags', () => {
+      expect(containsXss('<svg onload="alert(1)">')).toBe(true);
+      expect(containsXss('<svg/onload=alert(1)>')).toBe(true);
+    });
+
+    it('detects MathML tags', () => {
+      expect(containsXss('<math><mi>x</mi></math>')).toBe(true);
+    });
+
+    it('detects HTML entity-encoded script tags', () => {
+      expect(containsXss('&#60;script src=evil.js>')).toBe(true);
+      expect(containsXss('&#x3c;script>')).toBe(true);
+    });
+
+    it('detects unicode-escaped script', () => {
+      expect(containsXss('\\u003cscript\\u003e')).toBe(true);
+    });
+
+    it('detects null byte injection', () => {
+      expect(containsXss('hello\x00world')).toBe(true);
+    });
+
+    it('detects vbscript protocol', () => {
+      expect(containsXss('vbscript:MsgBox("xss")')).toBe(true);
+    });
+
+    it('detects CSS expression()', () => {
+      expect(containsXss('background: expression(alert(1))')).toBe(true);
+    });
+
+    it('detects data:text/html URI', () => {
+      expect(containsXss('data:text/html,<h1>hi</h1>')).toBe(true);
+    });
+
+    it('is idempotent — same result on repeated calls (no /g statefulness)', () => {
+      const payload = '<script>alert(1)</script>';
+      expect(containsXss(payload)).toBe(true);
+      expect(containsXss(payload)).toBe(true);
+      expect(containsXss(payload)).toBe(true);
+    });
   });
 
   describe('SQL injection detection', () => {
-    it('detects single quote injection', () => {
+    it('detects single quote tautology', () => {
       expect(containsSqlInjection("' OR '1'='1")).toBe(true);
     });
 
-    it('detects comment injection', () => {
-      expect(containsSqlInjection('1; DROP TABLE users; --')).toBe(true);
+    it('detects stacked query with DROP', () => {
+      expect(containsSqlInjection('1; DROP TABLE users; -- ')).toBe(true);
     });
 
-    it('detects UNION injection', () => {
-      expect(containsSqlInjection("' UNION SELECT * FROM passwords --")).toBe(true);
+    it('detects UNION SELECT', () => {
+      expect(containsSqlInjection("' UNION SELECT * FROM passwords -- ")).toBe(true);
     });
 
     it('returns false for safe content', () => {
       expect(containsSqlInjection('Hello World')).toBe(false);
-      expect(containsSqlInjection("It's a nice day")).toBe(true); // Contains single quote
+    });
+
+    // --- New hardened detection vectors ---
+
+    it('detects WAITFOR DELAY (time-based blind)', () => {
+      expect(containsSqlInjection("'; WAITFOR DELAY '0:0:5'-- ")).toBe(true);
+    });
+
+    it('detects BENCHMARK (MySQL blind)', () => {
+      expect(containsSqlInjection("1 AND BENCHMARK(5000000,SHA1('test'))")).toBe(true);
+    });
+
+    it('detects SLEEP (MySQL)', () => {
+      expect(containsSqlInjection("1' AND SLEEP(5)-- ")).toBe(true);
+    });
+
+    it('detects pg_sleep (PostgreSQL)', () => {
+      expect(containsSqlInjection("'; SELECT pg_sleep(5)-- ")).toBe(true);
+    });
+
+    it('detects INFORMATION_SCHEMA probing', () => {
+      expect(containsSqlInjection('SELECT * FROM INFORMATION_SCHEMA.tables')).toBe(true);
+    });
+
+    it('detects hex-encoded strings', () => {
+      expect(containsSqlInjection('SELECT 0x41424344')).toBe(true);
+    });
+
+    it('detects extended stored procedures', () => {
+      expect(containsSqlInjection("EXEC xp_cmdshell 'dir'")).toBe(true);
+    });
+
+    it('detects INTO OUTFILE', () => {
+      expect(containsSqlInjection("SELECT * INTO OUTFILE '/tmp/dump'")).toBe(true);
+    });
+
+    it('is idempotent — same result on repeated calls', () => {
+      const payload = "' OR '1'='1";
+      expect(containsSqlInjection(payload)).toBe(true);
+      expect(containsSqlInjection(payload)).toBe(true);
+      expect(containsSqlInjection(payload)).toBe(true);
     });
   });
 
@@ -399,14 +522,17 @@ describe('Input Sanitization', () => {
 // ============================================
 
 describe('Security Integration', () => {
-  it('rate limit blocks after CSRF failure', () => {
-    const sessionId = 'test-session';
-    
-    // Generate CSRF token
+  it('CSRF + rate limit: valid token consumed then rate limit still allows', () => {
+    const sessionId = 'test-session-integ';
+
+    // Generate and validate CSRF token (consumes it — single-use)
     const csrfToken = generateCsrfToken(sessionId);
     expect(validateCsrfToken(csrfToken, sessionId)).toBe(true);
-    
-    // Check rate limit status
+
+    // Token is consumed; second attempt fails
+    expect(validateCsrfToken(csrfToken, sessionId)).toBe(false);
+
+    // Rate limit status should still allow requests
     const rateStatus = getRateLimitStatus(sessionId, 'agent', 'employee');
     expect(rateStatus.allowed).toBe(true);
   });

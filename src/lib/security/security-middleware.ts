@@ -104,13 +104,17 @@ export async function securityMiddleware(
   }
   
   // 2. CSRF Protection (for state-changing methods)
+  // NOTE: CSRF tokens are generated bound to userId (via GET /api/csrf),
+  // not sessionId. After the session-rotation fix, sessionId is a random UUID
+  // per request — using it here would always mismatch. We validate against
+  // userId which is stable and matches the generation binding.
   if (mergedConfig.requireCsrf && requiresCsrfProtection(request.method)) {
     const csrfToken = extractCsrfToken(request.headers);
-    
+
     const csrfValid = csrfToken
       ? useDistributed
-        ? await validateCsrfTokenAsync(csrfToken, userContext.sessionId)
-        : validateCsrfToken(csrfToken, userContext.sessionId)
+        ? await validateCsrfTokenAsync(csrfToken, userContext.userId)
+        : validateCsrfToken(csrfToken, userContext.userId)
       : false;
 
     if (!csrfValid) {
@@ -159,18 +163,41 @@ export async function securityMiddleware(
 }
 
 /**
- * Validate and sanitize request body
+ * Validate and sanitize request body.
+ *
+ * Performs three layers of defense:
+ * 1. XSS pattern detection on raw JSON string
+ * 2. SQL injection pattern detection on raw JSON string
+ * 3. Deep recursive sanitisation of the parsed object (strips dangerous
+ *    HTML, blocks prototype-pollution keys, enforces depth limits)
+ *
+ * If a detection layer fires, the request is logged and rejected with a
+ * generic error message (no information leakage about which pattern matched).
  */
 export async function validateRequestBody(
   request: NextRequest,
   userContext: { userId: string; role: string; sessionId: string }
 ): Promise<{ success: boolean; body?: Record<string, unknown>; error?: string }> {
   try {
-    const body = await request.json() as Record<string, unknown>;
-    
-    // Check for XSS patterns
-    const bodyString = JSON.stringify(body);
-    if (containsXss(bodyString)) {
+    // Read body as text first to validate raw content before parsing
+    const rawText = await request.text();
+
+    // Enforce actual body size (not just Content-Length header which can be spoofed)
+    const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
+    if (new TextEncoder().encode(rawText).length > MAX_BODY_BYTES) {
+      return { success: false, error: 'Request body too large' };
+    }
+
+    // Parse JSON
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      return { success: false, error: 'Invalid JSON in request body' };
+    }
+
+    // Check for XSS patterns in raw text (before any transformation)
+    if (containsXss(rawText)) {
       logSecurityEvent(
         'security_blocked',
         userContext,
@@ -178,9 +205,9 @@ export async function validateRequestBody(
       );
       return { success: false, error: 'Invalid content in request body' };
     }
-    
+
     // Check for SQL injection patterns
-    if (containsSqlInjection(bodyString)) {
+    if (containsSqlInjection(rawText)) {
       logSecurityEvent(
         'security_blocked',
         userContext,
@@ -188,10 +215,10 @@ export async function validateRequestBody(
       );
       return { success: false, error: 'Invalid content in request body' };
     }
-    
-    // Sanitize the body
+
+    // Deep sanitise the parsed object
     const sanitized = sanitizeObject(body);
-    
+
     return { success: true, body: sanitized };
   } catch (error) {
     return { success: false, error: 'Invalid JSON in request body' };

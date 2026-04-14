@@ -7,6 +7,7 @@
  */
 
 import type { Role, RecordScope, DataSensitivity, AgentContext } from '@/types';
+import { securityLog } from '@/lib/security/logger';
 
 // ============================================
 // Role → Capabilities mapping
@@ -337,15 +338,28 @@ export function canManagePolicy(ctx: AgentContext): boolean {
 
 const PAY_SENSITIVE_FIELDS = ['salary', 'baseSalary', 'bonus', 'compensation', 'payGrade', 'stockOptions', 'totalCompensation', 'ssn', 'dateOfBirth', 'bankAccount', 'taxId'];
 
+/**
+ * Strip pay-sensitive fields from a record when the viewer does not have
+ * `pay_sensitive` clearance. Logs when fields are stripped so the security
+ * audit trail has evidence of enforcement.
+ *
+ * @param record - The data record to filter.
+ * @param clearance - The viewer's sensitivity clearance levels.
+ * @param auditContext - Optional context for the audit log (who is viewing what).
+ */
 export function stripSensitiveFields<T extends Record<string, unknown>>(
   record: T,
-  clearance: DataSensitivity[]
+  clearance: DataSensitivity[],
+  auditContext?: { userId?: string; role?: string; recordId?: string },
 ): T {
   if (clearance.includes('pay_sensitive')) return record;
 
   const stripped = { ...record };
+  const strippedFieldNames: string[] = [];
+
   for (const field of PAY_SENSITIVE_FIELDS) {
     if (field in stripped) {
+      strippedFieldNames.push(field);
       delete stripped[field];
     }
   }
@@ -360,5 +374,17 @@ export function stripSensitiveFields<T extends Record<string, unknown>>(
       );
     }
   }
+
+  // SECURITY AUDIT: Log when sensitive fields are stripped so investigations
+  // have evidence of enforcement. Only logs when fields were actually removed.
+  if (strippedFieldNames.length > 0) {
+    securityLog.info('auth', 'Sensitive fields stripped', {
+      action: 'sensitive_fields_stripped',
+      fields: strippedFieldNames,
+      clearance,
+      ...(auditContext ?? {}),
+    });
+  }
+
   return stripped;
 }

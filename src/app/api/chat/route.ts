@@ -33,6 +33,8 @@ import {
 } from '@/lib/ai/conversation-store';
 import { createCacheAdapter } from '@/lib/infrastructure/redis/redis-cache-adapter';
 import { RedisRateLimiter } from '@/lib/security/rate-limit-redis';
+import { extractCsrfToken, validateCsrfToken } from '@/lib/security/csrf';
+import { securityLog } from '@/lib/security/logger';
 import type { AgentContext } from '@/types';
 
 export const runtime = 'nodejs';
@@ -84,6 +86,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ---- CSRF validation ----------------------------------------------------
+  // Tokens are generated via GET /api/csrf bound to session.userId.
+  // In strict mode (STRICT_CSRF=true), missing tokens are rejected.
+  // Otherwise, only invalid/expired tokens are rejected (backward-compatible).
+  const csrfToken = extractCsrfToken(req.headers);
+  const strictCsrf = process.env.STRICT_CSRF === 'true';
+  if (csrfToken) {
+    if (!validateCsrfToken(csrfToken, session.userId)) {
+      securityLog.warn('csrf', 'Invalid CSRF token on /api/chat', { userId: session.userId });
+      return jsonError('CSRF token invalid or expired', 'CSRF_VIOLATION', 403);
+    }
+  } else if (strictCsrf) {
+    securityLog.warn('csrf', 'Missing CSRF token on /api/chat (strict mode)', { userId: session.userId });
+    return jsonError('CSRF token required', 'CSRF_VIOLATION', 403);
+  }
+
   // ---- rate limit ---------------------------------------------------------
   const rl = await rateLimiter.check(session.userId, CHAT_RATE_LIMIT);
   if (!rl.allowed) {
@@ -131,7 +149,7 @@ export async function POST(req: NextRequest) {
 
   // ---- load prior turns ---------------------------------------------------
   const history = messagesToTurns(
-    await store.listMessages(conversation.id, tenantId),
+    await store.listMessages(conversation.id, tenantId, session.userId),
   );
 
   // ---- persist the user turn upfront so it's captured even on failure -----
@@ -210,13 +228,11 @@ export async function POST(req: NextRequest) {
 
         controller.close();
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[api/chat] orchestrate failed:', err);
-        send({
-          type: 'error',
-          message:
-            err instanceof Error ? err.message : 'Unknown server error',
-        });
+        // SECURITY: Never send raw error messages to client — they may contain
+        // stack traces, file paths, or PII from the orchestrator layer.
+        const safeMessage = 'An error occurred processing your request. Please try again.';
+        securityLog.error('ai-os', 'Chat orchestration failed', { error: err instanceof Error ? err.message : err });
+        send({ type: 'error', message: safeMessage });
         controller.close();
       }
     },
@@ -225,8 +241,11 @@ export async function POST(req: NextRequest) {
   return new Response(stream, {
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache, no-transform',
+      'cache-control': 'no-cache, no-store, no-transform, must-revalidate',
+      'pragma': 'no-cache',
       connection: 'keep-alive',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
       'x-conversation-id': conversation.id,
     },
   });
@@ -247,7 +266,11 @@ export async function GET() {
 
   return new Response(JSON.stringify({ conversations }), {
     status: 200,
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store, must-revalidate',
+      'x-content-type-options': 'nosniff',
+    },
   });
 }
 
