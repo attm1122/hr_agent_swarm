@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import LucideIcon from '@/components/assistant/LucideIcon';
 import type { UIAction } from '@/lib/ai-os';
 import type { SummaryCardBlock } from '@/lib/ai-os/ui-composer/types';
 
@@ -30,7 +31,7 @@ export default function SummaryCard({
       <CardHeader>
         <div className="flex items-center gap-2">
           {block.icon && (
-            <span className="text-muted-foreground text-lg">{block.icon}</span>
+            <LucideIcon name={block.icon} className="h-5 w-5 text-muted-foreground" />
           )}
           <CardTitle className="text-base font-semibold">{block.title}</CardTitle>
         </div>
