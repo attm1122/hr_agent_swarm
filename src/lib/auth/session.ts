@@ -147,17 +147,37 @@ function getMockSession(): Session {
  * - Non-production: only explicit mock auth may create a session
  * - No explicit auth: return null (unauthenticated)
  */
+/**
+ * Check whether demo mode is enabled in production.
+ *
+ * SECURITY: This is a deliberate escape hatch for stakeholder previews.
+ * It requires BOTH env vars to be set (DEMO_MODE_SECRET + MOCK_AUTH_ENABLED).
+ * Every request that resolves through this path is audit-logged.
+ * Remove DEMO_MODE_SECRET from Vercel env vars before go-live.
+ */
+function isDemoModeEnabled(): boolean {
+  const secret = process.env.DEMO_MODE_SECRET;
+  // Must be a non-trivial secret (≥16 chars) to prevent accidental enablement
+  return Boolean(secret && secret.length >= 16);
+}
+
 export function getSession(): Session | null {
   const inProduction = process.env.NODE_ENV === 'production';
   const productionAuthEnabled = isProductionAuthEnabled();
   const mockAuthEnabled = isMockAuthEnabled();
 
   if (inProduction) {
+    if (mockAuthEnabled && isDemoModeEnabled()) {
+      // DEMO MODE: Allow mock auth in production for stakeholder previews.
+      // Requires DEMO_MODE_SECRET (≥16 chars) to be set alongside MOCK_AUTH_ENABLED.
+      // Every session resolved through this path is logged as a security warning.
+      securityLog.warn('auth', 'DEMO MODE active in production — mock auth permitted via DEMO_MODE_SECRET. Remove before go-live.');
+      return getMockSession();
+    }
+
     if (mockAuthEnabled) {
-      // SECURITY: Mock auth is unconditionally forbidden in production.
-      // No env var override exists. Deploy to a non-production environment
-      // for demos. This is a hard security boundary.
-      securityLog.error('auth', 'MOCK_AUTH_ENABLED=true in production — blocked. Mock auth is never permitted in production.');
+      // SECURITY: Mock auth without DEMO_MODE_SECRET is unconditionally forbidden in production.
+      securityLog.error('auth', 'MOCK_AUTH_ENABLED=true in production — blocked. Set DEMO_MODE_SECRET for stakeholder previews or use real auth.');
       return null;
     }
 
@@ -196,6 +216,11 @@ export function requireSession(): Session {
 export async function resolveSession(): Promise<Session | null> {
   const inProduction = process.env.NODE_ENV === 'production';
   const productionAuthEnabled = isProductionAuthEnabled();
+
+  // In demo mode, short-circuit to mock session (skip Supabase)
+  if (inProduction && isMockAuthEnabled() && isDemoModeEnabled()) {
+    return getSession(); // getSession() handles demo mode logging
+  }
 
   if (inProduction || productionAuthEnabled) {
     return getProductionSession();
@@ -298,8 +323,11 @@ export function verifyAuthConfiguration(): {
   const productionAuthEnabled = isProductionAuthEnabled();
   const mockAuthEnabled = isMockAuthEnabled();
 
-  if (mockAuthEnabled && inProduction) {
-    errors.push('MOCK_AUTH_ENABLED cannot be true in production');
+  if (mockAuthEnabled && inProduction && !isDemoModeEnabled()) {
+    errors.push('MOCK_AUTH_ENABLED cannot be true in production without DEMO_MODE_SECRET');
+  }
+  if (mockAuthEnabled && inProduction && isDemoModeEnabled()) {
+    warnings.push('DEMO MODE is active — mock auth is permitted in production. Remove DEMO_MODE_SECRET before go-live.');
   }
 
   if (process.env.ALLOW_PRODUCTION_MOCK_AUTH) {

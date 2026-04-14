@@ -91,11 +91,30 @@ describe('getSession', () => {
     expect(getSession()).toBeNull();
   });
 
-  it('returns null when mock auth is enabled in production (forbidden)', () => {
+  it('returns null when mock auth is enabled in production without DEMO_MODE_SECRET (forbidden)', () => {
     vi.stubEnv('NODE_ENV', 'production');
     enableMockAuth('employee');
 
-    // Mock auth in production is forbidden - returns null (fail closed)
+    // Mock auth in production is forbidden without DEMO_MODE_SECRET - returns null (fail closed)
+    expect(getSession()).toBeNull();
+  });
+
+  it('allows mock auth in production when DEMO_MODE_SECRET is set (≥16 chars)', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    enableMockAuth('manager');
+    vi.stubEnv('DEMO_MODE_SECRET', 'stakeholder-preview-secret-2026');
+
+    const session = getSession();
+    expect(session).not.toBeNull();
+    expect(session?.role).toBe('manager');
+  });
+
+  it('rejects DEMO_MODE_SECRET that is too short (<16 chars)', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    enableMockAuth('employee');
+    vi.stubEnv('DEMO_MODE_SECRET', 'short');
+
+    // Too-short secret is treated as not set — blocked
     expect(getSession()).toBeNull();
   });
 
