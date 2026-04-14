@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
   // Security headers applied to all routes
   async headers() {
+    // SECURITY: In production, strip 'unsafe-eval' from CSP. It is only needed
+    // for Next.js HMR / React Fast Refresh in development. Leaving it in
+    // production defeats CSP by allowing eval() and new Function().
+    const scriptSrc = isProd
+      ? "script-src 'self' 'unsafe-inline'"   // No unsafe-eval in production
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'"; // Required for Next.js HMR
+
     return [
       {
         source: '/:path*',
@@ -17,7 +26,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Next.js
+              scriptSrc,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' https://fonts.gstatic.com",

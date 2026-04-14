@@ -5,15 +5,25 @@
  * Only indexes file metadata (no bytes copied).
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { syncDocumentsFromOneDrive } from '@/lib/integrations/document-sync';
 import { isGraphConfigured } from '@/lib/graph/client';
 
+/**
+ * SECURITY: Constant-time comparison prevents timing attacks on CRON_SECRET.
+ */
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  const authHeader = req.headers.get('authorization');
-  return authHeader === `Bearer ${secret}`;
+  const authHeader = req.headers.get('authorization') ?? '';
+  const expected = `Bearer ${secret}`;
+  if (authHeader.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 export async function GET(req: NextRequest) {

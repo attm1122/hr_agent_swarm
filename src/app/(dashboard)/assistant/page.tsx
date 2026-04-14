@@ -1,17 +1,9 @@
 /**
- * /hr — the role-aware AI-OS workspace.
- *
- * This page is NOT a chatbot. It is the role-projected Home surface:
- *
- *   employee            → personal self-service actions
- *   manager / team_lead → team action queue + people decisions
- *   admin / payroll     → organisation-wide risk + governance
- *
- * Dev mode: append `?role=manager&employee=emp-005` to see any surface.
+ * /assistant — alias for the AI-OS workspace.
+ * Identical to /hr but reachable from the sidebar's "Assistant" entry.
  */
 
 import { resolveIdentity } from '@/lib/ai-os';
-import type { ComposedWorkspace } from '@/lib/ai-os';
 import { composeHomeWorkspace } from '@/lib/ai-os/ui-composer/home';
 import AssistantWorkspace from '@/components/assistant/AssistantWorkspace';
 import DevRoleSwitcher from '@/components/assistant/DevRoleSwitcher';
@@ -23,10 +15,9 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function HrPage({ searchParams }: PageProps) {
+export default async function AssistantPage({ searchParams }: PageProps) {
   const params = await searchParams;
 
-  // Resolve real identity (may fail if unauthenticated).
   let userName: string | undefined;
   let userRole: string | undefined;
   let employeeId: string | undefined;
@@ -36,38 +27,22 @@ export default async function HrPage({ searchParams }: PageProps) {
     userRole = identity.context.role;
     employeeId = identity.context.employeeId;
   } catch {
-    // unauthenticated — fallback handled below
+    // unauthenticated
   }
 
-  // Dev override: ?role=manager&employee=emp-005
   const isDev = process.env.NODE_ENV !== 'production';
   if (isDev) {
     const overrideRole = typeof params.role === 'string' ? params.role : undefined;
     const overrideEmp = typeof params.employee === 'string' ? params.employee : undefined;
-    if (overrideRole) {
-      userRole = overrideRole;
-    }
+    if (overrideRole) userRole = overrideRole;
     if (overrideEmp) {
       employeeId = overrideEmp;
       const emp = getEmployeeById(overrideEmp);
-      if (emp) {
-        userName = `${emp.firstName} ${emp.lastName}`;
-      }
+      if (emp) userName = `${emp.firstName} ${emp.lastName}`;
     }
   }
 
-  let home: ComposedWorkspace;
-  try {
-    home = await composeHomeWorkspace({ userName, userRole, employeeId });
-  } catch (err) {
-    console.error('[hr] home workspace composition failed', err);
-    home = {
-      intentId: 'home',
-      mode: 'WORKSPACE',
-      blocks: [],
-      headline: 'Welcome — some features are temporarily unavailable.',
-    };
-  }
+  const home = await composeHomeWorkspace({ userName, userRole, employeeId });
 
   return (
     <>

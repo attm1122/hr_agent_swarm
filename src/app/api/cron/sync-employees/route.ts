@@ -9,16 +9,26 @@
  * `POST /api/admin/sync/employees` via the admin UI instead.
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { syncEmployeesFromGraph } from '@/lib/integrations/employee-sync';
 import { isGraphConfigured } from '@/lib/graph/client';
 
+/**
+ * SECURITY: Constant-time comparison prevents timing attacks on CRON_SECRET.
+ * A standard `===` leaks how many leading characters matched via response time.
+ */
 function isAuthorized(req: NextRequest): boolean {
-  // Vercel Cron signs requests with CRON_SECRET. If not set, refuse.
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  const authHeader = req.headers.get('authorization');
-  return authHeader === `Bearer ${secret}`;
+  const authHeader = req.headers.get('authorization') ?? '';
+  const expected = `Bearer ${secret}`;
+  if (authHeader.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 export async function GET(req: NextRequest) {
