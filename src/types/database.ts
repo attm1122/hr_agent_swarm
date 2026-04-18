@@ -1,6 +1,6 @@
 /**
  * Database Types
- * TypeScript definitions for Supabase schema
+ * TypeScript definitions for Supabase schema with tenant isolation
  */
 
 export type Json =
@@ -11,8 +11,13 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-// Individual table row types
-export interface Employee {
+// Base interface with tenant isolation
+interface TenantBase {
+  tenant_id: string;
+}
+
+// Individual table row types with tenant isolation
+export interface Employee extends TenantBase {
   id: string;
   email: string;
   first_name: string;
@@ -30,7 +35,7 @@ export interface Employee {
   updated_at: string;
 }
 
-export interface Team {
+export interface Team extends TenantBase {
   id: string;
   name: string;
   code: string;
@@ -41,7 +46,7 @@ export interface Team {
   updated_at: string;
 }
 
-export interface Position {
+export interface Position extends TenantBase {
   id: string;
   title: string;
   level: string;
@@ -51,7 +56,7 @@ export interface Position {
   updated_at: string;
 }
 
-export interface EmployeeDocument {
+export interface EmployeeDocument extends TenantBase {
   id: string;
   employee_id: string;
   onedrive_id: string;
@@ -68,7 +73,7 @@ export interface EmployeeDocument {
   updated_at: string;
 }
 
-export interface DocumentRequirement {
+export interface DocumentRequirement extends TenantBase {
   id: string;
   category: string;
   employment_types: string[];
@@ -79,7 +84,7 @@ export interface DocumentRequirement {
   updated_at: string;
 }
 
-export interface LeaveBalance {
+export interface LeaveBalance extends TenantBase {
   id: string;
   employee_id: string;
   leave_type: 'annual' | 'sick' | 'personal' | 'parental' | 'bereavement' | 'unpaid' | 'other';
@@ -93,7 +98,7 @@ export interface LeaveBalance {
   updated_at: string;
 }
 
-export interface LeaveRequest {
+export interface LeaveRequest extends TenantBase {
   id: string;
   employee_id: string;
   leave_type: 'annual' | 'sick' | 'personal' | 'parental' | 'bereavement' | 'unpaid' | 'other';
@@ -101,7 +106,7 @@ export interface LeaveRequest {
   end_date: string;
   days_requested: number;
   reason: string | null;
-  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
@@ -109,54 +114,53 @@ export interface LeaveRequest {
   updated_at: string;
 }
 
-export interface CompensationRecord {
+export interface CompensationRecord extends TenantBase {
   id: string;
   employee_id: string;
-  effective_date: string;
   base_salary: number;
   currency: string;
-  salary_frequency: 'annual' | 'monthly' | 'biweekly' | 'weekly';
-  bonus_amount: number | null;
-  bonus_type: string | null;
-  total_compensation: number;
-  hr3_sync_id: string | null;
-  hr3_synced_at: string | null;
+  effective_date: string;
+  end_date: string | null;
+  pay_frequency: 'monthly' | 'biweekly' | 'weekly';
   created_at: string;
   updated_at: string;
 }
 
-export interface Milestone {
+export interface Milestone extends TenantBase {
   id: string;
   employee_id: string;
-  milestone_type: 'service_anniversary' | 'probation_end' | 'visa_expiry' | 'certification_expiry' | 'contract_expiry' | 'performance_review';
+  milestone_type: 'probation_end' | 'work_anniversary' | 'promotion' | 'role_change' | 'team_change' | 'performance_review' | 'visa_expiry' | 'certification_expiry' | 'contract_expiry';
   milestone_date: string;
-  description: string;
-  alert_days_before: number;
-  status: 'upcoming' | 'due' | 'overdue' | 'completed' | 'acknowledged';
-  acknowledged_at: string | null;
+  due_date: string;
+  status: 'pending' | 'acknowledged' | 'completed' | 'overdue' | 'upcoming' | 'due';
   acknowledged_by: string | null;
+  acknowledged_at: string | null;
+  description: string | null;
+  alert_days_before: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface OnboardingPlan {
+export interface OnboardingPlan extends TenantBase {
   id: string;
   employee_id: string;
-  template_name: string;
   start_date: string;
+  initiated_by: string;
+  assigned_to: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'not_started' | 'blocked';
+  checklist_template: string;
+  template_name: string;
   target_completion_date: string;
   actual_completion_date: string | null;
-  status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
   created_at: string;
   updated_at: string;
 }
 
-export interface OnboardingTask {
+export interface OnboardingTask extends TenantBase {
   id: string;
   plan_id: string;
   task_name: string;
-  description: string | null;
-  category: 'admin' | 'it' | 'hr' | 'team' | 'training' | 'compliance';
+  category: 'hr_setup' | 'it_setup' | 'access_provisioning' | 'training' | 'orientation' | 'compliance';
   assigned_to: string;
   due_date: string;
   completed_at: string | null;
@@ -168,38 +172,41 @@ export interface OnboardingTask {
   updated_at: string;
 }
 
-export interface Workflow {
+export interface Workflow extends TenantBase {
   id: string;
-  workflow_type: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval';
+  workflow_type: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval' | 'communication_approval' | 'review';
+  entity_type: string;
+  entity_id: string;
   reference_type: string;
   reference_id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  initiated_by: string;
   initiator_id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
   current_step: number;
   total_steps: number;
-  started_at: string;
+  started_at: string | null;
   completed_at: string | null;
+  context: Json | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface ApprovalStep {
+export interface ApprovalStep extends TenantBase {
   id: string;
   workflow_id: string;
   step_number: number;
-  approver_id: string;
+  step_name: string;
   approver_role: string;
-  status: 'pending' | 'approved' | 'rejected' | 'delegated' | 'skipped';
-  comments: string | null;
-  acted_at: string | null;
-  due_date: string;
-  escalated_to: string | null;
-  escalated_at: string | null;
+  approver_id: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'skipped';
+  approved_at: string | null;
+  rejection_reason: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface AuditEvent {
+export interface AuditEvent extends TenantBase {
   id: string;
   event_type: string;
   entity_type: string;
@@ -215,7 +222,7 @@ export interface AuditEvent {
   created_at: string;
 }
 
-export interface AgentRun {
+export interface AgentRun extends TenantBase {
   id: string;
   agent_type: string;
   intent: string;
@@ -229,7 +236,7 @@ export interface AgentRun {
   created_at: string;
 }
 
-export interface ReportDefinition {
+export interface ReportDefinition extends TenantBase {
   id: string;
   name: string;
   description: string | null;
@@ -242,7 +249,7 @@ export interface ReportDefinition {
   updated_at: string;
 }
 
-export interface ReportRun {
+export interface ReportRun extends TenantBase {
   id: string;
   report_definition_id: string;
   parameters: Json | null;
@@ -256,7 +263,7 @@ export interface ReportRun {
   updated_at: string;
 }
 
-export interface PolicyDocument {
+export interface PolicyDocument extends TenantBase {
   id: string;
   title: string;
   category: string;
@@ -268,7 +275,7 @@ export interface PolicyDocument {
   updated_at: string;
 }
 
-export interface PolicyChunk {
+export interface PolicyChunk extends TenantBase {
   id: string;
   document_id: string;
   chunk_index: number;
@@ -280,7 +287,7 @@ export interface PolicyChunk {
 }
 
 // Offboarding domain tables
-export interface OffboardingPlan {
+export interface OffboardingPlan extends TenantBase {
   id: string;
   employee_id: string;
   termination_date: string;
@@ -293,7 +300,7 @@ export interface OffboardingPlan {
   updated_at: string;
 }
 
-export interface OffboardingTask {
+export interface OffboardingTask extends TenantBase {
   id: string;
   plan_id: string;
   task_name: string;
@@ -309,7 +316,7 @@ export interface OffboardingTask {
   updated_at: string;
 }
 
-export interface OffboardingAsset {
+export interface OffboardingAsset extends TenantBase {
   id: string;
   plan_id: string;
   asset_type: 'laptop' | 'phone' | 'badge' | 'credit_card' | 'other';
@@ -321,7 +328,7 @@ export interface OffboardingAsset {
   updated_at: string;
 }
 
-export interface OffboardingAccess {
+export interface OffboardingAccess extends TenantBase {
   id: string;
   plan_id: string;
   system_name: string;
@@ -332,10 +339,37 @@ export interface OffboardingAccess {
   updated_at: string;
 }
 
+// Outbox pattern for reliable event publishing
+export interface OutboxEvent extends TenantBase {
+  id: string;
+  event_type: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  payload: Json;
+  headers: Json | null;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  retry_count: number;
+  error_message: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+// Tenants table
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'inactive' | 'suspended';
+  settings: Json | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Database interface
 export interface Database {
   public: {
     Tables: {
+      tenants: { Row: Tenant; Insert: Omit<Tenant, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Tenant, 'id' | 'created_at' | 'updated_at'>> };
       employees: { Row: Employee; Insert: Omit<Employee, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Employee, 'id' | 'created_at' | 'updated_at'>> };
       teams: { Row: Team; Insert: Omit<Team, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Team, 'id' | 'created_at' | 'updated_at'>> };
       positions: { Row: Position; Insert: Omit<Position, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<Position, 'id' | 'created_at' | 'updated_at'>> };
@@ -359,6 +393,7 @@ export interface Database {
       offboarding_tasks: { Row: OffboardingTask; Insert: Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingTask, 'id' | 'created_at' | 'updated_at'>> };
       offboarding_assets: { Row: OffboardingAsset; Insert: Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAsset, 'id' | 'created_at' | 'updated_at'>> };
       offboarding_access: { Row: OffboardingAccess; Insert: Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<OffboardingAccess, 'id' | 'created_at' | 'updated_at'>> };
+      outbox_events: { Row: OutboxEvent; Insert: Omit<OutboxEvent, 'id' | 'created_at' | 'processed_at'>; Update: Partial<Omit<OutboxEvent, 'id' | 'created_at'>> };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

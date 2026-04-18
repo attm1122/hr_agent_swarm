@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -97,7 +99,7 @@ function EmployeeDirectorySkeleton() {
 // Content component - uses service layer with RBAC enforcement
 async function EmployeeDirectoryContent() {
   // Get session and context for RBAC
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return (
       <Card className="border shadow-sm">

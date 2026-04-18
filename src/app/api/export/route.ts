@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         'Invalid request body',
         'VALIDATION_ERROR',
         400,
-        validationResult.error.errors
+        validationResult.error.issues
       );
     }
 
@@ -288,7 +288,7 @@ export async function PATCH(req: NextRequest) {
         'Invalid request body',
         'VALIDATION_ERROR',
         400,
-        validationResult.error.errors
+        validationResult.error.issues
       );
     }
 

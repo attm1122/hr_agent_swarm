@@ -100,7 +100,7 @@ export class RedisCacheAdapter implements CachePort {
     pipeline.expire(key, windowSeconds);
     
     const results = await pipeline.exec();
-    const currentCount = (results?.[1] as number) || 0;
+    const currentCount = (results?.[1] as unknown as number) || 0;
     
     const allowed = currentCount < maxRequests;
     const remaining = Math.max(0, maxRequests - currentCount - 1);

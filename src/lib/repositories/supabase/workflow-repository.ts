@@ -83,14 +83,14 @@ export class SupabaseWorkflowRepository
   async saveInstance(instance: WorkflowInstance, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('workflows')
-      .insert({ ...instance, tenant_id: tenantId });
+      .insert({ ...instance, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
   async saveStep(step: WorkflowStep, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('workflow_steps')
-      .insert({ ...step, tenant_id: tenantId });
+      .insert({ ...step, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
@@ -101,7 +101,7 @@ export class SupabaseWorkflowRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('workflows')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -114,7 +114,7 @@ export class SupabaseWorkflowRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('workflow_steps')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -125,9 +125,9 @@ export class SupabaseWorkflowRepository
       stepId,
       {
         status: 'approved',
-        approver_id: approverId,
-        approved_at: new Date().toISOString(),
-      },
+        approverId: approverId,
+        approvedAt: new Date().toISOString(),
+      } as any,
       tenantId
     );
   }
@@ -142,10 +142,10 @@ export class SupabaseWorkflowRepository
       stepId,
       {
         status: 'rejected',
-        approver_id: approverId,
-        approved_at: new Date().toISOString(),
-        rejection_reason: reason,
-      },
+        approverId: approverId,
+        approvedAt: new Date().toISOString(),
+        rejectionReason: reason,
+      } as any,
       tenantId
     );
   }

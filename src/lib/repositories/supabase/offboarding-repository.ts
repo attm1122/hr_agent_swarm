@@ -54,14 +54,14 @@ export class SupabaseOffboardingRepository
   async savePlan(plan: OffboardingPlan, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('offboarding_plans')
-      .insert({ ...plan, tenant_id: tenantId });
+      .insert({ ...plan, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
   async saveTask(task: OffboardingTask, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('offboarding_tasks')
-      .insert({ ...task, tenant_id: tenantId });
+      .insert({ ...task, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
@@ -72,7 +72,7 @@ export class SupabaseOffboardingRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('offboarding_plans')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -85,7 +85,7 @@ export class SupabaseOffboardingRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('offboarding_tasks')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -96,8 +96,8 @@ export class SupabaseOffboardingRepository
       taskId,
       {
         status: 'completed',
-        completed_by: completedBy,
-        completed_at: new Date().toISOString(),
+        completedBy: completedBy,
+        completedAt: new Date().toISOString(),
       },
       tenantId
     );

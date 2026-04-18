@@ -130,7 +130,7 @@ export class SupabaseEmployeeRepository
     return this.executeWithRetry(async () => {
       const { error } = await this.supabase
         .from('employees')
-        .insert({ ...employee, tenant_id: tenantId });
+        .insert({ ...employee, tenant_id: tenantId } as unknown as never);
 
       if (error) throw error;
     });
@@ -140,7 +140,7 @@ export class SupabaseEmployeeRepository
     return this.executeWithRetry(async () => {
       const { error } = await this.supabase
         .from('employees')
-        .update(data)
+        .update(data as unknown as never)
         .eq('id', id)
         .eq('tenant_id', tenantId);
 

@@ -28,7 +28,7 @@ export function selectUpcomingAnniversaries(
   referenceDate: Date = new Date(),
 ) {
   return sourceMilestones
-    .filter((milestone) => milestone.milestoneType === 'service_anniversary')
+    .filter((milestone) => milestone.milestoneType === 'work_anniversary')
     .map((milestone) => ({
       milestone,
       state: getDerivedMilestoneState(milestone, referenceDate),

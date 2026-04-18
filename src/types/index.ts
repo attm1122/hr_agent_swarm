@@ -2,6 +2,10 @@
 // Domain Types - Core entities and value objects
 // ============================================
 
+// Import AgentIntent from validation schemas to ensure consistency
+import type { AgentIntent } from '@/lib/validation/schemas';
+export type { AgentIntent };
+
 export interface Employee {
   id: string;
   email: string;
@@ -135,7 +139,7 @@ export interface CompensationRecord {
 export interface Milestone {
   id: string;
   employeeId: string;
-  milestoneType: 'service_anniversary' | 'probation_end' | 'visa_expiry' | 'certification_expiry' | 'contract_expiry' | 'performance_review';
+  milestoneType: 'probation_end' | 'work_anniversary' | 'promotion' | 'role_change' | 'team_change' | 'performance_review' | 'visa_expiry' | 'certification_expiry' | 'contract_expiry';
   milestoneDate: string;
   description: string;
   alertDaysBefore: number;
@@ -159,7 +163,7 @@ export interface Workflow {
   status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
   currentStep: number;
   totalSteps: number;
-  startedAt: string;
+  startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -316,57 +320,7 @@ export type AgentType =
   | 'knowledge_policy'
   | 'manager_support';
 
-export type AgentIntent =
-  // Employee & Document
-  | 'employee_search'
-  | 'employee_summary'
-  | 'document_list'
-  | 'document_classify'
-  // Leave & Compensation
-  | 'leave_balance'
-  | 'leave_request'
-  | 'compensation_view'
-  | 'compensation_history'
-  // Reviews & Milestones
-  | 'milestone_list'
-  | 'review_status'
-  // Communications & Reporting
-  | 'communication_draft'
-  | 'report_generate'
-  // Onboarding
-  | 'onboarding_create'
-  | 'onboarding_status'
-  | 'onboarding_task_list'
-  | 'onboarding_task_complete'
-  | 'onboarding_blockers'
-  | 'onboarding_missing_docs'
-  // Offboarding
-  | 'offboarding_create'
-  | 'offboarding_status'
-  | 'offboarding_task_list'
-  | 'offboarding_task_complete'
-  | 'offboarding_assets'
-  | 'offboarding_access'
-  | 'offboarding_exit_summary'
-  // Workflow & Approvals
-  | 'workflow_create'
-  | 'workflow_status'
-  | 'workflow_approve'
-  | 'workflow_reject'
-  | 'workflow_history'
-  | 'approval_inbox'
-  // Knowledge & Policy
-  | 'policy_search'
-  | 'policy_answer'
-  | 'policy_citations'
-  // Coordinator
-  | 'dashboard_summary'
-  // Manager Support
-  | 'manager_team_summary'
-  | 'manager_employee_brief'
-  | 'manager_dashboard'
-  | 'manager_action_items'
-  | 'manager_status_check';
+
 
 // ============================================
 // Orchestration Types
@@ -385,6 +339,7 @@ export type DataSensitivity =
 
 export interface AgentContext {
   userId: string;
+  tenantId: string;
   role: Role;
   scope: RecordScope;
   sensitivityClearance: DataSensitivity[];
@@ -397,9 +352,9 @@ export interface AgentContext {
 }
 
 export interface SwarmRequest {
-  intent: AgentIntent;
-  query: string;
-  payload: Record<string, unknown>;
+  intent: AgentIntent | string;
+  query?: string;
+  payload?: Record<string, unknown>;
   context: AgentContext;
 }
 
@@ -407,9 +362,15 @@ export interface SwarmResponse {
   agentType: AgentType;
   intent: AgentIntent;
   result: AgentResult;
-  routingConfidence: number;
+  routingConfidence?: number;
   executionTimeMs: number;
   auditId: string;
+  timestamp: string;
+  context: {
+    userId: string;
+    role: Role;
+    tenantId: string;
+  };
 }
 
 // ============================================
@@ -457,7 +418,7 @@ export interface OnboardingPlan {
   startDate: string;
   targetCompletionDate: string;
   actualCompletionDate: string | null;
-  status: 'not_started' | 'in_progress' | 'completed' | 'blocked';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'not_started' | 'blocked';
   createdAt: string;
   updatedAt: string;
 }
@@ -578,7 +539,7 @@ export interface WorkflowInstance {
   status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
   currentStep: number;
   totalSteps: number;
-  startedAt: string;
+  startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -662,3 +623,44 @@ export interface ReportColumn {
 
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 export type WorkflowStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
+
+
+// ============================================================================
+// Agent Run Types
+// ============================================================================
+
+export interface AgentRunRecord {
+  id: string;
+  agentType: string;
+  intent: string;
+  inputPayload: Record<string, unknown>;
+  outputResult: Record<string, unknown> | null;
+  confidence: number | null;
+  executionTimeMs: number;
+  success: boolean;
+  errorMessage: string | null;
+  context: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+// ============================================================================
+// Export Approval Types
+// ============================================================================
+
+export interface ExportApproval {
+  id: string;
+  requesterId: string;
+  requesterEmail: string;
+  fields: string[];
+  format: 'csv' | 'json' | 'xlsx';
+  filters?: Record<string, unknown>;
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+  requestedAt: string;
+  approverId: string | null;
+  approvedAt: string | null;
+  completedAt: string | null;
+  downloadUrl: string | null;
+  expiresAt: string;
+  rejectionReason?: string;
+}

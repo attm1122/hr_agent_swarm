@@ -289,7 +289,7 @@ export class ManagerSupportRepository {
         items: pendingApprovals.map(w => ({
           id: w.id,
           title: `${w.workflowType}: ${w.referenceType}`,
-          dueDate: w.startedAt,
+          dueDate: w.startedAt ?? undefined,
         })),
       },
       teamHealth: {

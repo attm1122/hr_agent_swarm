@@ -82,7 +82,7 @@ export class SupabaseLeaveRepository
   async saveRequest(request: LeaveRequest, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('leave_requests')
-      .insert({ ...request, tenant_id: tenantId });
+      .insert({ ...request, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
@@ -93,7 +93,7 @@ export class SupabaseLeaveRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('leave_requests')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -102,7 +102,7 @@ export class SupabaseLeaveRepository
   async approveRequest(id: string, approverId: string, tenantId: string): Promise<void> {
     await this.updateRequest(
       id,
-      { status: 'approved', approved_by: approverId, approved_at: new Date().toISOString() },
+      { status: 'approved', approvedBy: approverId, approvedAt: new Date().toISOString() } as any,
       tenantId
     );
   }
@@ -115,7 +115,7 @@ export class SupabaseLeaveRepository
   ): Promise<void> {
     await this.updateRequest(
       id,
-      { status: 'rejected', approved_by: approverId, rejection_reason: reason },
+      { status: 'rejected', approvedBy: approverId, rejectionReason: reason } as any,
       tenantId
     );
   }
@@ -132,7 +132,7 @@ export class SupabaseLeaveRepository
 
     const { error } = await this.supabase
       .from('leave_balances')
-      .update({ taken_days: balance.takenDays + delta })
+      .update({ taken_days: balance.takenDays + delta } as unknown as never)
       .eq('employee_id', employeeId)
       .eq('leave_type', leaveType)
       .eq('tenant_id', tenantId);

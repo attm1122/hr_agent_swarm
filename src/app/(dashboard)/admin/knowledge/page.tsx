@@ -5,6 +5,8 @@
  * status indicators, and quick actions.
  */
 
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import { getSession } from '@/lib/auth/session';
 import { hasCapability } from '@/lib/auth/authorization';

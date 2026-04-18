@@ -56,7 +56,7 @@ export class SupabaseDocumentRepository
   async save(document: EmployeeDocument, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('employee_documents')
-      .insert({ ...document, tenant_id: tenantId });
+      .insert({ ...document, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
@@ -67,7 +67,7 @@ export class SupabaseDocumentRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('employee_documents')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;

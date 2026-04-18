@@ -14,8 +14,8 @@ interface PageGuardProps {
   children: React.ReactNode;
 }
 
-export function PageGuard({ requiredPermission, children }: PageGuardProps) {
-  const session = getSession();
+export async function PageGuard({ requiredPermission, children }: PageGuardProps) {
+  const session = await getSession();
 
   if (!session || !hasCapability(session.role, requiredPermission)) {
     return (

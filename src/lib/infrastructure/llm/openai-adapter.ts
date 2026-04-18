@@ -56,10 +56,13 @@ export class OpenAIAdapter implements LLMProviderPort {
       
       return {
         content: message?.content || '',
-        toolCalls: message?.tool_calls?.map(tc => ({
-          name: tc.function.name,
-          arguments: JSON.parse(tc.function.arguments),
-        })),
+        toolCalls: message?.tool_calls?.map(tc => {
+          const fn = (tc as { function: { name: string; arguments: string } }).function;
+          return {
+            name: fn.name,
+            arguments: JSON.parse(fn.arguments),
+          };
+        }),
         usage: {
           promptTokens: completion.usage?.prompt_tokens || 0,
           completionTokens: completion.usage?.completion_tokens || 0,

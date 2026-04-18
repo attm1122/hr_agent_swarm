@@ -1,15 +1,17 @@
+export const dynamic = 'force-dynamic';
+
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShieldX } from 'lucide-react';
 import { getSession } from '@/lib/auth/session';
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = getSession();
+  const session = await getSession();
 
   if (!session) {
     return (

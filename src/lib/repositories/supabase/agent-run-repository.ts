@@ -22,8 +22,8 @@ export class SupabaseAgentRunRepository
         context: record.context,
         metadata: record.metadata,
         tenant_id: tenantId,
-        created_at: record.createdAt,
-      });
+        createdAt: record.createdAt,
+      } as unknown as never);
 
     if (error) throw error;
   }

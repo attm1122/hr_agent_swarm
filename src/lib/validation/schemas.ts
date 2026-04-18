@@ -26,30 +26,53 @@ export const AgentIntentSchema = z.enum([
   'employee_profile',
   'team_directory',
   'leave_balance_check',
+  'leave_balance',
   'leave_request_submit',
   'leave_request_status',
+  'leave_request',
   'upcoming_milestones',
   'milestone_acknowledge',
+  'milestone_list',
   'policy_lookup',
   'policy_compare',
+  'policy_search',
+  'policy_answer',
+  'policy_citations',
   'compliance_check',
   'document_find',
+  'document_list',
+  'document_classify',
   'onboarding_create',
   'onboarding_progress',
+  'onboarding_status',
+  'onboarding_task_list',
   'onboarding_task_complete',
+  'onboarding_blockers',
+  'onboarding_missing_docs',
   'offboarding_create',
   'offboarding_progress',
+  'offboarding_status',
+  'offboarding_task_list',
   'offboarding_task_complete',
+  'offboarding_assets',
+  'offboarding_access',
+  'offboarding_exit_summary',
   'workflow_status',
   'workflow_create',
   'workflow_approve',
+  'workflow_reject',
+  'workflow_history',
+  'approval_inbox',
   'knowledge_search',
   'knowledge_summary',
   'report_generate',
   'dashboard_summary',
   'manager_team_overview',
+  'manager_team_summary',
   'manager_employee_brief',
   'manager_action_items',
+  'manager_dashboard',
+  'manager_status_check',
   'employee_document_list',
   'pending_leave_requests',
   'pending_workflows',
@@ -58,9 +81,10 @@ export const AgentIntentSchema = z.enum([
 export const SwarmRequestSchema = z.object({
   intent: AgentIntentSchema,
   query: z.string().max(1000).optional(),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
+export type AgentIntent = z.infer<typeof AgentIntentSchema>;
 export type SwarmRequestInput = z.infer<typeof SwarmRequestSchema>;
 
 // ============================================================================
@@ -167,7 +191,7 @@ export const WorkflowCreateSchema = z.object({
   workflowType: WorkflowTypeSchema,
   referenceId: UUIDSchema,
   referenceType: z.string(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type WorkflowCreateInput = z.infer<typeof WorkflowCreateSchema>;
@@ -233,7 +257,7 @@ export const DocumentUploadSchema = z.object({
   employeeId: UUIDSchema,
   category: z.enum(['contract', 'visa', 'certification', 'id', 'medical', 'tax', 'performance', 'other']),
   expiresAt: z.string().datetime().optional(),
-  metadata: z.record(z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type DocumentUploadInput = z.infer<typeof DocumentUploadSchema>;

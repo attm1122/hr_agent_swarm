@@ -1,21 +1,12 @@
 /**
- * Auth Session
- * Session resolution fails closed by default.
- * A session exists only when explicit mock auth is configured for
- * non-production use, or when real production auth is implemented.
+ * Auth Session - Production Ready
+ * Supabase Auth integration with fail-closed security
  *
- * Delegates capability/scope/sensitivity definitions to authorization.ts
- *
- * PRODUCTION MIGRATION:
- * 1. Replace getSession() with Supabase Auth call
- * 2. Keep getAgentContext() bound to a verified session only
- * 3. Remove mock auth env usage before release
- * 4. Enable JWT validation
- *
- * CRITICAL:
- * - There is no hard-coded fallback identity.
- * - Missing or invalid auth configuration must not grant access.
- * - Production auth remains release-blocking until implemented.
+ * CRITICAL SECURITY PRINCIPLES:
+ * - Fail closed: No session = no access
+ * - Tenant isolation enforced at auth layer
+ * - JWT validation handled by Supabase
+ * - No hardcoded fallbacks in production
  */
 
 import type { Role, AgentContext, RecordScope, DataSensitivity } from '@/types';
@@ -24,10 +15,13 @@ import {
   ROLE_SCOPE,
   ROLE_SENSITIVITY,
 } from './authorization';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 export interface Session {
   userId: string;
   employeeId: string;
+  tenantId: string;
   name: string;
   email: string;
   role: Role;
@@ -35,11 +29,14 @@ export interface Session {
   permissions: string[];
   scope: RecordScope;
   sensitivityClearance: DataSensitivity[];
+  sessionId: string;
 }
 
 export type SessionResolutionErrorCode =
   | 'AUTH_REQUIRED'
-  | 'AUTH_CONFIG_INVALID';
+  | 'AUTH_CONFIG_INVALID'
+  | 'TENANT_ISOLATION_VIOLATION'
+  | 'SESSION_EXPIRED';
 
 export class SessionResolutionError extends Error {
   readonly code: SessionResolutionErrorCode;
@@ -74,7 +71,7 @@ function isRole(value: string): value is Role {
   return ['admin', 'manager', 'team_lead', 'employee', 'payroll'].includes(value);
 }
 
-/** Build a fully-populated session for a given role */
+/** Build a fully-populated session from user data */
 export function buildSession(
   userId: string,
   employeeId: string,
@@ -82,10 +79,12 @@ export function buildSession(
   email: string,
   role: Role,
   title: string,
+  tenantId: string,
 ): Session {
   return {
     userId,
     employeeId,
+    tenantId,
     name,
     email,
     role,
@@ -93,6 +92,7 @@ export function buildSession(
     permissions: ROLE_CAPABILITIES[role],
     scope: ROLE_SCOPE[role],
     sensitivityClearance: ROLE_SENSITIVITY[role],
+    sessionId: crypto.randomUUID(),
   };
 }
 
@@ -122,63 +122,135 @@ function getMockSession(): Session {
     process.env.MOCK_AUTH_EMAIL!,
     role,
     process.env.MOCK_AUTH_TITLE!,
+    process.env.MOCK_AUTH_TENANT_ID || '00000000-0000-0000-0000-000000000000',
   );
 }
 
 /**
- * Resolve the current session.
- *
- * Behavior:
- * - Production: fail closed until real auth exists
- * - Non-production: only explicit mock auth may create a session
- * - No explicit auth: return null (unauthenticated)
+ * PRODUCTION: Get session from Supabase Auth (Server-side)
+ * Use this in Server Components and API routes
  */
-export function getSession(): Session | null {
+export async function getSession(): Promise<Session | null> {
   const inProduction = process.env.NODE_ENV === 'production';
   const productionAuthEnabled = isProductionAuthEnabled();
   const mockAuthEnabled = isMockAuthEnabled();
 
-  if (inProduction) {
-    if (mockAuthEnabled) {
-      throw new SessionResolutionError(
-        'AUTH_CONFIG_INVALID',
-        'Mock authentication is forbidden in production',
-        503,
-      );
-    }
-
-    if (!productionAuthEnabled) {
-      throw new SessionResolutionError(
-        'AUTH_CONFIG_INVALID',
-        'Production authentication is not configured; requests must fail closed until real auth is enabled',
-        503,
-      );
-    }
-
+  // Security: Prevent mock auth in production
+  if (inProduction && mockAuthEnabled) {
     throw new SessionResolutionError(
       'AUTH_CONFIG_INVALID',
-      'Production authentication is enabled but not implemented',
+      'Mock authentication is forbidden in production',
       503,
     );
   }
 
-  if (productionAuthEnabled) {
-    throw new SessionResolutionError(
-      'AUTH_CONFIG_INVALID',
-      'NEXT_PUBLIC_PRODUCTION_AUTH is enabled, but production authentication is not implemented in this environment',
-      503,
-    );
+  // Development: Allow mock auth if explicitly enabled
+  if (!inProduction && mockAuthEnabled && !productionAuthEnabled) {
+    return getMockSession();
   }
 
-  if (!mockAuthEnabled) {
+  // Production or when production auth is explicitly enabled
+  try {
+    const supabase = await createServerClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    // Validate user has required metadata
+    const metadata = user.user_metadata || {};
+    const role = metadata.role;
+    
+    if (!role || !isRole(role)) {
+      console.error('User missing valid role in metadata:', user.id);
+      return null;
+    }
+
+    // Tenant isolation: Must have tenant_id
+    const tenantId = metadata.tenant_id;
+    if (!tenantId) {
+      console.error('User missing tenant_id in metadata:', user.id);
+      return null;
+    }
+
+    return buildSession(
+      user.id,
+      metadata.employee_id || user.id,
+      metadata.name || metadata.full_name || 'Unknown',
+      user.email || 'unknown@company.com',
+      role,
+      metadata.title || 'Employee',
+      tenantId,
+    );
+  } catch (error) {
+    console.error('Session resolution error:', error);
     return null;
   }
-
-  return getMockSession();
 }
 
-export function requireSession(): Session {
-  const session = getSession();
+/**
+ * PRODUCTION: Get session from Supabase Auth (Client-side)
+ * Use this in Client Components
+ */
+export async function getBrowserSession(): Promise<Session | null> {
+  const inProduction = process.env.NODE_ENV === 'production';
+  const mockAuthEnabled = isMockAuthEnabled();
+
+  // Security: Prevent mock auth in production
+  if (inProduction && mockAuthEnabled) {
+    throw new SessionResolutionError(
+      'AUTH_CONFIG_INVALID',
+      'Mock authentication is forbidden in production',
+      503,
+    );
+  }
+
+  // Development: Allow mock auth if explicitly enabled
+  if (!inProduction && mockAuthEnabled) {
+    return getMockSession();
+  }
+
+  try {
+    const supabase = createBrowserClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    const metadata = user.user_metadata || {};
+    const role = metadata.role;
+    
+    if (!role || !isRole(role)) {
+      return null;
+    }
+
+    const tenantId = metadata.tenant_id;
+    if (!tenantId) {
+      return null;
+    }
+
+    return buildSession(
+      user.id,
+      metadata.employee_id || user.id,
+      metadata.name || metadata.full_name || 'Unknown',
+      user.email || 'unknown@company.com',
+      role,
+      metadata.title || 'Employee',
+      tenantId,
+    );
+  } catch (error) {
+    console.error('Browser session resolution error:', error);
+    return null;
+  }
+}
+
+/**
+ * Require a valid session or throw
+ */
+export async function requireSession(): Promise<Session> {
+  const session = await getSession();
   if (!session) {
     throw new SessionResolutionError('AUTH_REQUIRED', 'Authentication required', 401);
   }
@@ -189,44 +261,30 @@ export function isSessionResolutionError(error: unknown): error is SessionResolu
   return error instanceof SessionResolutionError;
 }
 
-export function requireVerifiedSessionContext(): {
+/**
+ * Get complete verified session context with security info
+ */
+export async function requireVerifiedSessionContext(): Promise<{
   session: Session;
   context: AgentContext;
   securityContext: {
     userId: string;
     role: Role;
     sessionId: string;
+    tenantId: string;
   };
-} {
-  const session = requireSession();
+}> {
+  const session = await requireSession();
   return {
     session,
     context: getAgentContext(session),
     securityContext: {
-      userId: session.employeeId || 'unknown',
+      userId: session.employeeId,
       role: session.role,
       sessionId: session.userId,
+      tenantId: session.tenantId,
     },
   };
-}
-
-/**
- * Production authentication - Supabase Auth integration
- * Replace getSession() with this function for production
- */
-export async function getProductionSession(): Promise<Session | null> {
-  // This is a placeholder for Supabase Auth integration
-  // Implementation steps:
-  // 1. Install @supabase/ssr: npm install @supabase/ssr
-  // 2. Configure cookie handling
-  // 3. Map Supabase user to Session type
-  // 4. Handle JWT refresh
-
-  throw new Error(
-    'Production authentication not implemented. ' +
-    'Configure Supabase Auth before enabling production mode. ' +
-    'See MIGRATION_GUIDE.md'
-  );
 }
 
 /**
@@ -252,6 +310,33 @@ export function verifyAuthConfiguration(): {
     errors.push('MOCK_AUTH_ENABLED and NEXT_PUBLIC_PRODUCTION_AUTH cannot both be true');
   }
 
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    errors.push('NEXT_PUBLIC_SUPABASE_URL is not configured');
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured');
+  }
+
+  if (inProduction) {
+    if (!productionAuthEnabled) {
+      errors.push(
+        'Production environment detected but NEXT_PUBLIC_PRODUCTION_AUTH is not set to true.'
+      );
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      warnings.push('SUPABASE_SERVICE_ROLE_KEY is not configured (needed for admin operations)');
+    }
+  }
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith('NEXT_PUBLIC_')) {
+    errors.push(
+      'SUPABASE_SERVICE_ROLE_KEY appears to have NEXT_PUBLIC_ prefix. ' +
+      'Service role key must NEVER be exposed to client.'
+    );
+  }
+
   if (mockAuthEnabled) {
     const missingMockFields = MOCK_AUTH_FIELDS.filter((field) => !process.env[field]);
     if (missingMockFields.length > 0) {
@@ -265,46 +350,6 @@ export function verifyAuthConfiguration(): {
     }
   }
 
-  if (inProduction) {
-    if (!productionAuthEnabled) {
-      errors.push(
-        'Production environment detected but NEXT_PUBLIC_PRODUCTION_AUTH is not set to true. ' +
-        'Requests will fail closed until real authentication is configured.'
-      );
-    } else {
-      errors.push(
-        'Production authentication is enabled but not implemented. ' +
-        'Configure real authentication before release.'
-      );
-    }
-
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      errors.push('NEXT_PUBLIC_SUPABASE_URL is not configured');
-    }
-
-    if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured');
-    }
-
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      warnings.push('SUPABASE_SERVICE_ROLE_KEY is not configured (needed for admin operations)');
-    }
-  }
-
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith('NEXT_PUBLIC_')) {
-    errors.push(
-      'SUPABASE_SERVICE_ROLE_KEY appears to have NEXT_PUBLIC_ prefix. ' +
-      'Service role key must NEVER be exposed to client. ' +
-      'Remove NEXT_PUBLIC_ prefix immediately.'
-    );
-  }
-
-  if (productionAuthEnabled && !inProduction) {
-    warnings.push(
-      'NEXT_PUBLIC_PRODUCTION_AUTH is enabled outside production, but real production auth is not implemented.'
-    );
-  }
-
   return {
     isConfigured: errors.length === 0,
     warnings,
@@ -313,37 +358,27 @@ export function verifyAuthConfiguration(): {
 }
 
 /**
- * Map Supabase user to internal Session type
- * Use this when implementing Supabase Auth
+ * Tenant isolation validation
+ * Ensures user can only access their tenant's data
  */
-export function mapSupabaseUserToSession(
-  supabaseUser: {
-    id: string;
-    email?: string;
-    user_metadata?: {
-      employee_id?: string;
-      name?: string;
-      role?: Role;
-      title?: string;
-    };
+export function validateTenantAccess(
+  session: Session,
+  requestedTenantId: string
+): void {
+  if (session.tenantId !== requestedTenantId) {
+    throw new SessionResolutionError(
+      'TENANT_ISOLATION_VIOLATION',
+      'Access denied: tenant isolation violation',
+      403
+    );
   }
-): Session {
-  const role = supabaseUser.user_metadata?.role || 'employee';
-
-  return buildSession(
-    supabaseUser.id,
-    supabaseUser.user_metadata?.employee_id || supabaseUser.id,
-    supabaseUser.user_metadata?.name || 'Unknown',
-    supabaseUser.email || 'unknown@company.com',
-    role,
-    supabaseUser.user_metadata?.title || 'Employee'
-  );
 }
 
 /** Build an AgentContext from a verified session */
 export function getAgentContext(session: Session): AgentContext {
   return {
     userId: session.userId,
+    tenantId: session.tenantId,
     role: session.role,
     scope: session.scope,
     sensitivityClearance: session.sensitivityClearance,
@@ -361,3 +396,6 @@ export function getPermissionsForRole(role: Role): string[] {
 export function hasPermission(session: Session, permission: string): boolean {
   return session.permissions.includes(permission);
 }
+
+// Re-export authorization utilities for convenience
+export { hasCapability, hasAllCapabilities } from './authorization';

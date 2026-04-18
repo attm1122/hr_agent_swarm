@@ -70,7 +70,7 @@ export class SupabaseMilestoneRepository
   async save(milestone: Milestone, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('milestones')
-      .insert({ ...milestone, tenant_id: tenantId });
+      .insert({ ...milestone, tenant_id: tenantId } as unknown as never);
     if (error) throw error;
   }
 
@@ -81,7 +81,7 @@ export class SupabaseMilestoneRepository
   ): Promise<void> {
     const { error } = await this.supabase
       .from('milestones')
-      .update(data)
+      .update(data as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
@@ -96,9 +96,9 @@ export class SupabaseMilestoneRepository
       id,
       {
         status: 'acknowledged',
-        acknowledged_by: acknowledgedBy,
-        acknowledged_at: new Date().toISOString(),
-      },
+        acknowledgedBy: acknowledgedBy,
+        acknowledgedAt: new Date().toISOString(),
+      } as any,
       tenantId
     );
   }

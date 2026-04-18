@@ -4,9 +4,9 @@
  * Implements dependency injection for testability and hexagonal architecture.
  */
 
-import type { Agent, AgentIntent, AgentResult, AgentType } from './base';
+import type { Agent } from './base';
 import { createErrorResult } from './base';
-import type { AgentContext, SwarmRequest, SwarmResponse } from '@/types';
+import type { AgentContext, SwarmRequest, SwarmResponse, AgentIntent, AgentType, AgentResult } from '@/types';
 import type {
   AgentRunRepositoryPort,
   EventBusPort,
@@ -46,14 +46,14 @@ const INTENT_ROUTING: Partial<Record<AgentIntent, AgentType>> = {
   offboarding_task_complete: 'offboarding',
   
   // Workflow Agent
-  workflow_status: 'workflow',
-  workflow_create: 'workflow',
-  workflow_approve: 'workflow',
+  workflow_status: 'workflow_approvals',
+  workflow_create: 'workflow_approvals',
+  workflow_approve: 'workflow_approvals',
   
   // Knowledge Agent
-  knowledge_search: 'knowledge',
-  knowledge_summary: 'knowledge',
-  report_generate: 'knowledge',
+  knowledge_search: 'knowledge_policy',
+  knowledge_summary: 'knowledge_policy',
+  report_generate: 'reporting',
   
   // Manager Support Agent
   dashboard_summary: 'manager_support',
@@ -117,7 +117,7 @@ export class SwarmCoordinator {
     
     try {
       // Resolve target agent
-      const targetType = INTENT_ROUTING[request.intent];
+      const targetType = INTENT_ROUTING[request.intent as keyof typeof INTENT_ROUTING];
       if (!targetType) {
         throw new Error(`Unknown intent: ${request.intent}`);
       }
@@ -128,18 +128,18 @@ export class SwarmCoordinator {
       }
 
       // Permission check
-      if (!this.hasPermission(request.context, request.intent)) {
+      if (!this.hasPermission(request.context, request.intent as AgentIntent)) {
         throw new Error('Insufficient permissions');
       }
 
       // Check if agent can handle intent
-      if (!agent.canHandle(request.intent)) {
+      if (!agent.canHandle(request.intent as AgentIntent)) {
         throw new Error(`Agent ${targetType} cannot handle intent ${request.intent}`);
       }
 
       // Execute with timeout
       const result = await this.executeWithTimeout(
-        () => agent.execute(request.intent, request.payload || {}, request.context),
+        () => agent.execute(request.intent as AgentIntent, request.payload || {}, request.context),
         this.config.timeoutMs
       );
 
@@ -147,7 +147,7 @@ export class SwarmCoordinator {
       const executionTimeMs = Math.round(performance.now() - startTime);
       const response = this.buildResponse(
         targetType,
-        request.intent,
+        request.intent as AgentIntent,
         result,
         executionTimeMs,
         auditId,
@@ -195,7 +195,7 @@ export class SwarmCoordinator {
 
       return this.buildResponse(
         'coordinator',
-        request.intent,
+        request.intent as AgentIntent,
         errorResult,
         executionTimeMs,
         auditId,
@@ -258,7 +258,7 @@ export class SwarmCoordinator {
       agentType,
       intent: request.intent,
       inputPayload: request.payload || {},
-      outputResult: result,
+      outputResult: result as unknown as Record<string, unknown>,
       confidence: result.confidence,
       executionTimeMs,
       success: result.success,

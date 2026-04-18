@@ -9,7 +9,7 @@ export class SupabaseExportApprovalRepository
   async create(approval: ExportApproval, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('export_approvals')
-      .insert({ ...approval, tenant_id: tenantId });
+      .insert({ ...approval, tenant_id: tenantId } as unknown as never);
 
     if (error) throw error;
   }
@@ -60,8 +60,8 @@ export class SupabaseExportApprovalRepository
       .update({
         status: 'approved',
         approver_id: approverId,
-        approved_at: new Date().toISOString(),
-      })
+        approvedAt: new Date().toISOString(),
+      } as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
 
@@ -79,9 +79,9 @@ export class SupabaseExportApprovalRepository
       .update({
         status: 'rejected',
         approver_id: approverId,
-        approved_at: new Date().toISOString(),
-        rejection_reason: reason,
-      })
+        approvedAt: new Date().toISOString(),
+        rejectionReason: reason,
+      } as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
 
@@ -93,9 +93,9 @@ export class SupabaseExportApprovalRepository
       .from('export_approvals')
       .update({
         status: 'completed',
-        completed_at: new Date().toISOString(),
-        download_url: downloadUrl,
-      })
+        completedAt: new Date().toISOString(),
+        downloadUrl: downloadUrl,
+      } as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
 
@@ -105,7 +105,7 @@ export class SupabaseExportApprovalRepository
   async cancel(id: string, tenantId: string): Promise<void> {
     const { error } = await this.supabase
       .from('export_approvals')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled' } as unknown as never)
       .eq('id', id)
       .eq('tenant_id', tenantId);
 

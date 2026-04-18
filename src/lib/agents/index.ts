@@ -4,7 +4,7 @@
  * Import this anywhere you need to execute agent requests.
  */
 
-import { SwarmCoordinator } from './coordinator';
+import { SwarmCoordinator, initializeCoordinator } from './coordinator';
 import { EmployeeProfileAgent } from './employee-profile.agent';
 import { LeaveMilestonesAgent } from './leave-milestones.agent';
 import { DocumentComplianceAgent } from './document-compliance.agent';
@@ -13,13 +13,32 @@ import { OffboardingAgent } from './offboarding.agent';
 import { WorkflowAgent } from './workflow.agent';
 import { KnowledgeAgent } from './knowledge.agent';
 import { ManagerSupportAgent } from './manager-support.agent';
+import { InMemoryEventBus } from '@/lib/infrastructure/event-bus/in-memory-event-bus';
+import { createSupabaseRepositoryFactory } from '@/lib/repositories/supabase-factory';
 
 let coordinator: SwarmCoordinator | null = null;
 
 export function getCoordinator(): SwarmCoordinator {
   if (coordinator) return coordinator;
 
-  coordinator = new SwarmCoordinator();
+  // Initialize with in-memory implementations for now
+  const eventBus = new InMemoryEventBus();
+  const repoFactory = createSupabaseRepositoryFactory();
+  const agentRunRepo = repoFactory.agentRun();
+  
+  // Create mock audit log (TODO: implement real audit log port)
+  const auditLog = {
+    log: async () => {},
+    query: async () => [],
+    verifyIntegrity: async () => ({ valid: true }),
+  };
+
+  coordinator = initializeCoordinator(agentRunRepo, eventBus, auditLog, {
+    timeoutMs: 30000,
+    maxRetries: 3,
+    enablePersistence: false, // Disable persistence for now
+  });
+  
   coordinator.register(new EmployeeProfileAgent());
   coordinator.register(new LeaveMilestonesAgent());
   coordinator.register(new DocumentComplianceAgent());

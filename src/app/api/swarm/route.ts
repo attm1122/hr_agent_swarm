@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { SwarmRequestSchema } from '@/lib/validation/schemas';
+import { SwarmRequestSchema, type AgentIntent } from '@/lib/validation/schemas';
 import { IdempotencyStore } from '@/lib/validation/idempotency';
 import { getCoordinator } from '@/lib/agents/coordinator';
 import { requireSession } from '@/lib/auth/session';
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         'Invalid request body',
         'VALIDATION_ERROR',
         400,
-        validationResult.error.errors
+        validationResult.error.issues
       );
     }
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     // Execute agent
     const result = await coordinator.route({
-      intent: body.intent,
+      intent: body.intent as AgentIntent,
       query: body.query,
       payload: body.payload,
       context: {
@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
         permissions: session.permissions,
         sessionId: session.sessionId,
         timestamp: new Date().toISOString(),
+        scope: session.scope,
+        sensitivityClearance: session.sensitivityClearance,
       },
     });
 
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
         'Validation error',
         'VALIDATION_ERROR',
         400,
-        error.errors
+        error.issues
       );
     }
     
