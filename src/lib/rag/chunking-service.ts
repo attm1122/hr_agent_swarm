@@ -29,7 +29,7 @@ import type {
   DocumentStructure,
   DocumentType,
   KnowledgeZone,
-} from '@/types/rag';
+} from './types';
 
 // ============================================
 // Chunking Configuration

@@ -5,6 +5,8 @@
  * status indicators, and quick actions.
  */
 
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import { getSession } from '@/lib/auth/session';
 import { hasCapability } from '@/lib/auth/authorization';
@@ -32,7 +34,7 @@ import {
   differenceFromTodayInDateOnlyDays,
   formatDateOnly,
   getDateOnlyRelativeState,
-} from '@/lib/date-only';
+} from '@/lib/domain/shared/date-value';
 
 // Mock data for POC - replace with actual API calls
 async function getKnowledgeDocuments(tenantId: string, filters?: Record<string, string>) {

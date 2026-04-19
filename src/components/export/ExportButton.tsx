@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { AgentContext } from '@/types';
-import { toDateOnlyString } from '@/lib/date-only';
+import { toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 interface ExportButtonProps {
   context: AgentContext;

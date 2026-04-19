@@ -382,7 +382,7 @@ export class SwarmCoordinator {
       agentType,
       intent: request.intent,
       inputPayload: request.payload || {},
-      outputResult: result,
+      outputResult: result as unknown as Record<string, unknown>,
       confidence: result.confidence,
       executionTimeMs,
       success: result.success,

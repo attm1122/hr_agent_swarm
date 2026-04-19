@@ -20,7 +20,7 @@ import {
   stripSensitiveFields,
 } from '@/lib/auth/authorization';
 import { buildRecordScopeContext } from '@/lib/auth/team-scope';
-import { getFullYearsSinceDateOnly } from '@/lib/date-only';
+import { getFullYearsSinceDateOnly } from '@/lib/domain/shared/date-value';
 
 function fullName(e: Employee): string {
   return `${e.firstName} ${e.lastName}`.trim();

@@ -7,6 +7,7 @@ import type {
   EventBusPort,
   EventHandler,
 } from '@/lib/ports/event-bus-port';
+import { logger } from '@/lib/observability/logger';
 
 export class InMemoryEventBus implements EventBusPort {
   private handlers = new Map<string, Set<EventHandler<DomainEvent>>>();
@@ -28,7 +29,7 @@ export class InMemoryEventBus implements EventBusPort {
         try {
           await handler.handle(event);
         } catch (err) {
-          console.error(`Event handler failed for ${event.type}:`, err);
+          logger.error(`Event handler failed for ${event.type}`, { component: 'infra:event-bus', error: err instanceof Error ? err.message : String(err) });
         }
       }
     }
@@ -38,7 +39,7 @@ export class InMemoryEventBus implements EventBusPort {
       try {
         await handler.handle(event);
       } catch (err) {
-        console.error(`Catch-all handler failed for ${event.type}:`, err);
+        logger.error(`Catch-all handler failed for ${event.type}`, { component: 'infra:event-bus', error: err instanceof Error ? err.message : String(err) });
       }
     }
   }

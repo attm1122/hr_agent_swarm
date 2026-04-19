@@ -15,7 +15,7 @@
  */
 
 import type { AgentContext, Role } from '@/types';
-import { logSensitiveAction } from '@/lib/security/audit-logger';
+import { logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 
 // ============================================

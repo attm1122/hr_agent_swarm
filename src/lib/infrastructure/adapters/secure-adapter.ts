@@ -18,8 +18,11 @@
  */
 
 import type { AgentContext } from '@/types';
+import { createLogger } from '@/lib/observability/logger';
 
 // Allowed integration endpoints (prevent SSRF)
+const logger = createLogger('secure-adapter');
+
 const ALLOWED_INTEGRATION_HOSTS = [
   'api.bamboohr.com',
   'graph.microsoft.com',
@@ -248,7 +251,7 @@ async function getIntegrationCredential(integrationName: string): Promise<string
   // Format credential appropriately for each integration
   switch (integrationName) {
     case 'bamboohr':
-      return `Basic ${btoa(`${credential}:x`)}`;
+      return `Basic ${Buffer.from(`${credential}:x`).toString('base64')}`;
     case 'microsoft365':
       return `Bearer ${credential}`;
     case 'slack':
@@ -274,10 +277,11 @@ function logIntegrationRequest(
 ): void {
   const redactedData = redactSensitiveFields(data, sensitiveFields);
   
-  // In production: Send to SIEM via structured logger
+  // In production: Send to SIEM, not console
   if (process.env.NODE_ENV === 'production') {
-    const { securityLog } = require('./logger');
-    securityLog.info('integration', `${integration} ${method} ${endpoint} → ${statusCode}`, {
+     
+    logger.info('[INTEGRATION]', {
+      timestamp: new Date().toISOString(),
       integration,
       endpoint,
       method,
@@ -299,12 +303,14 @@ function logSecurityEvent(
 ): void {
   // In production: Send to security monitoring service
   if (process.env.NODE_ENV === 'production') {
-    const { securityLog: sLog } = require('./logger');
-    sLog.warn('integration', `Security event: ${eventType}`, {
+     
+    logger.warn('[SECURITY]', {
+      timestamp: new Date().toISOString(),
       eventType,
       details,
       userId: context?.userId,
       role: context?.role,
+      sessionId: context?.sessionId,
     });
   }
 }

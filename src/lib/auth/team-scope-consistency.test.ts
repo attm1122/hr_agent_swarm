@@ -8,6 +8,7 @@ import { OnboardingAgent } from '@/lib/agents/onboarding.agent';
 function makeContext(role: Role, employeeId: string): AgentContext {
   return {
     userId: `user-${employeeId}`,
+    tenantId: 'tenant-test',
     role,
     scope: ROLE_SCOPE[role],
     sensitivityClearance: ROLE_SENSITIVITY[role],

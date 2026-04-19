@@ -52,6 +52,7 @@ function makeContext(overrides: Partial<AgentContext> & { role: Role }): AgentCo
   const { role, ...rest } = overrides;
   return {
     userId: 'user-test',
+    tenantId: 'tenant-test',
     role,
     scope: ROLE_SCOPE[role],
     sensitivityClearance: ROLE_SENSITIVITY[role],

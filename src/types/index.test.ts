@@ -202,8 +202,8 @@ describe('Domain Types - Milestone', () => {
   });
 
   it('Milestone supports all types', () => {
-    const types: Milestone['milestoneType'][] = ['service_anniversary', 'probation_end', 'visa_expiry', 'certification_expiry', 'contract_expiry', 'performance_review'];
-    expect(types.length).toBe(6);
+    const types: Milestone['milestoneType'][] = ['work_anniversary', 'probation_end', 'visa_expiry', 'certification_expiry', 'contract_expiry', 'performance_review', 'promotion', 'role_change', 'team_change'];
+    expect(types.length).toBe(9);
   });
 
   it('Milestone supports all statuses', () => {
@@ -352,12 +352,10 @@ describe('Agent Types', () => {
   it('AgentIntent covers all intents', () => {
     const intents: AgentIntent[] = [
       'employee_search', 'employee_summary', 'document_list',
-      'document_classify', 'leave_balance', 'leave_request',
-      'compensation_view', 'compensation_history', 'milestone_list',
-      'review_status', 'communication_draft', 'report_generate',
-      'dashboard_summary',
+      'document_classify', 'leave_balance', 'leave_request_submit',
+      'milestone_list', 'pending_workflows',
     ];
-    expect(intents.length).toBe(13);
+    expect(intents.length).toBe(8);
   });
 });
 

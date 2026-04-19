@@ -8,8 +8,7 @@ const mockUsePathname = vi.mocked(usePathname);
 describe('Sidebar', () => {
   it('renders the brand logo', () => {
     render(<Sidebar />);
-    expect(screen.getByText('HR Agent')).toBeInTheDocument();
-    expect(screen.getByText('Swarm')).toBeInTheDocument();
+    expect(screen.getByText('HR Agent Swarm')).toBeInTheDocument();
   });
 
   it('renders all HR nav items', () => {
@@ -82,7 +81,7 @@ describe('Sidebar', () => {
 
   it('accepts role prop without error', () => {
     render(<Sidebar role="manager" />);
-    expect(screen.getByText('HR Agent')).toBeInTheDocument();
+    expect(screen.getByText('HR Agent Swarm')).toBeInTheDocument();
   });
 
   it('non-active links have slate styling', () => {

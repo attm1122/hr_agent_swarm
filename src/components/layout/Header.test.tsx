@@ -17,9 +17,9 @@ describe('Header', () => {
     expect(screen.getByText('Engineer')).toBeInTheDocument();
   });
 
-  it('renders search input', () => {
+  it('renders search button', () => {
     render(<Header />);
-    expect(screen.getByPlaceholderText('Search employees, documents, policies...')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search pages and commands')).toBeInTheDocument();
   });
 
   it('renders notification bell', () => {

@@ -1,5 +1,5 @@
 import type { AgentRunRepositoryPort } from '@/lib/ports';
-import type { AgentRunRecord } from '@/types';
+import type { AgentRunRecord } from '@/lib/domain/audit/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseAgentRunRepository
@@ -21,8 +21,8 @@ export class SupabaseAgentRunRepository
         context: record.context,
         metadata: record.metadata,
         tenant_id: tenantId,
-        created_at: record.createdAt,
-      });
+        createdAt: record.createdAt,
+      } as unknown as never);
 
     if (error) throw error;
   }

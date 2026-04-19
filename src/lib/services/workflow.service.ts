@@ -13,7 +13,8 @@
  * - RBAC enforcement at service layer
  */
 
-import type { WorkflowInstance, WorkflowStep, AgentContext } from '@/types';
+import type { WorkflowInstance, WorkflowStep } from '@/lib/domain/workflow/types';
+import type { AgentContext } from '@/types';
 import { 
   workflowInstances, 
   workflowSteps, 
@@ -21,7 +22,8 @@ import {
   identifyOverdueSteps,
 } from '@/lib/data/workflow-store';
 import { hasCapability } from '@/lib/auth/authorization';
-import { logSensitiveAction } from '@/lib/security/audit-logger';
+import { logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
+import { canTransitionStep } from '@/lib/domain/workflow/workflow-state-machine';
 
 // Workflow event types for history
 export type WorkflowEventType = 
@@ -297,9 +299,15 @@ export function bulkApproveSteps(
       continue;
     }
 
-    if (step.status !== 'pending') {
+    const transition = canTransitionStep(step.status, 'approve', {
+      approverId: context.employeeId!,
+      stepApproverId: step.approverId,
+      stepApproverRole: step.approverRole,
+      userRole: context.role,
+    });
+    if (!transition.allowed) {
       failed++;
-      errors.push(`Step ${stepId} is not pending`);
+      errors.push(transition.reason || `Step ${stepId} is not pending`);
       continue;
     }
 

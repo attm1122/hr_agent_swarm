@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  Search, Filter, Plus, MoreHorizontal, ShieldX
+  Search, Filter, Plus, MoreHorizontal, ShieldX, Users
 } from 'lucide-react';
 import { getTeamById, getPositionById, getManagerForEmployee, teams } from '@/lib/data/mock-data';
 import { getEmployeeList, getEmployeeCount } from '@/lib/services';
@@ -21,7 +23,8 @@ import { getSession, getAgentContext } from '@/lib/auth/session';
 import { hasCapability } from '@/lib/auth/authorization';
 import { ExportButton } from '@/components/export/ExportButton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/date-only';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/domain/shared/date-value';
 import type { Employee } from '@/types';
 
 // Employee row component
@@ -29,9 +32,9 @@ function EmployeeRow({ employee }: { employee: Employee }) {
   const team = employee.teamId ? getTeamById(employee.teamId) : null;
   const position = employee.positionId ? getPositionById(employee.positionId) : null;
   const manager = getManagerForEmployee(employee);
-  
+
   return (
-    <Link href={`/employees/${employee.id}`}>
+    <Link href={`/employees/${employee.id}`} role="row">
       <div className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 cursor-pointer">
         <Avatar className="w-10 h-10">
           <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-medium">
@@ -97,7 +100,7 @@ function EmployeeDirectorySkeleton() {
 // Content component - uses service layer with RBAC enforcement
 async function EmployeeDirectoryContent() {
   // Get session and context for RBAC
-  const session = getSession();
+  const session = await getSession();
   if (!session) {
     return (
       <Card className="border shadow-sm">
@@ -198,35 +201,46 @@ async function EmployeeDirectoryContent() {
 
       {/* Employee List */}
       <Card className="border shadow-sm overflow-hidden">
-        {/* Table Header */}
-        <div className="flex items-center gap-4 px-4 py-3 bg-slate-50 border-b border-slate-200">
-          <div className="w-10" /> {/* Avatar spacer */}
-          <div className="flex-1 grid grid-cols-12 gap-4">
-            <div className="col-span-3">
-              <span className="text-xs font-medium text-slate-500 uppercase">Employee</span>
+        {activeEmployees.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No employees found"
+            description="There are no active employees matching your current filters."
+            action={{ label: 'Add Employee', href: '#' }}
+          />
+        ) : (
+          <div role="table" aria-label="Employee directory">
+            {/* Table Header */}
+            <div role="rowgroup" className="hidden md:flex items-center gap-4 px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <div className="w-10" role="columnheader" aria-label="Avatar" /> 
+              <div className="flex-1 grid grid-cols-12 gap-4">
+                <div className="col-span-3" role="columnheader">
+                  <span className="text-xs font-medium text-slate-500 uppercase">Employee</span>
+                </div>
+                <div className="col-span-3" role="columnheader">
+                  <span className="text-xs font-medium text-slate-500 uppercase">Role & Team</span>
+                </div>
+                <div className="col-span-2" role="columnheader">
+                  <span className="text-xs font-medium text-slate-500 uppercase">Status</span>
+                </div>
+                <div className="col-span-2" role="columnheader">
+                  <span className="text-xs font-medium text-slate-500 uppercase">Hire Date</span>
+                </div>
+                <div className="col-span-2" role="columnheader">
+                  <span className="text-xs font-medium text-slate-500 uppercase">Manager</span>
+                </div>
+              </div>
+              <div className="w-8" role="columnheader" aria-label="Actions" />
             </div>
-            <div className="col-span-3">
-              <span className="text-xs font-medium text-slate-500 uppercase">Role & Team</span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-xs font-medium text-slate-500 uppercase">Status</span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-xs font-medium text-slate-500 uppercase">Hire Date</span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-xs font-medium text-slate-500 uppercase">Manager</span>
+
+            {/* Employee Rows */}
+            <div role="rowgroup" className="divide-y divide-slate-100">
+              {activeEmployees.map((employee) => (
+                <EmployeeRow key={employee.id} employee={employee} />
+              ))}
             </div>
           </div>
-          <div className="w-8" /> {/* Actions spacer */}
-        </div>
-        
-        {/* Employee Rows */}
-        <div className="divide-y divide-slate-100">
-          {activeEmployees.map((employee) => (
-            <EmployeeRow key={employee.id} employee={employee} />
-          ))}
-        </div>
+        )}
       </Card>
     </div>
   );

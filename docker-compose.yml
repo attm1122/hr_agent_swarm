@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXT_PUBLIC_PRODUCTION_AUTH=true
+      - MOCK_AUTH_ENABLED=false
+    env_file:
+      - .env.local
+    restart: unless-stopped
+
+  # Optional: Local Supabase for development
+  # Uncomment if you want to run Supabase locally
+  # supabase:
+  #   image: supabase/supabase-local:latest
+  #   ports:
+  #     - "54321:54321"  # REST API
+  #     - "54322:54322"  # Database
+  #     - "54323:54323"  # Studio
+  #   environment:
+  #     POSTGRES_PASSWORD: postgres
+  #     JWT_SECRET: super-secret-jwt-token
+  #     ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+  #     SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...

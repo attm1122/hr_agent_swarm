@@ -23,6 +23,8 @@
  * - No ingestion without proper authorization
  */
 
+import { createHash } from 'crypto';
+
 import type {
   KnowledgeDocument,
   KnowledgeChunk,
@@ -34,11 +36,11 @@ import type {
   ConfidentialityLevel,
   ApprovalStatus,
   DocumentStructure,
-} from '@/types/rag';
+} from './types';
 import type { AgentContext, Role } from '@/types';
 import { parseDocumentStructure, chunkDocument } from './chunking-service';
 import { KNOWLEDGE_ZONE_CONFIG, validateZoneAssignment } from './knowledge-zones';
-import { logSensitiveAction } from '@/lib/security/audit-logger';
+import { logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 
 // ============================================
@@ -314,14 +316,7 @@ export function createDocument(
  * Generate SHA-256 hash of content
  */
 function generateContentHash(content: string): string {
-  // Simple hash for POC - production uses crypto.createHash
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(64, '0');
+  return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
 // ============================================

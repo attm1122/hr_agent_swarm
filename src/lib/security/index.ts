@@ -1,14 +1,20 @@
 /**
- * Security Module Index
- * Central export for all security controls.
- * 
- * Modules:
- * - rate-limit: Request throttling and abuse prevention
- * - csrf: Token-based CSRF protection
- * - sanitize: Input validation and output encoding
- * - secure-adapter: Secure integration layer
- * - audit-logger: Security audit trail
- * - security-middleware: Combined security controls
+ * Security Module Index — STRANGLER-FIG BARREL
+ *
+ * This file re-exports from the new canonical locations to avoid
+ * breaking existing consumers during the architectural refactoring.
+ *
+ * New canonical locations:
+ * - @/lib/infrastructure/audit/audit-logger
+ * - @/lib/infrastructure/rate-limit/rate-limit
+ * - @/lib/infrastructure/rate-limit/rate-limit-redis
+ * - @/lib/infrastructure/csrf/csrf
+ * - @/lib/infrastructure/csrf/csrf-redis
+ * - @/lib/application/validation/sanitize
+ * - @/lib/infrastructure/adapters/secure-adapter
+ * - @/lib/infrastructure/security-middleware
+ *
+ * TODO: Migrate all consumers to canonical imports and remove this barrel.
  */
 
 export {
@@ -18,7 +24,7 @@ export {
   getRateLimitStatus,
   RATE_LIMITS,
   type RateLimitResult,
-} from './rate-limit';
+} from '@/lib/infrastructure/rate-limit/rate-limit';
 
 export {
   generateCsrfToken,
@@ -28,7 +34,7 @@ export {
   rotateCsrfToken,
   requiresCsrfProtection,
   createCsrfErrorResponse,
-} from './csrf';
+} from '@/lib/infrastructure/csrf/csrf';
 
 export {
   encodeHtml,
@@ -43,7 +49,7 @@ export {
   containsXss,
   containsSqlInjection,
   logSanitizationEvent,
-} from './sanitize';
+} from '@/lib/application/validation/sanitize';
 
 export {
   secureFetch,
@@ -51,7 +57,7 @@ export {
   fetchBambooHREmployee,
   checkIntegrationHealth,
   type SecureResponse,
-} from './secure-adapter';
+} from '@/lib/infrastructure/adapters/secure-adapter';
 
 export {
   logAgentExecution,
@@ -63,8 +69,7 @@ export {
   verifyAuditIntegrity,
   type AuditLogEntry,
   type AuditEventType,
-  type SecurityLogContext,
-} from './audit-logger';
+} from '@/lib/infrastructure/audit/audit-logger';
 
 export {
   securityMiddleware,
@@ -72,8 +77,4 @@ export {
   addSecurityHeaders,
   createSecurityErrorResponse,
   getSecurityHeaders,
-  withRequestTimeout,
-  generateRequestId,
-} from './security-middleware';
-
-export { securityLog } from './logger';
+} from '@/lib/infrastructure/security-middleware';

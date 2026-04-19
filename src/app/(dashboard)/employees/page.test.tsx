@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { employees, teams, positions, getTeamById, getPositionById, getManagerForEmployee } from '@/lib/data/mock-data';
 import type { Employee } from '@/types';
-import { getFullYearsSinceDateOnly, toDateOnlyString } from '@/lib/date-only';
+import { getFullYearsSinceDateOnly, toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 // Test the data logic used by the employees page
 

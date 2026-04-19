@@ -259,6 +259,7 @@ export interface ReportRun {
 }
 
 export interface PolicyDocument {
+  tenant_id: string;
   id: string;
   title: string;
   category: string;
@@ -271,6 +272,7 @@ export interface PolicyDocument {
 }
 
 export interface PolicyChunk {
+  tenant_id: string;
   id: string;
   document_id: string;
   chunk_index: number;
@@ -372,3 +374,13 @@ export interface Database {
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
 export type Insertable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
 export type Updatable<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
+export interface OutboxEvent {
+  id: string;
+  event_type: string;
+  payload: Json;
+  status: string;
+  retry_count: number;
+  tenant_id: string;
+  headers: Json;
+  created_at: string;
+}

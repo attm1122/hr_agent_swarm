@@ -11,25 +11,25 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestLogger } from '@/lib/observability/logger';
+import { getCorrelationId } from '@/lib/observability/correlation';
 import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
-import { securityMiddleware, addSecurityHeaders } from '@/lib/security';
-import { logSecurityEvent, logSensitiveAction } from '@/lib/security';
+import { securityMiddleware, addSecurityHeaders } from '@/lib/infrastructure/security-middleware';
+import { logSecurityEvent, logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 import { getEmployeeList } from '@/lib/services/employee.service';
-import { securityLog } from '@/lib/security/logger';
-import { signDownloadUrl, storeExportFile } from '@/app/api/export/download/route';
 import type { AgentContext } from '@/types';
-import { toDateOnlyString } from '@/lib/date-only';
+import { toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 // In-memory store - replace with database in production
 interface ExportApproval {
   exportId: string;
   requesterId: string;
   requesterRole: string;
-  status: 'pending' | 'processing' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   approverId?: string;
   approverRole?: string;
   approvedAt?: string;
@@ -133,7 +133,7 @@ function canApprove(
  */
 export async function GET(req: NextRequest) {
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -255,8 +255,11 @@ export async function GET(req: NextRequest) {
  * Approve or reject an export request
  */
 export async function PATCH(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:export-approval', correlationId);
+
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -306,10 +309,6 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // SECURITY: Atomic check-and-lock to prevent TOCTOU race condition.
-    // Two concurrent approvers could both read status='pending', pass the
-    // check, then both mutate the approval. We atomically swap status to
-    // 'processing' so only the first request wins.
     if (approval.status !== 'pending') {
       return addSecurityHeaders(
         NextResponse.json(
@@ -318,16 +317,12 @@ export async function PATCH(req: NextRequest) {
         )
       );
     }
-    // Atomically claim — any concurrent request will now see 'processing'
-    approval.status = 'processing' as ExportApproval['status'];
 
     if (!canApprove(context, approval)) {
-      // Release lock — revert to pending so another approver can try
-      approval.status = 'pending';
       logSecurityEvent(
         'security_blocked',
         context,
-        {
+        { 
           reason: 'User attempted to approve export without proper authorization',
           resourceType: 'export_approval',
           resourceId: exportId,
@@ -416,29 +411,25 @@ export async function PATCH(req: NextRequest) {
       false
     );
 
-    // SECURITY: Use signed, time-limited download URLs instead of embedding
-    // export data directly in API responses (leaks into logs, caches, etc.).
-    const dateStr = toDateOnlyString();
-    let content: string;
-    let contentType: string;
-    let filename: string;
-
     if (approval.exportFormat === 'csv') {
-      const csvHeaders = Object.keys(filteredData[0] || {}).join(',');
+      const headers = Object.keys(filteredData[0] || {}).join(',');
       const rows = filteredData.map(row =>
         Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
       );
-      content = [csvHeaders, ...rows].join('\n');
-      contentType = 'text/csv';
-      filename = `${approval.exportType}_export_${dateStr}.csv`;
-    } else {
-      content = JSON.stringify(filteredData, null, 2);
-      contentType = 'application/json';
-      filename = `${approval.exportType}_export_${dateStr}.json`;
-    }
+      const csv = [headers, ...rows].join('\n');
 
-    storeExportFile(exportId, content, contentType, filename, context.userId);
-    const { url: downloadUrl } = signDownloadUrl(exportId, context.userId);
+      return addSecurityHeaders(
+        new NextResponse(csv, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="${approval.exportType}_export_${toDateOnlyString()}.csv"`,
+            'X-Export-Id': exportId,
+            'X-Approved-By': context.userId,
+          },
+        })
+      );
+    }
 
     return addSecurityHeaders(
       NextResponse.json({
@@ -450,7 +441,7 @@ export async function PATCH(req: NextRequest) {
         format: approval.exportFormat,
         recordCount: filteredData.length,
         fields: Object.keys(filteredData[0] || {}),
-        downloadUrl,
+        data: filteredData,
       })
     );
 
@@ -464,14 +455,11 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // SECURITY: Never leak raw error details to client
-    securityLog.error('export', 'Export approval error', { error: err instanceof Error ? err.message : err });
+    const message = err instanceof Error ? err.message : 'Approval action failed';
+    routeLogger.error('Export approval error', { error: err instanceof Error ? err.message : String(err) });
 
     return addSecurityHeaders(
-      NextResponse.json(
-        { error: 'An internal error occurred processing the approval.' },
-        { status: 500 },
-      )
+      NextResponse.json({ error: message }, { status: 500 })
     );
   }
 }

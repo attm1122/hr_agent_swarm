@@ -11,7 +11,7 @@
  * - Private case data remains strongly isolated
  */
 
-import type { KnowledgeZone, ConfidentialityLevel } from '@/types/rag';
+import type { KnowledgeZone, ConfidentialityLevel } from './types';
 import type { Role } from '@/types';
 
 // ============================================

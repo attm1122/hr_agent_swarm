@@ -19,8 +19,8 @@ import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
-import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
-import { logSecurityEvent } from '@/lib/security';
+import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/infrastructure/security-middleware';
+import { logSecurityEvent } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 import {
   getDocumentRules,
@@ -45,7 +45,7 @@ import {
 // ============================================
 export async function GET(req: NextRequest) {
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
 // ============================================
 export async function POST(req: NextRequest) {
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
 // ============================================
 export async function PATCH(req: NextRequest) {
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',
@@ -323,7 +323,7 @@ export async function PATCH(req: NextRequest) {
 // ============================================
 export async function DELETE(req: NextRequest) {
   try {
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const { session, context, securityContext } = await requireVerifiedSessionContext();
 
     const securityCheck = await securityMiddleware(req, securityContext, {
       rateLimitTier: 'agent',

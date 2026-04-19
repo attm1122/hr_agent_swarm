@@ -7,22 +7,30 @@
 import type {
   Employee,
   EmployeeSummary,
+} from '@/lib/domain/employee/types';
+import type {
   LeaveBalance,
   LeaveRequest,
+} from '@/lib/domain/leave/types';
+import type {
   PolicyDocument,
   PolicyChunk,
+} from '@/lib/domain/document/types';
+import type {
   WorkflowInstance,
   WorkflowStep,
+} from '@/lib/domain/workflow/types';
+import type { AgentRunRecord } from '@/lib/domain/audit/types';
+import type {
   OnboardingPlan,
   OnboardingTask,
   OffboardingPlan,
   OffboardingTask,
   Milestone,
   EmployeeDocument,
-  AgentRunRecord,
   ExportApproval,
+  AgentContext,
 } from '@/types';
-import type { AgentContext } from '@/types';
 
 // ============================================================================
 // Employee Repository Port

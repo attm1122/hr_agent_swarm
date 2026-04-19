@@ -9,17 +9,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestLogger } from '@/lib/observability/logger';
+import { getCorrelationId } from '@/lib/observability/correlation';
+import { sanitizeError } from '@/lib/security/hardening/error-sanitizer';
 import { ExportRequestSchema, ExportApprovalRequestSchema } from '@/lib/validation/schemas';
 import { IdempotencyStore } from '@/lib/validation/idempotency';
 import { requireSession, hasCapability } from '@/lib/auth/session';
 import { createCacheAdapter } from '@/lib/infrastructure/redis/redis-cache-adapter';
-import { RedisRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit-redis';
+import { RedisRateLimiter, RATE_LIMITS } from '@/lib/infrastructure/rate-limit/rate-limit-redis';
 import { RepositoryFactory } from '@/lib/ports';
 import { createSupabaseRepositoryFactory } from '@/lib/repositories/supabase-factory';
 import { createId } from '@/lib/utils/ids';
-import { signDownloadUrl, storeExportFile } from '@/app/api/export/download/route';
-import { extractCsrfToken, validateCsrfToken } from '@/lib/security/csrf';
-import { securityLog } from '@/lib/security/logger';
 import type { ExportApproval } from '@/types';
 
 // Initialize infrastructure
@@ -81,6 +81,9 @@ function getAllowedFields(role: string): string[] {
 
 // GET: List user's exports and approvals
 export async function GET(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:export', correlationId);
+
   try {
     const session = await requireSession();
     if (!session) {
@@ -98,13 +101,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ approvals });
 
   } catch (error) {
-    securityLog.error('export', 'Export GET error', { error: error instanceof Error ? error.message : error });
-    return createErrorResponse('Internal server error', 'INTERNAL_ERROR', 500);
+    routeLogger.error('Export GET error', { error: error instanceof Error ? error.message : String(error) });
+    const sanitized = sanitizeError(error, { correlationId, fallbackCode: 'INTERNAL_ERROR' });
+    return NextResponse.json({ error: sanitized }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
 // POST: Request export
 export async function POST(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:export', correlationId);
+
   try {
     const session = await requireSession();
     if (!session) {
@@ -141,18 +148,8 @@ export async function POST(req: NextRequest) {
 
     const body = validationResult.data;
 
-    // Check idempotency — validate key format to prevent memory exhaustion
-    const rawIdempotencyKey = req.headers.get('Idempotency-Key');
-    const idempotencyKey = rawIdempotencyKey && rawIdempotencyKey.length <= 128 && /^[\w\-]+$/.test(rawIdempotencyKey)
-      ? rawIdempotencyKey
-      : null;
-    if (rawIdempotencyKey && !idempotencyKey) {
-      return createErrorResponse(
-        'Invalid Idempotency-Key: must be 1-128 alphanumeric/hyphen/underscore characters',
-        'INVALID_IDEMPOTENCY_KEY',
-        400,
-      );
-    }
+    // Check idempotency
+    const idempotencyKey = req.headers.get('Idempotency-Key');
     if (idempotencyKey) {
       const existing = await idempotencyStore.check(idempotencyKey);
       
@@ -266,18 +263,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    // SECURITY: Never leak raw error details to client
-    securityLog.error('export', 'Export POST error', { error: error instanceof Error ? error.message : error });
-    return createErrorResponse(
-      'An internal error occurred processing the export.',
-      'INTERNAL_ERROR',
-      500
-    );
+    routeLogger.error('Export POST error', { error: error instanceof Error ? error.message : String(error) });
+    const sanitized = sanitizeError(error, { correlationId, fallbackCode: 'INTERNAL_ERROR' });
+    return NextResponse.json({ error: sanitized }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
 // PATCH: Approve or reject export
 export async function PATCH(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:export', correlationId);
+
   try {
     const session = await requireSession();
     if (!session) {
@@ -371,33 +367,21 @@ export async function PATCH(req: NextRequest) {
     approval.approverId = session.userId;
     approval.approvedAt = new Date().toISOString();
     approval.completedAt = new Date().toISOString();
-
-    // SECURITY: Use signed, time-limited download URLs instead of data URIs.
-    // Data URIs embed full export content in the URL — polluting browser history,
-    // proxy logs, and exceeding URL length limits for large exports.
-    const contentType = approval.format === 'csv' ? 'text/csv' : 'application/json';
-    const filename = `export_${body.approvalId}.${approval.format === 'csv' ? 'csv' : 'json'}`;
-    storeExportFile(body.approvalId, content, contentType, filename, session.userId);
-    const { url: downloadUrl } = signDownloadUrl(body.approvalId, session.userId);
-    approval.downloadUrl = downloadUrl;
+    approval.downloadUrl = `data:${approval.format === 'csv' ? 'text/csv' : 'application/json'};base64,${Buffer.from(content).toString('base64')}`;
 
     approvalStore.set(body.approvalId, approval);
 
     return NextResponse.json({
       status: 'approved',
       approvalId: body.approvalId,
-      downloadUrl,
+      downloadUrl: approval.downloadUrl,
       recordCount: filteredData.length,
     });
 
   } catch (error) {
-    // SECURITY: Never leak raw error details to client
-    securityLog.error('export', 'Export PATCH error', { error: error instanceof Error ? error.message : error });
-    return createErrorResponse(
-      'An internal error occurred processing the export.',
-      'INTERNAL_ERROR',
-      500
-    );
+    routeLogger.error('Export PATCH error', { error: error instanceof Error ? error.message : String(error) });
+    const sanitized = sanitizeError(error, { correlationId, fallbackCode: 'INTERNAL_ERROR' });
+    return NextResponse.json({ error: sanitized }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

@@ -69,7 +69,7 @@ export type {
   // Ingestion
   IngestionJob,
   IngestionStatus,
-} from '@/types/rag';
+} from './types';
 
 // Types defined in service modules
 export type { ClassificationResult } from './query-classifier';

@@ -8,7 +8,7 @@ import {
   AlertCircle, Calendar, ArrowRight,
 } from 'lucide-react';
 import { documents, milestones, getEmployeeById } from '@/lib/data/mock-data';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 import { compareMilestonesByDate, getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export default function CompliancePage() {

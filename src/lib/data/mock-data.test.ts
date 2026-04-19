@@ -310,7 +310,7 @@ describe('milestones', () => {
     });
   });
 
-  it('has service anniversary milestones', () => {
+  it('has work anniversary milestones', () => {
     const anniversaries = milestones.filter(m => m.milestoneType === 'service_anniversary');
     expect(anniversaries.length).toBeGreaterThan(0);
   });

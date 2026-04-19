@@ -14,7 +14,7 @@
  * - Automatic retry logic recommendations
  */
 
-import { checkIntegrationHealth as checkSecureIntegrationHealth } from '@/lib/security/secure-adapter';
+import { checkIntegrationHealth as checkSecureIntegrationHealth } from '@/lib/infrastructure/adapters/secure-adapter';
 
 export interface IntegrationHealth {
   name: string;
@@ -119,30 +119,6 @@ export function getIntegrationStatus(): IntegrationHealth[] {
 }
 
 /**
- * Record integration sync result
- */
-export function recordSyncResult(
-  integration: string,
-  success: boolean,
-  error?: string,
-  durationMs?: number
-): void {
-  const health = healthStore.get(integration);
-  if (!health) return;
-
-  const updated: IntegrationHealth = {
-    ...health,
-    lastSync: new Date().toISOString(),
-    status: success ? 'healthy' : 'degraded',
-    lastError: success ? null : error || 'Sync failed',
-    errorCount24h: success ? health.errorCount24h : health.errorCount24h + 1,
-    avgResponseTime: durationMs || health.avgResponseTime,
-  };
-
-  healthStore.set(integration, updated);
-}
-
-/**
  * Get integration health summary for dashboard
  */
 export function getIntegrationSummary(): {
@@ -184,54 +160,3 @@ export function getIntegrationSummary(): {
   };
 }
 
-/**
- * Get sync recommendations based on health status
- */
-export function getSyncRecommendations(): Array<{
-  integration: string;
-  recommendation: 'sync_now' | 'investigate' | 'pause_sync' | 'no_action';
-  reason: string;
-}> {
-  const recommendations: Array<{
-    integration: string;
-    recommendation: 'sync_now' | 'investigate' | 'pause_sync' | 'no_action';
-    reason: string;
-  }> = [];
-
-  for (const [key, health] of healthStore) {
-    if (health.status === 'unhealthy' && health.errorCount24h > 5) {
-      recommendations.push({
-        integration: health.name,
-        recommendation: 'pause_sync',
-        reason: `Multiple failures (${health.errorCount24h} in 24h): ${health.lastError}`,
-      });
-    } else if (health.status === 'unhealthy') {
-      recommendations.push({
-        integration: health.name,
-        recommendation: 'investigate',
-        reason: `Service unhealthy: ${health.lastError}`,
-      });
-    } else if (health.status === 'degraded') {
-      recommendations.push({
-        integration: health.name,
-        recommendation: 'investigate',
-        reason: 'Service performance degraded',
-      });
-    } else if (!health.lastSync || 
-               new Date(health.lastSync).getTime() < Date.now() - 24 * 60 * 60 * 1000) {
-      recommendations.push({
-        integration: health.name,
-        recommendation: 'sync_now',
-        reason: 'No sync in last 24 hours',
-      });
-    } else {
-      recommendations.push({
-        integration: health.name,
-        recommendation: 'no_action',
-        reason: 'Healthy',
-      });
-    }
-  }
-
-  return recommendations;
-}

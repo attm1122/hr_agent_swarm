@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserPlus, CheckCircle2, Clock, ArrowRight, Plus, Laptop, FileCheck, Users } from 'lucide-react';
 import { employees, getPositionById, getTeamById } from '@/lib/data/mock-data';
-import { compareDateOnly, formatDateOnly } from '@/lib/date-only';
+import { compareDateOnly, formatDateOnly } from '@/lib/domain/shared/date-value';
 
 export default function OnboardingPage() {
   const pendingOnboard = employees.filter(e => e.status === 'pending');

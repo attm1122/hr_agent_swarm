@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Download, FileText, Clock, Plus, TrendingUp, Users, DollarSign, Calendar } from 'lucide-react';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 
 const reports = [
   { id: 'r-1', name: 'Headcount Report', category: 'hr', icon: Users, lastRun: '2025-04-01', frequency: 'Monthly' },

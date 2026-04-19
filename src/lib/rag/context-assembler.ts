@@ -31,7 +31,7 @@ import type {
   QueryClassification,
   Citation,
   KnowledgeChunk,
-} from '@/types/rag';
+} from './types';
 
 // ============================================
 // Assembly Configuration
@@ -572,7 +572,7 @@ function groupSourcesByDocument(sources: RerankedResult[]): Map<string, Reranked
   return groups;
 }
 
-import type { KnowledgeZone } from '@/types/rag';
+import type { KnowledgeZone } from './types';
 
 function groupSourcesByZone(sources: RerankedResult[]): Map<KnowledgeZone, RerankedResult[]> {
   const groups = new Map<KnowledgeZone, RerankedResult[]>();

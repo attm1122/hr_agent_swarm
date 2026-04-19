@@ -13,7 +13,10 @@
  * re-exported from this module for backward compatibility.
  */
 
-import type { PolicyDocument, PolicyChunk, PolicySearchResult, PolicyAnswer } from '@/types';
+import type { PolicyDocument, PolicyChunk } from '@/lib/domain/document/types';
+import type { PolicySearchResult, PolicyAnswer } from '@/types';
+
+const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 // ==========================================
 // Pure helpers (used in both mock and agent)
@@ -116,6 +119,7 @@ function seedMockData(): void {
   const leavePolicyId = 'pd-001';
   policyDocuments.push({
     id: leavePolicyId,
+    tenant_id: DEFAULT_TENANT_ID,
     title: 'Employee Leave Policy',
     category: 'leave',
     version: '2.1',
@@ -129,6 +133,7 @@ function seedMockData(): void {
   policyChunks.push(
     {
       id: 'pc-001',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: leavePolicyId,
       chunk_index: 0,
       content: 'Annual leave entitlement: Full-time employees receive 20 days of annual leave per year. Leave accrues monthly at 1.67 days per month.',
@@ -139,6 +144,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-002',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: leavePolicyId,
       chunk_index: 1,
       content: 'Leave approval process: All leave requests must be submitted through the HR system and approved by your direct manager at least 2 weeks in advance for planned leave.',
@@ -149,6 +155,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-003',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: leavePolicyId,
       chunk_index: 2,
       content: 'Sick leave: Employees are entitled to 10 days of sick leave per year. Sick leave does not accumulate. A medical certificate is required for absences of 3 or more consecutive days.',
@@ -163,6 +170,7 @@ function seedMockData(): void {
   const onboardingPolicyId = 'pd-002';
   policyDocuments.push({
     id: onboardingPolicyId,
+    tenant_id: DEFAULT_TENANT_ID,
     title: 'Employee Onboarding Guide',
     category: 'onboarding',
     version: '1.5',
@@ -176,6 +184,7 @@ function seedMockData(): void {
   policyChunks.push(
     {
       id: 'pc-004',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: onboardingPolicyId,
       chunk_index: 0,
       content: 'Onboarding timeline: New employees must complete all onboarding tasks within their first 14 days. The onboarding plan is created by HR and assigned to the hiring manager.',
@@ -186,6 +195,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-005',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: onboardingPolicyId,
       chunk_index: 1,
       content: 'Required documents: New hires must provide proof of identity, tax forms, bank details, and emergency contact information before their first day.',
@@ -196,6 +206,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-006',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: onboardingPolicyId,
       chunk_index: 2,
       content: 'IT setup: IT department will provision laptop, email account, and system access. This must be completed by day 1 of employment.',
@@ -210,6 +221,7 @@ function seedMockData(): void {
   const offboardingPolicyId = 'pd-003';
   policyDocuments.push({
     id: offboardingPolicyId,
+    tenant_id: DEFAULT_TENANT_ID,
     title: 'Employee Exit and Offboarding Policy',
     category: 'offboarding',
     version: '1.2',
@@ -223,6 +235,7 @@ function seedMockData(): void {
   policyChunks.push(
     {
       id: 'pc-007',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: offboardingPolicyId,
       chunk_index: 0,
       content: 'Notice period: Standard notice period is 4 weeks for permanent employees. Notice must be submitted in writing to your manager and HR.',
@@ -233,6 +246,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-008',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: offboardingPolicyId,
       chunk_index: 1,
       content: 'Exit checklist: All employees must complete an exit interview, return company assets (laptop, badge, credit card), and complete knowledge transfer documentation.',
@@ -243,6 +257,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-009',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: offboardingPolicyId,
       chunk_index: 2,
       content: 'Final paycheck: Final pay will be processed on the next regular payroll cycle. Any unused annual leave will be paid out in accordance with local labor laws.',
@@ -257,6 +272,7 @@ function seedMockData(): void {
   const performancePolicyId = 'pd-004';
   policyDocuments.push({
     id: performancePolicyId,
+    tenant_id: DEFAULT_TENANT_ID,
     title: 'Performance Review Process',
     category: 'performance',
     version: '3.0',
@@ -270,6 +286,7 @@ function seedMockData(): void {
   policyChunks.push(
     {
       id: 'pc-010',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: performancePolicyId,
       chunk_index: 0,
       content: 'Review cycle: Performance reviews are conducted annually in Q4. Mid-year check-ins are encouraged but not mandatory.',
@@ -280,6 +297,7 @@ function seedMockData(): void {
     },
     {
       id: 'pc-011',
+      tenant_id: DEFAULT_TENANT_ID,
       document_id: performancePolicyId,
       chunk_index: 1,
       content: 'Probation reviews: New employees have a 90-day probation period. A formal review must be conducted before day 90 to confirm employment or extend probation.',

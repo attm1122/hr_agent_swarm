@@ -1,8 +1,17 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-# Run linting on staged files
+# Run linting and formatting on staged files
 npx lint-staged
 
 # Run type check
 npm run typecheck
+
+# Run tests for files that changed
+# npx vitest related --run
+
+# Security: Check for secrets in staged files
+if git diff --cached --name-only | xargs grep -l "sk-live\|sk_test\|password.*=.*['\"][^'\"]\{8,\}['\"]\|api_key.*=.*['\"][^'\"]\{16,\}['\"]" 2>/dev/null; then
+  echo "⚠️  WARNING: Potential hardcoded secrets detected in staged files"
+  echo "Please review before committing"
+fi

@@ -13,7 +13,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
-import type { Employee, Milestone, LeaveRequest, ActionItem, ProposedAction, AgentResult } from '@/types';
+import type { Employee } from '@/lib/domain/employee/types';
+import type { LeaveRequest } from '@/lib/domain/leave/types';
+import type { Milestone, ActionItem, ProposedAction, AgentResult } from '@/types';
 import {
   ManagerOperationalRepository,
   ManagerTeamContext,
@@ -94,7 +96,7 @@ export class ManagerSupportRepository {
     ]);
 
     const highlights = this.generateHighlights(summary, employees, milestones, pendingLeave);
-    const actionsRequired = this.generateTeamActions(summary, pendingLeave, pendingWorkflows);
+    const actionsRequired = this.generateTeamActions(summary, pendingLeave, pendingWorkflows as import('@/types').WorkflowInstance[]);
 
     return {
       summary,
@@ -289,7 +291,7 @@ export class ManagerSupportRepository {
         items: pendingApprovals.map(w => ({
           id: w.id,
           title: `${w.workflowType}: ${w.referenceType}`,
-          dueDate: w.startedAt,
+          dueDate: w.startedAt ?? undefined,
         })),
       },
       teamHealth: {

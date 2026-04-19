@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Tables } from '@/types/database';
 import type { AgentType, AgentIntent, AgentContext, AgentResult } from '@/types';
+import { logger } from '@/lib/observability/logger';
 
 export interface AgentRunRecord {
   id: string;
@@ -90,13 +91,13 @@ export class AgentRunRepository {
         const { error } = await this.supabase!.from('agent_runs').insert(insertData as never);
 
         if (error) {
-          console.error('Failed to persist agent run:', error);
+          logger.error('Failed to persist agent run', { component: 'repositories:agent-run', error: error instanceof Error ? error.message : String(error) });
           // Fall through to memory storage
         } else {
           return true;
         }
       } catch (err) {
-        console.error('Exception persisting agent run:', err);
+        logger.error('Exception persisting agent run', { component: 'repositories:agent-run', error: err instanceof Error ? err.message : String(err) });
         // Fall through to memory storage
       }
     }
@@ -401,7 +402,7 @@ export function createServiceRoleClient(): SupabaseClient<Database> | null {
   try {
     return createClient<Database>(supabaseUrl, serviceRoleKey);
   } catch (err) {
-    console.warn('Failed to create service role client:', err);
+    logger.warn('Failed to create service role client', { component: 'repositories:agent-run', error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }

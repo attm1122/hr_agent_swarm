@@ -13,6 +13,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { updateSession } from '@/lib/supabase/middleware';
 
 // =========================================================================
 // Configuration

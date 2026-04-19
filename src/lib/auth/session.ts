@@ -40,6 +40,7 @@ export interface Session {
   permissions: string[];
   scope: RecordScope;
   sensitivityClearance: DataSensitivity[];
+  sessionId: string;
 }
 
 export type SessionResolutionErrorCode =
@@ -107,6 +108,7 @@ export function buildSession(
     permissions: ROLE_CAPABILITIES[role],
     scope: ROLE_SCOPE[role],
     sensitivityClearance: ROLE_SENSITIVITY[role],
+    sessionId: crypto.randomUUID(),
   };
 }
 

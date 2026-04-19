@@ -9,11 +9,16 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Tables } from '@/types/database';
-import type { Employee, EmployeeDocument, LeaveRequest, Milestone, OnboardingPlan, OffboardingPlan, WorkflowInstance } from '@/types';
+import type { Employee } from '@/lib/domain/employee/types';
+import type { EmployeeDocument } from '@/lib/domain/document/types';
+import type { LeaveRequest } from '@/lib/domain/leave/types';
+import type { WorkflowInstance } from '@/lib/domain/workflow/types';
+import type { Milestone, OnboardingPlan, OffboardingPlan } from '@/types';
 import { employees as mockEmployees, getDirectReports } from '@/lib/data/mock-data';
 import { onboardingPlans, onboardingTasks } from '@/lib/data/onboarding-store';
 import { offboardingPlans, offboardingTasks } from '@/lib/data/offboarding-store';
 import { workflowInstances, workflowSteps } from '@/lib/data/workflow-store';
+import { logger } from '@/lib/observability/logger';
 
 // Type aliases for database rows
 type DbEmployee = Tables<'employees'>;
@@ -99,7 +104,7 @@ export class ManagerOperationalRepository {
       .eq('status', 'active');
 
     if (error) {
-      console.warn('Supabase query failed, falling back to store:', error.message);
+      logger.warn('Supabase query failed, falling back to store', { component: 'repositories:manager-operational', error: error instanceof Error ? error.message : String(error) });
       return this.getTeamEmployeesFromStore(context);
     }
 
@@ -611,9 +616,9 @@ export class ManagerOperationalRepository {
       employeeId: db.employee_id,
       milestoneType: db.milestone_type,
       milestoneDate: db.milestone_date,
-      description: db.description,
+      description: db.description ?? '',
       alertDaysBefore: db.alert_days_before,
-      status: db.status,
+      status: db.status as Milestone['status'],
       acknowledgedAt: db.acknowledged_at,
       acknowledgedBy: db.acknowledged_by,
       createdAt: db.created_at,

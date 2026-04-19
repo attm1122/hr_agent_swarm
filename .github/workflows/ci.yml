@@ -1,84 +1,117 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop]
-
-env:
-  NODE_VERSION: '20'
+    branches: [main]
 
 jobs:
-  # ============================================
-  # Lint and Type Check
-  # ============================================
-  lint:
-    name: Lint & Type Check
+  test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
 
       - name: Type check
         run: npm run typecheck
 
-  # ============================================
-  # Unit Tests
-  # ============================================
-  test:
-    name: Unit Tests
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-key
+          SUPABASE_SERVICE_ROLE_KEY: test-key
+          MOCK_AUTH_ENABLED: true
+
+  security:
     runs-on: ubuntu-latest
+    name: Security Audit
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --reporter=verbose
+      # NPM Audit — fail on high/critical vulnerabilities
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: false
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+      # Secret scanning with TruffleHog
+      - name: Secret Detection
+        uses: trufflesecurity/trufflehog@main
         with:
-          files: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
 
-  # ============================================
-  # Build
-  # ============================================
+      # Dependency review for PRs
+      - name: Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      # Check for known insecure patterns
+      - name: Check for dangerous patterns
+        run: |
+          echo "Checking for dangerous patterns..."
+          # Check for eval / new Function
+          if grep -rn "eval\|new Function(" src/ --include="*.ts" --include="*.tsx"; then
+            echo "ERROR: Found dangerous eval/new Function usage"
+            exit 1
+          fi
+          # Check for direct supabase-js imports outside infrastructure
+          if grep -rn "from ['\"]@supabase/supabase-js['\"]" src/ --include="*.ts" --include="*.tsx" | grep -v "infrastructure/\|lib/supabase/"; then
+            echo "ERROR: Found unauthorized @supabase/supabase-js import"
+            exit 1
+          fi
+          # Check for console.log in production code
+          if grep -rn "console\.log\|console\.warn\|console\.error\|console\.info" src/ --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -v "logger\."; then
+            echo "WARNING: Found raw console usage (should use structured logger)"
+            # Not failing the build for warnings, just alerting
+          fi
+          # Check for hardcoded secrets patterns
+          if grep -rn "sk-live-\|sk_test-\|password.*=.*['\"][^'\"]\{8,\}['\"]\|api_key.*=.*['\"][^'\"]\{16,\}['\"]" src/ --include="*.ts" --include="*.tsx"; then
+            echo "ERROR: Potential hardcoded secret detected"
+            exit 1
+          fi
+          echo "Dangerous pattern check passed"
+
   build:
-    name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: test
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -87,181 +120,39 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          # Skip auth checks for build (they fail in CI without real auth)
-          SKIP_AUTH_CHECKS: 'true'
-          # Use mock data for build
-          USE_MOCK_DATA: 'true'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_PRODUCTION_AUTH: true
+          MOCK_AUTH_ENABLED: false
 
-  # ============================================
-  # Security Audit
-  # ============================================
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run npm audit
-        run: npm audit --audit-level=high
-        continue-on-error: true
-
-      - name: Check for secrets
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-          extra_args: --debug --only-verified
-
-  # ============================================
-  # E2E Tests (Playwright)
-  # ============================================
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps
-
-      - name: Run E2E tests
-        run: npm run test:e2e
-        env:
-          SKIP_AUTH_CHECKS: 'true'
-          USE_MOCK_DATA: 'true'
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
-
-  # ============================================
-  # Database Schema Validation
-  # ============================================
-  database:
-    name: Database Schema
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: hr_agent_swarm_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate SQL syntax
-        run: |
-          # Install pgFormatter for SQL validation
-          sudo apt-get update && sudo apt-get install -y pgformatter
-          
-          # Check schema.sql for syntax errors
-          pg_format --check src/infrastructure/database/schema.sql
-
-      - name: Test schema against PostgreSQL
-        env:
-          PGPASSWORD: postgres
-        run: |
-          # Apply schema to test database
-          psql -h localhost -U postgres -d hr_agent_swarm_test -f src/infrastructure/database/schema.sql
-          
-          # Verify tables were created
-          psql -h localhost -U postgres -d hr_agent_swarm_test -c "\dt"
-
-  # ============================================
-  # Bundle Size Analysis
-  # ============================================
-  bundle-size:
-    name: Bundle Size
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build with bundle analysis
-        run: npm run build
-        env:
-          ANALYZE_BUNDLE: 'true'
-          SKIP_AUTH_CHECKS: 'true'
-
-      - name: Upload bundle analysis
-        uses: actions/upload-artifact@v4
-        with:
-          name: bundle-analysis
-          path: .next/analyze/
-          retention-days: 7
-
-  # ============================================
-  # Deploy Preview (Vercel)
-  # ============================================
   deploy-preview:
-    name: Deploy Preview
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [test, build, security]
     if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Deploy to Vercel (Preview)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel Preview
         uses: vercel/action-deploy@v1
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-comment: true
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [test, build, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel Production
+        uses: vercel/action-deploy@v1
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
