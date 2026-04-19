@@ -157,7 +157,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
         </div>
         {!collapsed && (
           <>
-            <span className="flex-1 truncate">{item.title}</span>
+            <span className="flex-1 truncate" style={{ fontFamily: 'var(--font-poppins), Poppins, sans-serif' }}>{item.title}</span>
             {item.badge ? (
               <Badge
                 variant="secondary"
@@ -225,7 +225,10 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
             <Sparkles className="w-4 h-4 text-white" aria-hidden="true" />
           </div>
           {!collapsed && (
-            <span className="text-sm font-bold tracking-tight text-[var(--text-primary)] truncate">
+            <span
+              className="text-sm font-bold tracking-tight text-[var(--text-primary)] truncate"
+              style={{ fontFamily: 'var(--font-poppins), Poppins, sans-serif' }}
+            >
               HR Agent Swarm
             </span>
           )}
