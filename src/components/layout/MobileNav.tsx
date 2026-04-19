@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import {
   Sparkles, Users, CheckSquare, PieChart, BookOpen,
 } from 'lucide-react';
@@ -23,15 +24,20 @@ const mobileItems = [
 
 export function MobileNav({ role = 'admin', permissions = [] }: MobileNavProps) {
   const pathname = usePathname();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const visibleItems = role === 'admin'
     ? mobileItems
     : mobileItems.filter(item => !item.permission || permissions.includes(item.permission));
 
-  // Only show on mobile
-  if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-    return null;
-  }
+  if (!isMobile) return null;
 
   return (
     <nav

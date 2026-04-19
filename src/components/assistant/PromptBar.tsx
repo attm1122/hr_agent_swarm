@@ -11,7 +11,7 @@ export interface PromptBarProps {
   initialValue?: string;
 }
 
-export default function PromptBar({ onSubmit, busy, suggestions, initialValue }: PromptBarProps) {
+export default function PromptBar({ onSubmit, busy, suggestions: _suggestions, initialValue }: PromptBarProps) {
   const [value, setValue] = useState(initialValue ?? '');
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -24,7 +24,7 @@ export default function PromptBar({ onSubmit, busy, suggestions, initialValue }:
   useEffect(autoResize, [value]);
 
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       send();
     }
@@ -48,7 +48,8 @@ export default function PromptBar({ onSubmit, busy, suggestions, initialValue }:
           placeholder="Type @ to search prompt prompts, sps or options..."
           rows={1}
           disabled={busy}
-          className="flex-1 resize-none border-0 bg-transparent text-sm leading-relaxed text-[#1A1A1A] outline-none placeholder:text-[#9C9C9C] disabled:opacity-50"
+          aria-label="Ask the AI assistant"
+          className="flex-1 resize-none border-0 bg-transparent text-sm leading-relaxed text-[#1A1A1A] outline-none placeholder:text-[#9C9C9C] disabled:opacity-50 focus:ring-0"
         />
         <Button
           type="button"
@@ -59,8 +60,6 @@ export default function PromptBar({ onSubmit, busy, suggestions, initialValue }:
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
         </Button>
       </div>
-
-      {/* Suggestions rendered below by CommandWorkspace */}
     </div>
   );
 }

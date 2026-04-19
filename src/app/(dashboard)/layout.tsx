@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { CommandMenu } from '@/components/shared/CommandMenu';
 import { SkipLink } from '@/components/shared/SkipLink';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShieldX } from 'lucide-react';
@@ -39,6 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </main>
           <MobileNav role={session.role} permissions={session.permissions} />
         </div>
+        <CommandMenu role={session.role} permissions={session.permissions} />
       </div>
     </>
   );

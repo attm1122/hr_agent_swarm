@@ -31,9 +31,9 @@ const navItems = [
 ];
 
 const quickActions = [
-  { title: 'Approve all low-risk leave', icon: Zap, action: () => { /* TODO */ } },
-  { title: 'Summarize team this week', icon: FileText, action: () => { /* TODO */ } },
-  { title: 'Who is on leave next week?', icon: Calendar, action: () => { /* TODO */ } },
+  { title: 'Approve all low-risk leave', icon: Zap, intent: 'Approve all low-risk leave requests' },
+  { title: 'Summarize team this week', icon: FileText, intent: 'Summarize my team this week' },
+  { title: 'Who is on leave next week?', icon: Calendar, intent: 'Who is on leave next week?' },
 ];
 
 export function CommandMenu({ role = 'admin', permissions = [] }: CommandMenuProps) {
@@ -82,7 +82,7 @@ export function CommandMenu({ role = 'admin', permissions = [] }: CommandMenuPro
                 <CommandItem
                   key={action.title}
                   onSelect={() => {
-                    action.action();
+                    document.dispatchEvent(new CustomEvent('commandmenu:submit', { detail: action.intent }));
                     setOpen(false);
                   }}
                   className="flex items-center gap-2 cursor-pointer"

@@ -64,7 +64,7 @@ export function MetricCard({
       {/* Top row: small icon + label */}
       <div className="flex items-center gap-1.5">
         <Icon className={cn('h-3.5 w-3.5', cfg.text)} />
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9C9C9C]">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#757575]">
           {title}
         </span>
       </div>

@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Try again
             </Button>
             <Link
-              href="/hr"
+              href="/"
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
               <Home className="mr-1.5 h-3.5 w-3.5" />

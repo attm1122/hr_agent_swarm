@@ -1,6 +1,7 @@
 'use client';
 
-import { Bell, Search, Command } from 'lucide-react';
+import { Bell, Search, Command, X } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -28,19 +29,25 @@ export function Header({
     .split(' ')
     .map(n => n[0])
     .join('');
+  const [notifOpen, setNotifOpen] = useState(false);
 
   return (
     <header className="flex items-center h-14 px-4 lg:px-5 bg-white border-b border-[#E5E2DD] shrink-0">
-      {/* Search bar */}
+      {/* Search bar — opens command menu */}
       <div className="flex-1 max-w-md">
-        <div className="flex items-center gap-2 h-9 px-3 rounded-lg bg-[#F8F6F3] border border-[#E5E2DD] text-[#9C9C9C] hover:border-[#D1CFCA] transition-colors">
-          <Search className="w-4 h-4" />
-          <span className="text-sm">Search all your content...</span>
-          <div className="ml-auto flex items-center gap-1 text-[11px] text-[#9C9C9C]">
+        <button
+          type="button"
+          onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+          className="flex items-center w-full gap-2 h-9 px-3 rounded-lg bg-[#F8F6F3] border border-[#E5E2DD] text-[#9C9C9C] hover:border-[#D1CFCA] transition-colors text-left"
+          aria-label="Open command menu"
+        >
+          <Search className="w-4 h-4 shrink-0" />
+          <span className="text-sm flex-1">Search all your content...</span>
+          <div className="flex items-center gap-1 text-[11px] text-[#9C9C9C] shrink-0">
             <Command className="w-3 h-3" />
             <span>K</span>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="flex items-center gap-3 ml-4">
@@ -49,11 +56,24 @@ export function Header({
           variant="ghost"
           size="icon"
           className="relative h-9 w-9 text-[#9C9C9C] hover:text-[#1A1A1A] hover:bg-[#F8F6F3]"
-          aria-label="Notifications, 1 unread"
+          aria-label="Notifications"
+          aria-expanded={notifOpen}
+          onClick={() => setNotifOpen(o => !o)}
         >
           <Bell className="w-[18px] h-[18px]" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#EF4444] rounded-full ring-2 ring-white" />
         </Button>
+        {notifOpen && (
+          <div className="absolute top-14 right-4 z-50 w-72 rounded-xl border border-[#E5E2DD] bg-white shadow-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-[#1A1A1A]">Notifications</span>
+              <button onClick={() => setNotifOpen(false)} className="text-[#9C9C9C] hover:text-[#1A1A1A]">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-[#9C9C9C] py-4 text-center">No new notifications</p>
+          </div>
+        )}
 
         {/* User dropdown */}
         <DropdownMenu>

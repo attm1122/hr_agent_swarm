@@ -130,6 +130,15 @@ export default function CommandWorkspace({
     }
   }, []);
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const intent = (e as CustomEvent).detail;
+      if (typeof intent === 'string') submit(intent);
+    };
+    document.addEventListener('commandmenu:submit', handler);
+    return () => document.removeEventListener('commandmenu:submit', handler);
+  }, [submit]);
+
   function applyEvent(event: AiOsEvent) {
     setRun(r => {
       switch (event.kind) {
@@ -382,6 +391,7 @@ export default function CommandWorkspace({
               className="flex flex-col gap-3"
               aria-live="polite"
               aria-atomic="false"
+              aria-busy={isStreaming}
               aria-relevant="additions"
             >
               {blocksToShow.map(block => (

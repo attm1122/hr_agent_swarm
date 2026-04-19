@@ -5,10 +5,6 @@ import { cn } from '@/lib/utils';
 
 interface ActionCardProps {
   title: string;
-  description?: string;
-  assignee?: string;
-  assigneeInitials?: string;
-  dueDate?: string;
   isUrgent?: boolean;
   actions: Array<{
     label: string;
@@ -33,7 +29,9 @@ export function ActionCard({ title, isUrgent, actions }: ActionCardProps) {
     >
       {/* Left: icon + title */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {isUrgent && <AlertTriangle className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />}
+        {isUrgent && (
+          <AlertTriangle className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
+        )}
         <p className="text-[13px] font-medium text-[#1A1A1A] truncate">{title}</p>
       </div>
 
