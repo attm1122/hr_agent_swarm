@@ -1,65 +1,49 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { formatDateOnly } from '@/lib/domain/shared/date-value';
 
 interface EventItemProps {
   time?: string;
   title: string;
   description?: string;
-  type: 'sync' | 'policy' | 'leave' | 'review' | 'deadline';
-  date?: string;
   isLast?: boolean;
+  dotColor?: 'green' | 'amber' | 'blue' | 'red' | 'teal';
 }
 
-const typeDot = {
-  sync: 'bg-[var(--primary)]',
-  policy: 'bg-[var(--warning)]',
-  leave: 'bg-[var(--accent-blue)]',
-  review: 'bg-[var(--success)]',
-  deadline: 'bg-[var(--danger)]',
+const dotColors = {
+  green: 'bg-[#65A30D]',
+  amber: 'bg-[#F59E0B]',
+  blue: 'bg-[#3B82F6]',
+  red: 'bg-[#EF4444]',
+  teal: 'bg-[#0D9488]',
 };
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-}
-
-export function EventItem({ time, title, description, type, date, isLast }: EventItemProps) {
-  const displayTime = time ?? (date?.includes('T') ? formatTime(date) : undefined);
-  const displayDate = date && !date.includes('T') ? formatDateOnly(date) : undefined;
-
+export function EventItem({ time, title, description, isLast, dotColor = 'teal' }: EventItemProps) {
   return (
-    <div className="group relative flex gap-3 py-1">
+    <div className="group relative flex gap-3">
       {/* Timeline line */}
       {!isLast && (
-        <div className="absolute left-[5px] top-3 bottom-0 w-px bg-[var(--border-default)]" />
+        <div className="absolute left-[5px] top-4 bottom-0 w-px bg-[#E5E2DD]" />
       )}
 
       {/* Dot */}
-      <div className={cn('relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white', typeDot[type])} />
+      <div
+        className={cn(
+          'relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white shrink-0',
+          dotColors[dotColor]
+        )}
+      />
 
       {/* Content */}
       <div className="flex-1 min-w-0 pb-3">
-        <div className="flex items-center gap-2">
-          {displayTime && (
-            <span className="text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums">
-              {displayTime}
-            </span>
-          )}
-          {displayDate && (
-            <span className="text-[11px] font-medium text-[var(--text-tertiary)]">
-              {displayDate}
-            </span>
-          )}
-        </div>
-        <p className="text-[13px] font-medium text-[var(--text-primary)] mt-0.5">
-          {title}
-        </p>
+        {time && (
+          <span className="text-[11px] font-medium text-[#9C9C9C] tabular-nums">
+            {time}
+          </span>
+        )}
+        <p className="text-[13px] font-medium text-[#1A1A1A] mt-0.5">{title}</p>
         {description && (
-          <p className="text-[11px] text-[var(--text-secondary)] truncate">
-            {description}
-          </p>
+          <p className="text-[11px] text-[#6B6B6B] truncate">{description}</p>
         )}
       </div>
     </div>

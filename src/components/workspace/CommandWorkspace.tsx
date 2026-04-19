@@ -23,6 +23,11 @@ import type {
 } from '@/lib/ai-os';
 import type { ToolCallTrace } from '@/lib/ai/orchestrator';
 
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
 interface RunState {
   intent?: Intent;
   decision?: DecisionTrace;
@@ -184,15 +189,14 @@ export default function CommandWorkspace({
           {data.metrics.map((m) => (
             <MetricCard
               key={m.id}
-              id={m.id}
-              icon={m.id === 'headcount' ? 'users' : m.id === 'approvals' ? 'clipboard' : m.id === 'leave' ? 'plane' : 'shield'}
-              color={m.id === 'headcount' ? 'green' : m.id === 'approvals' ? 'amber' : m.id === 'leave' ? 'blue' : 'red'}
-              label={m.label}
+              title={m.label}
               value={m.value}
               valueContext={m.valueContext}
               subtext={m.subtext ?? m.context ?? ''}
-              changeText={m.delta?.value}
+              change={m.delta?.value}
               changeDirection={m.delta?.direction}
+              icon={m.id === 'headcount' ? 'users' : m.id === 'approvals' ? 'clipboard' : m.id === 'leave' ? 'plane' : 'shield'}
+              isUrgent={m.id === 'approvals' || m.id === 'risk'}
             />
           ))}
         </div>
@@ -218,11 +222,10 @@ export default function CommandWorkspace({
                   {data.timeline.map((event, i) => (
                     <EventItem
                       key={event.id}
-                      time={event.date.includes('T') ? event.date.split('T')[1].slice(0, 5) : undefined}
-                      date={event.date}
+                      time={event.date.includes('T') ? formatTime(event.date) : undefined}
                       title={event.title}
                       description={event.assignee}
-                      type={event.type === 'leave' ? 'leave' : event.type === 'review' ? 'review' : event.type === 'milestone' ? 'sync' : 'deadline'}
+                      dotColor={event.type === 'leave' ? 'blue' : event.type === 'review' ? 'amber' : event.type === 'milestone' ? 'green' : 'teal'}
                       isLast={i === data.timeline.length - 1}
                     />
                   ))}
@@ -254,8 +257,9 @@ export default function CommandWorkspace({
                     title={item.title}
                     description={item.description}
                     assignee={item.assignee}
+                    assigneeInitials={item.assignee?.split(' ').map((n) => n[0]).join('').slice(0, 2)}
                     dueDate={item.dueDate}
-                    severity={item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'neutral'}
+                    isUrgent={item.severity === 'critical' || item.severity === 'warning'}
                     actions={item.actions.map((a) => ({
                       label: a.label,
                       variant: a.variant === 'primary' ? 'primary' : a.variant === 'danger' ? 'secondary' : 'secondary',
