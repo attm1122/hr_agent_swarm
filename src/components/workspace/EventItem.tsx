@@ -20,7 +20,15 @@ const typeDot = {
   deadline: 'bg-[var(--danger)]',
 };
 
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+}
+
 export function EventItem({ time, title, description, type, date, isLast }: EventItemProps) {
+  const displayTime = time ?? (date?.includes('T') ? formatTime(date) : undefined);
+  const displayDate = date && !date.includes('T') ? formatDateOnly(date) : undefined;
+
   return (
     <div className="group relative flex gap-3 py-1">
       {/* Timeline line */}
@@ -34,14 +42,14 @@ export function EventItem({ time, title, description, type, date, isLast }: Even
       {/* Content */}
       <div className="flex-1 min-w-0 pb-3">
         <div className="flex items-center gap-2">
-          {time && (
+          {displayTime && (
             <span className="text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums">
-              {time}
+              {displayTime}
             </span>
           )}
-          {date && !time && (
+          {displayDate && (
             <span className="text-[11px] font-medium text-[var(--text-tertiary)]">
-              {formatDateOnly(date)}
+              {displayDate}
             </span>
           )}
         </div>

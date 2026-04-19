@@ -9,6 +9,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ interface MetricCardProps {
   color: 'green' | 'amber' | 'blue' | 'red';
   label: string;
   value: string | number;
+  valueContext?: string;
   subtext: string;
   changeText?: string;
   changeDirection?: 'up' | 'down' | 'flat';
@@ -36,25 +38,21 @@ const colorMap = {
     bg: 'bg-[#F4FCE8]',
     text: 'text-[#65A30D]',
     border: 'border-[#D4F7A6]',
-    dot: 'bg-[#65A30D]',
   },
   amber: {
     bg: 'bg-[#FFF8E1]',
     text: 'text-[#F59E0B]',
     border: 'border-[#FDE68A]',
-    dot: 'bg-[#F59E0B]',
   },
   blue: {
     bg: 'bg-[#EFF6FF]',
     text: 'text-[#3B82F6]',
     border: 'border-[#BFDBFE]',
-    dot: 'bg-[#3B82F6]',
   },
   red: {
     bg: 'bg-[#FEF2F2]',
     text: 'text-[#EF4444]',
     border: 'border-[#FECACA]',
-    dot: 'bg-[#EF4444]',
   },
 };
 
@@ -63,6 +61,7 @@ export function MetricCard({
   color,
   label,
   value,
+  valueContext,
   subtext,
   changeText,
   changeDirection,
@@ -97,32 +96,46 @@ export function MetricCard({
             {label}
           </p>
 
-          {/* Value row */}
-          <div className="flex items-baseline gap-2 mt-0.5">
+          {/* Value + context inline */}
+          <div className="flex items-baseline gap-1.5 mt-0.5">
             <span className="text-[26px] font-bold leading-none tracking-tight text-[var(--text-primary)] tabular-nums">
               {value}
             </span>
-            {changeText && (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-0.5 text-[11px] font-medium',
-                  changeDirection === 'up' && 'text-[var(--success)]',
-                  changeDirection === 'down' && 'text-[var(--danger)]',
-                  changeDirection === 'flat' && 'text-[var(--text-tertiary)]'
-                )}
-              >
-                {changeDirection === 'up' && <TrendingUp className="w-3 h-3" />}
-                {changeDirection === 'down' && <TrendingDown className="w-3 h-3" />}
-                {changeDirection === 'flat' && <Minus className="w-3 h-3" />}
-                {changeText}
+            {valueContext && (
+              <span className="text-[13px] font-medium text-[var(--text-secondary)]">
+                {valueContext}
               </span>
             )}
           </div>
 
-          {/* Subtext */}
-          <p className="text-[11px] text-[var(--text-tertiary)] mt-1 truncate">
-            {subtext}
-          </p>
+          {/* Change indicator row */}
+          {(changeText || subtext) && (
+            <div className="flex items-center gap-1.5 mt-1">
+              {changeText && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 text-[11px] font-medium',
+                    changeDirection === 'up' && 'text-[var(--success)]',
+                    changeDirection === 'down' && 'text-[var(--danger)]',
+                    changeDirection === 'flat' && 'text-[var(--text-tertiary)]'
+                  )}
+                >
+                  {changeDirection === 'up' && <ArrowUpRight className="w-3 h-3" />}
+                  {changeDirection === 'down' && <TrendingDown className="w-3 h-3" />}
+                  {changeDirection === 'flat' && <Minus className="w-3 h-3" />}
+                  {changeText}
+                </span>
+              )}
+              {changeText && subtext && (
+                <span className="text-[var(--border-strong)]">·</span>
+              )}
+              {subtext && (
+                <span className="text-[11px] text-[var(--text-tertiary)] truncate">
+                  {subtext}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </button>

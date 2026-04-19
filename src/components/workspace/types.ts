@@ -10,6 +10,8 @@ export interface MetricItem {
   id: string;
   label: string;
   value: string | number;
+  valueContext?: string;
+  subtext?: string;
   delta?: { direction: 'up' | 'down' | 'flat'; value: string };
   context?: string;
   href?: string;

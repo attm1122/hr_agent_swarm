@@ -189,7 +189,8 @@ export default function CommandWorkspace({
               color={m.id === 'headcount' ? 'green' : m.id === 'approvals' ? 'amber' : m.id === 'leave' ? 'blue' : 'red'}
               label={m.label}
               value={m.value}
-              subtext={m.context ?? ''}
+              valueContext={m.valueContext}
+              subtext={m.subtext ?? m.context ?? ''}
               changeText={m.delta?.value}
               changeDirection={m.delta?.direction}
             />
@@ -341,7 +342,7 @@ export default function CommandWorkspace({
         )}
 
         {/* ─── F. AI Prompt Bar ─── */}
-        <div className="pt-2">
+        <div className="pt-2 space-y-2">
           <div className="rounded-xl border border-[var(--border-default)] bg-white shadow-sm">
             <PromptBar
               onSubmit={submit}
@@ -349,6 +350,20 @@ export default function CommandWorkspace({
               suggestions={isIdle ? data.aiSuggestions : undefined}
             />
           </div>
+          {isIdle && data.aiSuggestions.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 px-2">
+              <span className="text-[11px] text-[var(--text-tertiary)]">Suggested:</span>
+              {data.aiSuggestions.slice(0, 3).map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => submit(s)}
+                  className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </ErrorBoundary>
