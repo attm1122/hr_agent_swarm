@@ -68,7 +68,7 @@ async function EmployeeDirectoryContent() {
       label: `${probationDue.length} probation review${probationDue.length !== 1 ? 's' : ''} due`,
       severity: 'warning' as const,
       description: 'Review and confirm probation status for recent hires',
-      action: { label: 'Review', onClick: () => {} },
+      action: { label: 'Review' },
     });
   }
 

@@ -44,7 +44,7 @@ export default function ReviewsPage() {
           label: `${probationReviews.length} probation review${probationReviews.length !== 1 ? 's' : ''} due`,
           severity: 'warning' as const,
           description: 'Complete before deadline to avoid policy violation',
-          action: { label: 'Review All', onClick: () => {} },
+          action: { label: 'Review All' },
         }] : undefined}
       />
 

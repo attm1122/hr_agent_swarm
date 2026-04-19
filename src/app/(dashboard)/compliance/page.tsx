@@ -61,14 +61,14 @@ export default function CompliancePage() {
             label: `${criticalCount} expired or missing document${criticalCount !== 1 ? 's' : ''}`,
             severity: 'critical' as const,
             description: 'Immediate action required to remain compliant',
-            action: { label: 'Review', onClick: () => {} },
+            action: { label: 'Review' },
           }] : []),
           ...(warningCount > 0 ? [{
             id: 'expiring-docs',
             label: `${warningCount} document${warningCount !== 1 ? 's' : ''} expiring soon`,
             severity: 'warning' as const,
             description: 'Renew before expiration to avoid compliance gaps',
-            action: { label: 'Renew', onClick: () => {} },
+            action: { label: 'Renew' },
           }] : []),
         ]}
       />

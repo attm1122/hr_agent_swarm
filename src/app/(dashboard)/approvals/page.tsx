@@ -49,14 +49,14 @@ export default function ApprovalsPage() {
             label: `${quickWins.length} quick win${quickWins.length !== 1 ? 's' : ''}`,
             severity: 'info' as const,
             description: 'Low-risk leave requests with no conflicts',
-            action: { label: 'Approve All', onClick: () => {} },
+            action: { label: 'Approve All' },
           }] : []),
           ...(needsReview.length > 0 ? [{
             id: 'needs-review',
             label: `${needsReview.length} request${needsReview.length !== 1 ? 's' : ''} need${needsReview.length === 1 ? 's' : ''} review`,
             severity: 'warning' as const,
             description: 'Longer leave or potential conflicts detected',
-            action: { label: 'Review', onClick: () => {} },
+            action: { label: 'Review' },
           }] : []),
         ]}
       />

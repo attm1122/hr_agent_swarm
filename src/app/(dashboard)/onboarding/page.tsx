@@ -52,7 +52,7 @@ export default function OnboardingPage() {
           label: `${pendingOnboard.length} onboarding plan${pendingOnboard.length !== 1 ? 's' : ''} pending`,
           severity: 'info' as const,
           description: 'Complete setup before start date',
-          action: { label: 'Review', onClick: () => {} },
+          action: { label: 'Review' },
         }] : undefined}
       />
 

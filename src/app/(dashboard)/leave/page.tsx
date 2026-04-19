@@ -82,7 +82,7 @@ export default function LeavePage() {
           label: `${pending.length} leave request${pending.length !== 1 ? 's' : ''} pending approval`,
           severity: 'warning' as const,
           description: 'Review and approve or reject pending requests',
-          action: { label: 'Review All', onClick: () => {} },
+          action: { label: 'Review All' },
         }] : undefined}
       />
 
@@ -114,7 +114,7 @@ export default function LeavePage() {
             icon={Calendar}
             title="No leave requests"
             description="There are no leave requests to display."
-            action={{ label: 'New Request', onClick: () => {} }}
+            action={{ label: 'New Request' }}
           />
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">

@@ -1,3 +1,5 @@
+'use client';
+
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +10,7 @@ export interface ActionItem {
   label: string;
   severity: 'critical' | 'warning' | 'info' | 'success';
   description?: string;
-  action?: { label: string; onClick: () => void };
+  action?: { label: string; onClick?: () => void };
 }
 
 interface TopActionZoneProps {
