@@ -1,16 +1,15 @@
 /**
- * / — The AI-native workspace (default landing).
+ * / — The AI-native command center (default landing).
  *
- * Merged from /hr and /assistant.
- * Role-aware, intent-driven, dynamically composed.
+ * A unified decision surface where identity, metrics, actions,
+ * and workflows coexist in one adaptive layout — powered by AI orchestration.
  */
 
 export const dynamic = 'force-dynamic';
 
 import { resolveIdentity } from '@/lib/ai-os';
-import type { ComposedWorkspace } from '@/lib/ai-os';
-import { composeHomeWorkspace } from '@/lib/ai-os/ui-composer/home';
-import AssistantWorkspace from '@/components/assistant/AssistantWorkspace';
+import { composeCommandWorkspace } from '@/lib/ai-os/ui-composer/command-workspace';
+import CommandWorkspace from '@/components/workspace/CommandWorkspace';
 import DevRoleSwitcher from '@/components/assistant/DevRoleSwitcher';
 import { getEmployeeById } from '@/lib/data/mock-data';
 
@@ -46,25 +45,34 @@ export default async function HomePage({ searchParams }: PageProps) {
     }
   }
 
-  let home: ComposedWorkspace;
+  let data;
   try {
-    home = await composeHomeWorkspace({ userName, userRole, employeeId });
+    data = await composeCommandWorkspace({ userName, userRole, employeeId });
   } catch (err) {
-    console.error('[home] workspace composition failed', err);
-    home = {
-      intentId: 'home',
-      mode: 'WORKSPACE',
-      blocks: [],
-      headline: 'Welcome — some features are temporarily unavailable.',
+    console.error('[home] command workspace composition failed', err);
+    data = {
+      identity: {
+        name: userName ?? 'Guest',
+        role: 'employee',
+        roleLabel: 'Employee view',
+        avatarFallback: 'GU',
+      },
+      metrics: [],
+      insights: [{
+        id: 'error',
+        title: 'Workspace temporarily unavailable',
+        severity: 'warning' as const,
+        narrative: 'Some features are loading slowly. Your AI assistant is still functional — type a request below.',
+      }],
+      timeline: [],
+      workflows: [],
+      aiSuggestions: ['What can you help me with?'],
     };
   }
 
   return (
     <>
-      <AssistantWorkspace
-        homeBlocks={home.blocks}
-        homeHeadline={home.headline}
-      />
+      <CommandWorkspace data={data} />
       {isDev && <DevRoleSwitcher />}
     </>
   );
