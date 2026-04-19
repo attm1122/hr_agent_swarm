@@ -291,7 +291,9 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
 async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspaceData> {
   const firstName = opts.userName?.split(' ')[0] ?? 'HR';
   const activeEmployees = mockEmployees.filter(e => e.status === 'active').length;
-  const pendingApprovals = mockLeaveRequests.filter(l => l.status === 'pending').length;
+  const pendingLeave = mockLeaveRequests.filter(l => l.status === 'pending');
+  const pendingApprovals = pendingLeave.length;
+  const urgentApprovals = pendingLeave.filter(l => l.daysRequested >= 5).length;
   const docsExpiring = mockDocuments.filter(d => d.status === 'expiring').length;
   const upcomingMilestones = mockMilestones
     .filter(m => m.status === 'upcoming')
@@ -319,9 +321,9 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
       {
         id: 'approvals',
         label: 'Pending approvals',
-        value: pendingApprovals,
+        value: urgentApprovals,
         valueContext: 'urgent',
-        subtext: `${mockLeaveRequests.filter(l => l.status === 'pending').length + mockDocuments.filter(d => d.status === 'expiring').length} total from actions page`,
+        subtext: `${pendingApprovals + docsExpiring} total from actions page`,
       },
       {
         id: 'leave',
@@ -365,7 +367,7 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
       {
         id: 'cal-001',
         title: 'Weekly Team Sync',
-        date: '2026-04-19T17:00:00',
+        date: '2026-04-19T18:00:00',
         type: 'event',
         status: 'upcoming',
         assignee: 'Discuss employee on projects',
@@ -381,7 +383,7 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
       {
         id: 'cal-003',
         title: 'HR Policy Sync',
-        date: '2026-04-19T19:30:00',
+        date: '2026-04-19T07:59:00',
         type: 'event',
         status: 'upcoming',
         assignee: 'Discuss employee on projects',
