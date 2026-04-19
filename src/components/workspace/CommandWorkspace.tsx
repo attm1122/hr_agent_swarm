@@ -257,7 +257,7 @@ export default function CommandWorkspace({
           {/* Left: Upcoming Events */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+              <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
                 Upcoming Events
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
@@ -293,7 +293,7 @@ export default function CommandWorkspace({
           {/* Right: Action Cards */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+              <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
                 Action Cards
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
