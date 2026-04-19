@@ -272,7 +272,7 @@ export default function CommandWorkspace({
                 </p>
               ) : (
                 <div className="space-y-0">
-                  {data.timeline.map((event, i) => (
+                  {data.timeline.slice(0, 5).map((event, i) => (
                     <EventItem
                       key={event.id}
                       time={event.date.includes('T') ? formatTime(event.date) : undefined}
@@ -303,7 +303,7 @@ export default function CommandWorkspace({
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
                 {
-                  data.workflows.filter(w => w.severity === 'critical' || w.severity === 'warning')
+                  data.workflows.slice(0, 5).filter(w => w.severity === 'critical' || w.severity === 'warning')
                     .length
                 }{' '}
                 urgent
@@ -311,14 +311,14 @@ export default function CommandWorkspace({
             </div>
 
             <div className="space-y-2">
-              {data.workflows.length === 0 ? (
+              {data.workflows.slice(0, 5).length === 0 ? (
                 <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] p-4 text-center">
                   <p className="text-sm text-[var(--success-text)]">
                     All caught up — no pending actions
                   </p>
                 </div>
               ) : (
-                data.workflows.map(item => (
+                data.workflows.slice(0, 5).map(item => (
                   <ActionCard
                     key={item.id}
                     title={item.title}

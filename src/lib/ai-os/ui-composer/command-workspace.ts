@@ -112,7 +112,7 @@ function leaveToWorkflow(
   const isUrgent = lr.daysRequested >= 5;
   return {
     id: `wf-leave-${lr.id}`,
-    title: `Approve ${lr.leaveType.replace('_', ' ')} leave`,
+    title: `Approve ${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId} — ${lr.leaveType.replace('_', ' ')} leave`,
     description: `${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId} · ${lr.startDate} → ${lr.endDate} · ${lr.daysRequested} days`,
     severity: isUrgent ? 'warning' : 'info',
     status: 'Pending approval',

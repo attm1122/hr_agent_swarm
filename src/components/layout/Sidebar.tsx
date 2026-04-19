@@ -79,16 +79,8 @@ function buildNavItems(role: Role): NavItem[] {
     },
   ];
 
-  // Dynamic ordering: elevated items bubble up after Home
-  const sorted = [...items];
-  const elevated = sorted.filter(i => i.priority === 'elevated');
-  const normal = sorted.filter(i => i.priority !== 'elevated');
-
-  return [
-    normal[0], // Home always first
-    ...elevated,
-    ...normal.slice(1),
-  ].filter((item): item is NavItem => !!item);
+  // Fixed order matching reference design
+  return items;
 }
 
 const bottomNavItems: NavItem[] = [

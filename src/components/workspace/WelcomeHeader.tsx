@@ -15,7 +15,7 @@ export function WelcomeHeader({ name, roleLabel, scope }: WelcomeHeaderProps) {
         {roleLabel}
         {scope && (
           <>
-            <span className="mx-1.5 text-[#E5E2DD]">·</span>
+            <span className="mx-1.5 text-[#BDB8B0]">·</span>
             <span>{scope}</span>
           </>
         )}
