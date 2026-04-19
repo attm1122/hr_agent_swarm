@@ -10,14 +10,15 @@
  * SSE event contract: see src/lib/ai-os/orchestrator/events.ts.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import PromptBar from './PromptBar';
-import IntentChip from './IntentChip';
-import ModeChip from './ModeChip';
+import { ProgressIndicator } from './ProgressIndicator';
 import BlockRenderer from './BlockRenderer';
 import AuditTrail from './AuditTrail';
 import ErrorBoundary from './ErrorBoundary';
+import { ConfidenceBadge } from '@/components/shared/ConfidenceBadge';
+import { CorrectionPrompt } from '@/components/shared/CorrectionPrompt';
 import type {
   AiOsEvent,
   Intent,
@@ -34,7 +35,7 @@ interface RunState {
   agentCalls: ToolCallTrace[];
   headline?: string;
   error?: string;
-  status: 'idle' | 'streaming' | 'done' | 'error';
+  status: 'idle' | 'streaming' | 'done' | 'error' | 'clarifying';
   rawInput?: string;
 }
 
@@ -53,9 +54,7 @@ const SUGGESTIONS = [
 ];
 
 export interface AssistantWorkspaceProps {
-  /** Optional initial blocks to render before the first user prompt. */
   homeBlocks?: UIBlock[];
-  /** Optional headline for the home (idle) state. */
   homeHeadline?: string;
 }
 
@@ -64,13 +63,21 @@ export default function AssistantWorkspace({
   homeHeadline,
 }: AssistantWorkspaceProps) {
   const [run, setRun] = useState<RunState>(EMPTY_RUN);
+  const [correction, setCorrection] = useState<{ original: string; alternatives: string[] } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const blocksEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new blocks arrive
+  useEffect(() => {
+    blocksEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [run.blocks.length]);
 
   const submit = useCallback(async (text: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
+    setCorrection(null);
     setRun({
       ...EMPTY_RUN,
       status: 'streaming',
@@ -150,10 +157,9 @@ export default function AssistantWorkspace({
         case 'headline':
           return { ...r, headline: event.text };
         case 'artifact_ready':
-          // Artifact also surfaces as a block via the composer; nothing to add here.
           return r;
         case 'clarification_required':
-          return r;
+          return { ...r, status: 'clarifying' };
         case 'done':
           return { ...r, status: 'done' };
         case 'error':
@@ -182,6 +188,14 @@ export default function AssistantWorkspace({
   const blocksToShow = run.status === 'idle' ? homeBlocks ?? [] : run.blocks;
   const headlineToShow = run.status === 'idle' ? homeHeadline : run.headline;
 
+  // Build progress steps based on current state
+  const progressSteps = [
+    { id: 'understand', label: 'Understanding', status: (run.intent ? 'complete' : run.status === 'streaming' ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
+    { id: 'decide', label: 'Deciding', status: (run.decision ? 'complete' : run.intent && run.status === 'streaming' ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
+    { id: 'execute', label: 'Executing', status: (run.agentCalls.length > 0 && run.status === 'done' ? 'complete' : run.decision && run.status === 'streaming' ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
+    { id: 'compose', label: 'Composing', status: (run.status === 'done' ? 'complete' : run.blocks.length > 0 && run.status === 'streaming' ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
+  ];
+
   return (
     <ErrorBoundary>
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6">
@@ -191,48 +205,86 @@ export default function AssistantWorkspace({
           suggestions={run.status === 'idle' ? SUGGESTIONS : undefined}
         />
 
-        {(run.intent || run.decision) && (
-          <div className="flex flex-wrap items-center gap-3">
-            {run.intent && <IntentChip intent={run.intent} />}
-            {run.decision && <ModeChip mode={run.decision.mode} />}
+        {/* Progress indicator — replaces IntentChip/ModeChip */}
+        {run.status === 'streaming' && (
+          <ProgressIndicator steps={progressSteps} />
+        )}
+
+        {/* Confidence + decision summary */}
+        {run.decision && run.status !== 'streaming' && (
+          <div className="flex items-center gap-3">
+            <ConfidenceBadge
+              confidence={run.intent?.confidence ?? 0.8}
+              sources={run.decision.reasons.slice(0, 3)}
+            />
+            {run.decision.mode === 'ESCALATE' && (
+              <span className="ds-meta text-[var(--warning-text)]">
+                Human review required
+              </span>
+            )}
           </div>
         )}
 
         {headlineToShow && (
-          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <Sparkles className="h-4 w-4 text-emerald-500" />
+          <div className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
+            <Sparkles className="h-4 w-4 text-[var(--primary)]" />
             {headlineToShow}
           </div>
         )}
 
         {run.status === 'streaming' && run.blocks.length === 0 && (
-          <div className="flex items-center gap-2 rounded-xl border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--muted-surface)] px-4 py-6 text-sm text-[var(--text-tertiary)]">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {run.intent ? 'Working through the request…' : 'Understanding your request…'}
+            {run.intent ? 'Checking policies and data...' : 'Understanding your request...'}
           </div>
         )}
 
         {run.status === 'error' && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger-text)]"
+          >
             {run.error ?? 'Something went wrong.'}
           </div>
         )}
 
         {showHome && (
-          <p className="text-sm text-muted-foreground">
-            Type a request above. The assistant will route it through interpret →
-            decide → execute → compose, and stream the result block-by-block.
+          <p className="text-sm text-[var(--text-tertiary)]">
+            Type a request above. The assistant will check policies, verify permissions,
+            and compose the right response for you.
           </p>
         )}
 
+        {/* Blocks with aria-live for screen readers */}
         <ErrorBoundary>
-          <div className="flex flex-col gap-4">
+          <div
+            className="flex flex-col gap-4"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+          >
             {blocksToShow.map((block) => (
               <BlockRenderer key={block.id} block={block} onAction={onAction} />
             ))}
+            <div ref={blocksEndRef} />
           </div>
         </ErrorBoundary>
 
+        {/* Correction prompt */}
+        {correction && (
+          <CorrectionPrompt
+            originalIntent={correction.original}
+            alternatives={correction.alternatives}
+            onSelect={(text) => {
+              setCorrection(null);
+              submit(text);
+            }}
+            onDismiss={() => setCorrection(null)}
+          />
+        )}
+
+        {/* Audit trail */}
         {(run.intent || run.decision || run.agentCalls.length > 0) && (
           <AuditTrail
             intent={run.intent}

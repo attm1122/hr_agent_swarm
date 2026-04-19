@@ -1,96 +1,100 @@
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Database, Shield, Users, Bell, Palette, Key, Globe, Rocket, ArrowRight } from 'lucide-react';
+import { Database, Shield, Users, Bell, Palette, Key, Globe, Rocket, ArrowRight, Settings } from 'lucide-react';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
 
 const settingsGroups = [
   {
     title: 'General',
     items: [
-      { icon: Globe, label: 'Organization', description: 'Company name, timezone, locale settings', status: 'Configured' },
-      { icon: Palette, label: 'Appearance', description: 'Theme, branding, and display preferences', status: 'Default' },
-      { icon: Bell, label: 'Notifications', description: 'Email and Slack notification preferences', status: '3 active' },
+      { icon: Globe, label: 'Organization', description: 'Company name, timezone, locale', status: 'Configured' },
+      { icon: Palette, label: 'Appearance', description: 'Theme and display preferences', status: 'Default' },
+      { icon: Bell, label: 'Notifications', description: 'Email and Slack preferences', status: '3 active' },
     ],
   },
   {
     title: 'Security & Access',
     items: [
-      { icon: Shield, label: 'Roles & Permissions', description: 'Manage user roles and access levels', status: '4 roles' },
-      { icon: Key, label: 'API Keys', description: 'Manage integrations and API access tokens', status: '2 active' },
-      { icon: Users, label: 'User Management', description: 'Admin users and authentication settings', status: '3 admins' },
+      { icon: Shield, label: 'Roles & Permissions', description: 'Manage user roles and access', status: '4 roles' },
+      { icon: Key, label: 'API Keys', description: 'Integrations and API tokens', status: '2 active' },
+      { icon: Users, label: 'User Management', description: 'Admin users and auth settings', status: '3 admins' },
     ],
   },
   {
     title: 'Integrations',
     items: [
-      { icon: Database, label: 'Supabase', description: 'Database connection and configuration', status: 'Connected' },
+      { icon: Database, label: 'Supabase', description: 'Database connection', status: 'Connected' },
       { icon: Database, label: 'BambooHR', description: 'Employee data sync', status: 'Not configured' },
-      { icon: Database, label: 'Slack', description: 'Notifications and communications', status: 'Connected' },
+      { icon: Database, label: 'Slack', description: 'Notifications and comms', status: 'Connected' },
     ],
   },
 ];
 
 export default function AdminPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage your HR Agent Swarm configuration</p>
+          <h1 className="ds-display">Settings</h1>
+          <p className="ds-meta mt-1">Manage your HR Agent Swarm configuration</p>
         </div>
       </div>
 
+      <ContextualCopilot
+        context="settings and configuration"
+        placeholder="Find settings, configure integrations, or check system status..."
+        suggestions={[
+          'How do I configure SSO?',
+          'Show me active API keys',
+          'What integrations are connected?',
+        ]}
+      />
+
+      {/* Production Setup Card */}
       <Link href="/admin/setup" className="block group">
-        <Card className="border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white shadow-sm hover:shadow transition-shadow">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-700">
-              <Rocket className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-900">Production setup</p>
-              <p className="text-xs text-slate-600">
-                Verify Supabase + Microsoft Graph, seed the tenant, and sync employees from Azure AD.
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-indigo-700 group-hover:bg-indigo-100">
-              Open
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-lg border border-[var(--info-border)] p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
+          <div className="p-2.5 rounded-lg bg-[var(--info-bg)] text-[var(--info-text)]">
+            <Rocket className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="ds-title">Production Setup</p>
+            <p className="ds-meta">Verify Supabase + Graph, seed tenant, sync employees</p>
+          </div>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-[var(--info-text)] group-hover:bg-[var(--info-bg)]">
+            Open
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </Link>
 
+      {/* Settings Groups */}
       {settingsGroups.map((group, gi) => (
         <div key={gi}>
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">{group.title}</h2>
-          <Card className="border shadow-sm">
-            <CardContent className="p-0">
-              <div className="divide-y divide-slate-100">
-                {group.items.map((item, ii) => {
-                  const Icon = item.icon;
-                  const isConnected = item.status === 'Connected' || item.status === 'Configured';
-                  return (
-                    <div key={ii} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors cursor-pointer">
-                      <div className="p-2 rounded-lg bg-slate-100 flex-shrink-0">
-                        <Icon className="w-4 h-4 text-slate-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900">{item.label}</p>
-                        <p className="text-xs text-slate-500">{item.description}</p>
-                      </div>
-                      <Badge variant="outline" className={
-                        isConnected ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :
-                        item.status === 'Not configured' ? 'bg-slate-100 text-slate-500 border-slate-200 text-xs' :
-                        'text-xs'
-                      }>{item.status}</Badge>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs">Configure</Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <h2 className="ds-heading mb-2">{group.title}</h2>
+          <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden divide-y divide-[var(--border-subtle)]">
+            {group.items.map((item, ii) => {
+              const Icon = item.icon;
+              const isConnected = item.status === 'Connected' || item.status === 'Configured';
+              return (
+                <div key={ii} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors cursor-pointer">
+                  <div className="p-2 rounded-md bg-[var(--muted-surface)] shrink-0">
+                    <Icon className="w-4 h-4 text-[var(--text-tertiary)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="ds-title">{item.label}</p>
+                    <p className="ds-meta">{item.description}</p>
+                  </div>
+                  <Badge variant="outline" className={
+                    isConnected ? 'status-active text-[11px]' :
+                    item.status === 'Not configured' ? 'status-neutral text-[11px]' :
+                    'text-[11px]'
+                  }>{item.status}</Badge>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs">Configure</Button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ))}
     </div>

@@ -1,15 +1,14 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Shield, FileText, AlertTriangle, Clock, CheckCircle2,
-  AlertCircle, Calendar, ArrowRight,
-} from 'lucide-react';
+import { Shield, FileText, AlertTriangle, Clock, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { documents, milestones, getEmployeeById } from '@/lib/data/mock-data';
 import { formatDateOnly } from '@/lib/domain/shared/date-value';
 import { compareMilestonesByDate, getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { TopActionZone } from '@/components/shared/TopActionZone';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
 
 export default function CompliancePage() {
   const expiringDocs = documents.filter(d => d.status === 'expiring');
@@ -18,166 +17,178 @@ export default function CompliancePage() {
   const activeDocs = documents.filter(d => d.status === 'active');
 
   const visaExpiries = milestones.filter(
-    (milestone) =>
-      milestone.milestoneType === 'visa_expiry' &&
-      getDerivedMilestoneState(milestone) !== 'completed'
+    (m) => m.milestoneType === 'visa_expiry' && getDerivedMilestoneState(m) !== 'completed'
   );
   const certExpiries = milestones.filter(
-    (milestone) =>
-      milestone.milestoneType === 'certification_expiry' &&
-      getDerivedMilestoneState(milestone) !== 'completed'
+    (m) => m.milestoneType === 'certification_expiry' && getDerivedMilestoneState(m) !== 'completed'
   );
   const probations = milestones.filter(
-    (milestone) =>
-      milestone.milestoneType === 'probation_end' &&
-      getDerivedMilestoneState(milestone) !== 'completed'
+    (m) => m.milestoneType === 'probation_end' && getDerivedMilestoneState(m) !== 'completed'
   );
   const allAlerts = [...visaExpiries, ...certExpiries, ...probations].sort(compareMilestonesByDate);
 
+  const criticalCount = expiredDocs.length + missingDocs.length;
+  const warningCount = expiringDocs.length;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Compliance & Documents</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {expiringDocs.length + missingDocs.length + expiredDocs.length + allAlerts.length} items requiring attention
+          <h1 className="ds-display">Compliance</h1>
+          <p className="ds-meta mt-1">
+            {criticalCount + warningCount + allAlerts.length} items requiring attention · {activeDocs.length} compliant
           </p>
         </div>
       </div>
 
-      {/* Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border shadow-sm bg-red-50/50 border-red-200">
-          <CardContent className="p-4 text-center">
-            <AlertTriangle className="w-5 h-5 text-red-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold text-slate-900">{expiredDocs.length + missingDocs.length}</p>
-            <p className="text-xs text-slate-500">Expired / Missing</p>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm bg-amber-50/50 border-amber-200">
-          <CardContent className="p-4 text-center">
-            <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold text-slate-900">{expiringDocs.length}</p>
-            <p className="text-xs text-slate-500">Expiring Soon</p>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm bg-emerald-50/50 border-emerald-200">
-          <CardContent className="p-4 text-center">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold text-slate-900">{activeDocs.length}</p>
-            <p className="text-xs text-slate-500">Active Documents</p>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 text-center">
-            <Shield className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold text-slate-900">{allAlerts.length}</p>
-            <p className="text-xs text-slate-500">Upcoming Alerts</p>
-          </CardContent>
-        </Card>
+      {/* Copilot */}
+      <ContextualCopilot
+        context="compliance and documents"
+        placeholder="Check document status, review expiring visas, or find policy requirements..."
+        suggestions={[
+          'Which visas expire in the next 30 days?',
+          'Show me all missing documents',
+          'What is our document retention policy?',
+        ]}
+      />
+
+      {/* Action Zone */}
+      <TopActionZone
+        items={[
+          ...(criticalCount > 0 ? [{
+            id: 'critical-docs',
+            label: `${criticalCount} expired or missing document${criticalCount !== 1 ? 's' : ''}`,
+            severity: 'critical' as const,
+            description: 'Immediate action required to remain compliant',
+            action: { label: 'Review', onClick: () => {} },
+          }] : []),
+          ...(warningCount > 0 ? [{
+            id: 'expiring-docs',
+            label: `${warningCount} document${warningCount !== 1 ? 's' : ''} expiring soon`,
+            severity: 'warning' as const,
+            description: 'Renew before expiration to avoid compliance gaps',
+            action: { label: 'Renew', onClick: () => {} },
+          }] : []),
+        ]}
+      />
+
+      {/* Summary stats — flat */}
+      <div className="flex items-center gap-6 py-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--danger)]" />
+          <span className="ds-meta">{criticalCount} Critical</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--warning)]" />
+          <span className="ds-meta">{warningCount} Expiring</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--success)]" />
+          <span className="ds-meta">{activeDocs.length} Compliant</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--info)]" />
+          <span className="ds-meta">{allAlerts.length} Upcoming</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Documents */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-500" />
-              Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {documents.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-8">No documents tracked</p>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {documents.map(doc => {
-                  const emp = getEmployeeById(doc.employeeId);
-                  return (
-                    <div key={doc.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                      <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{doc.fileName}</p>
-                        <p className="text-xs text-slate-500">
-                          {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {doc.category}
-                          {doc.expiresAt && ` · Expires ${formatDateOnly(doc.expiresAt)}`}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={
-                        doc.status === 'active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :
-                        doc.status === 'expiring' ? 'bg-amber-100 text-amber-700 border-amber-200 text-xs' :
-                        doc.status === 'expired' ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
-                        'bg-red-100 text-red-700 border-red-200 text-xs'
-                      }>{doc.status}</Badge>
-                      {emp && (
-                        <Link href={`/employees/${emp.id}`}>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs"><ArrowRight className="w-3 h-3" /></Button>
-                        </Link>
-                      )}
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)] flex items-center justify-between">
+            <span className="ds-caption">Documents</span>
+            <span className="ds-meta">{documents.length} tracked</span>
+          </div>
+          {documents.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="ds-body">No documents tracked</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {documents.slice(0, 10).map(doc => {
+                const emp = getEmployeeById(doc.employeeId);
+                return (
+                  <div key={doc.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                    <FileText className="w-4 h-4 text-[var(--text-disabled)] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="ds-title truncate">{doc.fileName}</p>
+                      <p className="ds-meta">
+                        {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {doc.category}
+                        {doc.expiresAt && ` · Expires ${formatDateOnly(doc.expiresAt)}`}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    <StatusBadge status={doc.status} size="sm" />
+                    {emp && (
+                      <Link href={`/employees/${emp.id}`}>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs">
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-        {/* Alerts Timeline */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              Upcoming Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {allAlerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400 mb-2" />
-                <p className="text-sm text-slate-500">No upcoming compliance alerts</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {allAlerts.map(ms => {
-                  const emp = getEmployeeById(ms.employeeId);
-                  const state = getDerivedMilestoneState(ms);
-                  const dayOffset = getMilestoneDayOffset(ms);
-                  return (
-                    <div key={ms.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-slate-100 text-slate-600 text-xs">
-                          {emp ? `${emp.firstName[0]}${emp.lastName[0]}` : '??'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900">{ms.description}</p>
-                        <p className="text-xs text-slate-500">
-                          {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {formatDateOnly(ms.milestoneDate)}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={
-                        state === 'overdue' || dayOffset === 0 ? 'bg-red-100 text-red-700 border-red-200 text-xs' :
-                        dayOffset < 60 ? 'bg-amber-100 text-amber-700 border-amber-200 text-xs' :
-                        'text-xs'
-                      }>
-                        {state === 'overdue'
-                          ? `Overdue ${Math.abs(dayOffset)}d`
-                          : dayOffset === 0
-                            ? 'Due today'
-                            : `${dayOffset}d left`}
-                      </Badge>
-                      {emp && (
-                        <Link href={`/employees/${emp.id}`}>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs"><ArrowRight className="w-3 h-3" /></Button>
-                        </Link>
-                      )}
+        {/* Alerts */}
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)] flex items-center justify-between">
+            <span className="ds-caption">Upcoming Alerts</span>
+            <span className="ds-meta">{allAlerts.length} total</span>
+          </div>
+          {allAlerts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <CheckCircle2 className="w-10 h-10 text-[var(--success)] mb-2" />
+              <p className="ds-body">No upcoming compliance alerts</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {allAlerts.map(ms => {
+                const emp = getEmployeeById(ms.employeeId);
+                const state = getDerivedMilestoneState(ms);
+                const dayOffset = getMilestoneDayOffset(ms);
+                return (
+                  <div key={ms.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                    <Avatar className="w-7 h-7">
+                      <AvatarFallback className="bg-[var(--muted-surface)] text-[var(--text-tertiary)] text-[10px]">
+                        {emp ? `${emp.firstName[0]}${emp.lastName[0]}` : '??'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="ds-title">{ms.description}</p>
+                      <p className="ds-meta">
+                        {emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'} · {formatDateOnly(ms.milestoneDate)}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    <Badge variant="outline" className={
+                      state === 'overdue' || dayOffset === 0
+                        ? 'status-danger text-[11px]'
+                        : dayOffset < 60
+                          ? 'status-warning text-[11px]'
+                          : 'status-info text-[11px]'
+                    }>
+                      {state === 'overdue'
+                        ? `Overdue ${Math.abs(dayOffset)}d`
+                        : dayOffset === 0
+                          ? 'Due today'
+                          : `${dayOffset}d left`}
+                    </Badge>
+                    {emp && (
+                      <Link href={`/employees/${emp.id}`}>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs">
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -4,15 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Users, FileText, Calendar, DollarSign,
-  BookOpen, CheckSquare, PieChart, Settings, Sparkles,
-  Shield, UserPlus, MessageSquare, BarChart3, Menu, X
+  Sparkles, Users, CheckSquare, PieChart, BookOpen, Settings,
+  Menu, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { employees, leaveRequests, documents, milestones, actionQueue } from '@/lib/data/mock-data';
+import { actionQueue, leaveRequests, documents, milestones } from '@/lib/data/mock-data';
 import type { Role } from '@/types';
 
 interface NavItem {
@@ -20,36 +18,68 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
+  priority?: 'normal' | 'elevated' | 'urgent';
   requiredPermission?: string;
+  roles?: Role[];
 }
 
-function getBadges() {
+function getSignalCounts() {
   return {
-    employees: employees.filter(e => e.status !== 'terminated').length,
     approvals: actionQueue.length,
-    leave: leaveRequests.filter(lr => lr.status === 'pending').length,
-    reviews: milestones.filter(m => m.milestoneType === 'probation_end' && m.status !== 'completed').length,
-    onboarding: employees.filter(e => e.status === 'pending').length,
     compliance: documents.filter(d => d.status === 'expiring' || d.status === 'expired').length +
       milestones.filter(m => m.milestoneType === 'visa_expiry' && m.status !== 'completed').length,
   };
 }
 
-function buildNavItems(): NavItem[] {
-  const b = getBadges();
-  return [
-    { title: 'Dashboard', href: '/hr', icon: LayoutDashboard },
-    { title: 'Employees', href: '/employees', icon: Users, badge: b.employees, requiredPermission: 'employee:read' },
-    { title: 'Approvals', href: '/approvals', icon: CheckSquare, badge: b.approvals, requiredPermission: 'leave:approve' },
-    { title: 'Leave', href: '/leave', icon: Calendar, badge: b.leave, requiredPermission: 'leave:read' },
-    { title: 'Compensation', href: '/compensation', icon: DollarSign, requiredPermission: 'compensation:read' },
-    { title: 'Reviews', href: '/reviews', icon: BarChart3, badge: b.reviews, requiredPermission: 'review:read' },
-    { title: 'Onboarding', href: '/onboarding', icon: UserPlus, badge: b.onboarding, requiredPermission: 'onboarding:read' },
-    { title: 'Compliance', href: '/compliance', icon: Shield, badge: b.compliance, requiredPermission: 'compliance:read' },
-    { title: 'Communications', href: '/communications', icon: MessageSquare, requiredPermission: 'communication:read' },
-    { title: 'Reports', href: '/reports', icon: PieChart, requiredPermission: 'report:read' },
-    { title: 'Knowledge', href: '/knowledge', icon: BookOpen },
+function buildNavItems(role: Role): NavItem[] {
+  const counts = getSignalCounts();
+  const isEmployee = role === 'employee';
+
+  const items: NavItem[] = [
+    {
+      title: 'Home',
+      href: '/',
+      icon: Sparkles,
+      priority: 'normal',
+    },
+    {
+      title: 'People',
+      href: '/employees',
+      icon: Users,
+      requiredPermission: 'employee:read',
+    },
+    {
+      title: 'Actions',
+      href: '/approvals',
+      icon: CheckSquare,
+      badge: counts.approvals,
+      priority: counts.approvals > 0 ? 'elevated' : 'normal',
+      requiredPermission: 'leave:approve',
+    },
+    {
+      title: 'Insights',
+      href: '/reports',
+      icon: PieChart,
+      priority: counts.compliance > 0 ? 'elevated' : 'normal',
+      requiredPermission: 'report:read',
+    },
+    {
+      title: 'Knowledge',
+      href: '/knowledge',
+      icon: BookOpen,
+    },
   ];
+
+  // Dynamic ordering: elevated items bubble up after Home
+  const sorted = [...items];
+  const elevated = sorted.filter(i => i.priority === 'elevated');
+  const normal = sorted.filter(i => i.priority !== 'elevated');
+
+  return [
+    normal[0], // Home always first
+    ...elevated,
+    ...normal.slice(1),
+  ].filter((item): item is NavItem => !!item);
 }
 
 const bottomNavItems: NavItem[] = [
@@ -64,49 +94,76 @@ interface SidebarProps {
 export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const allNav = buildNavItems();
+  const [collapsed, setCollapsed] = useState(false);
 
+  const allNav = buildNavItems(role);
   const userPerms = permissions || [];
-  const navItems = role === 'admin'
-    ? allNav
-    : allNav.filter(item => !item.requiredPermission || userPerms.includes(item.requiredPermission));
+
+  const navItems = allNav.filter(item => {
+    if (item.requiredPermission && !userPerms.includes(item.requiredPermission) && role !== 'admin') return false;
+    return true;
+  });
 
   const filteredBottomNav = role === 'admin'
     ? bottomNavItems
     : bottomNavItems.filter(item => !item.requiredPermission || userPerms.includes(item.requiredPermission));
 
-  const NavLink = ({ item, isBottom = false }: { item: NavItem; isBottom?: boolean }) => {
-    const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const sidebarWidth = collapsed ? 'w-16' : 'w-60';
+
+  const NavLink = ({ item }: { item: NavItem }) => {
+    const active = isActive(item.href);
     const Icon = item.icon;
+    const hasUrgency = item.priority === 'urgent' || (item.badge && item.badge > 0);
 
     return (
       <Link
         href={item.href}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
-          isActive
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
+          active
+            ? 'bg-[var(--success-bg)] text-[var(--success-text)]'
+            : 'text-[var(--text-secondary)] hover:bg-[var(--muted-surface)] hover:text-[var(--text-primary)]'
         )}
-        aria-current={isActive ? 'page' : undefined}
+        aria-current={active ? 'page' : undefined}
+        title={collapsed ? item.title : undefined}
       >
-        <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-emerald-600')} aria-hidden="true" />
-        <span className="flex-1 truncate">{item.title}</span>
-        {item.badge ? (
-          <Badge
-            variant="secondary"
+        <div className="relative shrink-0">
+          <Icon
             className={cn(
-              'h-5 min-w-5 flex items-center justify-center text-xs px-1.5 shrink-0',
-              isActive
-                ? 'bg-emerald-200 text-emerald-800 hover:bg-emerald-200'
-                : 'bg-slate-100 text-slate-600'
+              'w-[18px] h-[18px] shrink-0',
+              active ? 'text-[var(--primary)]' : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'
             )}
-            aria-label={`${item.badge} items`}
-          >
-            {item.badge}
-          </Badge>
-        ) : null}
+            aria-hidden="true"
+          />
+          {hasUrgency && active === false && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--warning)]" aria-hidden="true" />
+          )}
+        </div>
+        {!collapsed && (
+          <>
+            <span className="flex-1 truncate">{item.title}</span>
+            {item.badge ? (
+              <Badge
+                variant="secondary"
+                className={cn(
+                  'h-5 min-w-5 flex items-center justify-center text-[11px] px-1.5 shrink-0 font-semibold',
+                  active
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--muted-surface)] text-[var(--text-tertiary)]'
+                )}
+              >
+                {item.badge}
+              </Badge>
+            ) : null}
+          </>
+        )}
       </Link>
     );
   };
@@ -118,7 +175,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
         <Button
           variant="outline"
           size="icon"
-          className="h-10 w-10 bg-white shadow-md border-slate-200"
+          className="h-10 w-10 bg-white shadow-sm border-[var(--border-default)]"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
           aria-expanded={mobileOpen}
@@ -131,7 +188,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -141,40 +198,54 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
       <aside
         id="sidebar-nav"
         className={cn(
-          'flex flex-col h-full bg-white border-r border-slate-200 z-40 transition-transform duration-300 ease-in-out',
+          'flex flex-col h-full bg-white border-r border-[var(--border-default)] z-40 transition-all duration-250 ease-in-out',
           'fixed lg:static inset-y-0 left-0',
-          'w-[280px] lg:w-64',
+          sidebarWidth,
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
         role="navigation"
         aria-label="Main navigation"
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-3 px-4 h-14 border-b border-[var(--border-default)] shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-white" aria-hidden="true" />
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-slate-900 truncate">HR Agent Swarm</span>
-          </div>
+          {!collapsed && (
+            <span className="text-sm font-bold tracking-tight text-[var(--text-primary)] truncate">
+              HR Agent Swarm
+            </span>
+          )}
         </div>
 
         {/* Main nav */}
-        <ScrollArea className="flex-1 px-3 py-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
           <nav className="space-y-1" aria-label="Primary">
             {navItems.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
           </nav>
-        </ScrollArea>
+        </div>
 
         {/* Bottom nav */}
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-[var(--border-default)] p-3 shrink-0">
           <nav className="space-y-1" aria-label="Secondary">
             {filteredBottomNav.map((item) => (
-              <NavLink key={item.href} item={item} isBottom />
+              <NavLink key={item.href} item={item} />
             ))}
           </nav>
+
+          {/* Collapse toggle (desktop only) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden lg:flex w-full mt-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4 mr-2" />}
+            {!collapsed && <span className="text-xs">Collapse</span>}
+          </Button>
         </div>
       </aside>
     </>

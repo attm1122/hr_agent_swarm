@@ -1,8 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageSquare, Plus, Send, Clock, CheckCircle2, FileText } from 'lucide-react';
 import { formatDateOnly } from '@/lib/domain/shared/date-value';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 const templates = [
   { id: 'ct-1', name: 'Welcome Email', category: 'onboarding', channel: 'email', uses: 12 },
@@ -21,91 +22,87 @@ const recentDrafts = [
 
 export default function CommunicationsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Communications</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{templates.length} templates, {recentDrafts.length} recent drafts</p>
+          <h1 className="ds-display">Communications</h1>
+          <p className="ds-meta mt-1">{templates.length} templates, {recentDrafts.length} recent drafts</p>
         </div>
-        <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button size="sm" className="h-9 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
           <Plus className="w-4 h-4 mr-2" />
           New Draft
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100"><FileText className="w-4 h-4 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">{templates.length}</p><p className="text-xs text-slate-500">Templates</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-100"><Clock className="w-4 h-4 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">1</p><p className="text-xs text-slate-500">Drafts</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm bg-emerald-50/50 border-emerald-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100"><Send className="w-4 h-4 text-emerald-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">2</p><p className="text-xs text-slate-500">Sent This Week</p></div>
-          </CardContent>
-        </Card>
+      <ContextualCopilot
+        context="communications and templates"
+        placeholder="Draft a message, find a template, or check sent history..."
+        suggestions={[
+          'Draft a welcome email for a new hire',
+          'Find my probation reminder template',
+          'What messages are scheduled this week?',
+        ]}
+      />
+
+      {/* Stats — flat */}
+      <div className="flex items-center gap-8 py-2">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-[var(--info)]" />
+          <span className="ds-meta">{templates.length} Templates</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[var(--warning)]" />
+          <span className="ds-meta">1 Draft</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Send className="w-4 h-4 text-[var(--success)]" />
+          <span className="ds-meta">2 Sent This Week</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Templates */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-500" />
-              Templates
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {templates.map(t => (
-                <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                  {t.channel === 'email' ? <Mail className="w-4 h-4 text-slate-400" /> : <MessageSquare className="w-4 h-4 text-slate-400" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-500 capitalize">{t.category} · {t.channel}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">{t.uses} uses</Badge>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs">Use</Button>
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)] flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[var(--info)]" />
+            <span className="ds-caption">Templates</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {templates.map(t => (
+              <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                {t.channel === 'email' ? <Mail className="w-4 h-4 text-[var(--text-disabled)]" /> : <MessageSquare className="w-4 h-4 text-[var(--text-disabled)]" />}
+                <div className="flex-1 min-w-0">
+                  <p className="ds-title">{t.name}</p>
+                  <p className="ds-meta capitalize">{t.category} · {t.channel}</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <Badge variant="secondary" className="text-[11px]">{t.uses} uses</Badge>
+                <Button variant="ghost" size="sm" className="h-7 text-xs">Use</Button>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Recent Drafts */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <Send className="w-4 h-4 text-emerald-500" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {recentDrafts.map(d => (
-                <div key={d.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{d.subject}</p>
-                    <p className="text-xs text-slate-500">To: {d.recipient} · {formatDateOnly(d.date)}</p>
-                  </div>
-                  <Badge variant="outline" className={
-                    d.status === 'sent' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 text-xs' :
-                    'bg-amber-100 text-amber-700 border-amber-200 text-xs'
-                  }>{d.status}</Badge>
-                  {d.status === 'draft' && <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Send</Button>}
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)] flex items-center gap-2">
+            <Send className="w-4 h-4 text-[var(--success)]" />
+            <span className="ds-caption">Recent Activity</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {recentDrafts.map(d => (
+              <div key={d.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="ds-title">{d.subject}</p>
+                  <p className="ds-meta">To: {d.recipient} · {formatDateOnly(d.date)}</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <StatusBadge status={d.status} size="sm" />
+                {d.status === 'draft' && (
+                  <Button size="sm" className="h-7 text-xs bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">Send</Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

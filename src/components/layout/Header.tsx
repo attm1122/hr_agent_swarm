@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell } from 'lucide-react';
+import { Bell, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CommandMenu } from '@/components/shared/CommandMenu';
+import { Breadcrumb } from '@/components/shared/Breadcrumb';
 
 interface HeaderProps {
   user?: {
@@ -25,42 +26,43 @@ export function Header({ user = { name: 'Sarah Chen', email: 'sarah.chen@company
   const initials = user.name.split(' ').map(n => n[0]).join('');
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 lg:px-5 bg-white border-b border-slate-200">
-      <div className="flex items-center flex-1 gap-4">
+    <header className="flex items-center h-14 px-4 lg:px-5 bg-white border-b border-[var(--border-default)] shrink-0">
+      <div className="flex items-center flex-1 gap-4 min-w-0">
         {/* Spacer for mobile hamburger */}
         <div className="w-10 lg:hidden" />
 
-        <CommandMenu />
+        {/* Breadcrumb */}
+        <div className="hidden md:flex items-center">
+          <Breadcrumb />
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <CommandMenu />
+
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 focus-visible:ring-2 focus-visible:ring-emerald-500"
+          className="relative h-9 w-9 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--muted-surface)]"
           aria-label="Notifications, 1 unread"
         >
-          <Bell className="w-4 h-4 text-slate-600" aria-hidden="true" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true" />
+          <Bell className="w-[18px] h-[18px]" aria-hidden="true" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--danger)] rounded-full ring-2 ring-white" aria-hidden="true" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2 h-9 px-2 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
-              aria-label={`User menu for ${user.name}`}
-            >
+            <div className="flex items-center gap-2 h-9 px-2 hover:bg-[var(--muted-surface)] rounded-md cursor-pointer">
               <Avatar className="w-7 h-7">
-                <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-medium">
+                <AvatarFallback className="bg-[var(--success-bg)] text-[var(--success-text)] text-[11px] font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-medium text-slate-900 leading-none">{user.name}</span>
-                <span className="text-xs text-slate-500 leading-none mt-0.5">{user.role}</span>
+                <span className="text-sm font-medium text-[var(--text-primary)] leading-none">{user.name}</span>
+                <span className="text-xs text-[var(--text-tertiary)] leading-none mt-0.5">{user.role}</span>
               </div>
-            </Button>
+            </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -68,7 +70,7 @@ export function Header({ user = { name: 'Sarah Chen', email: 'sarah.chen@company
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Preferences</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">Log out</DropdownMenuItem>
+            <DropdownMenuItem className="text-[var(--danger-text)]">Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -3,13 +3,15 @@
 import { Bot, User, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolCallCard } from './ToolCallCard';
+import { MessageFeedback } from '@/components/shared/MessageFeedback';
 import type { ClientMessage } from './types';
 
 interface MessageBubbleProps {
   message: ClientMessage;
+  onFeedback?: (messageId: string, type: 'positive' | 'negative') => void;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -22,7 +24,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       <div
         className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white',
-          isUser ? 'bg-slate-700' : 'bg-emerald-600',
+          isUser ? 'bg-[var(--text-primary)]' : 'bg-[var(--primary)]',
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -39,8 +41,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             className={cn(
               'whitespace-pre-wrap rounded-lg px-4 py-2.5 text-sm leading-relaxed',
               isUser
-                ? 'bg-slate-900 text-white'
-                : 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200',
+                ? 'bg-[var(--text-primary)] text-white'
+                : 'bg-white text-[var(--text-primary)] shadow-sm ring-1 ring-[var(--border-default)]',
             )}
           >
             {message.text}
@@ -56,10 +58,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
 
         {message.pending && !message.text && (
-          <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+          <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm text-[var(--text-tertiary)] shadow-sm ring-1 ring-[var(--border-default)]">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>Thinking...</span>
           </div>
+        )}
+
+        {/* Feedback buttons on assistant messages */}
+        {!isUser && !message.pending && (
+          <MessageFeedback
+            messageId={message.id}
+            onFeedback={onFeedback}
+          />
         )}
       </div>
     </div>

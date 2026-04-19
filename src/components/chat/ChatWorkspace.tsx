@@ -245,7 +245,7 @@ export function ChatWorkspace() {
   const showWelcome = !activeId && messages.length === 0;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--muted-surface)]">
       <ConversationList
         conversations={conversations}
         activeId={activeId}
@@ -258,15 +258,15 @@ export function ChatWorkspace() {
       />
 
       <div className="flex flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-5 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <div className="flex items-center gap-3 border-b border-[var(--border-default)] bg-white px-5 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-900">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">
               HR AI Assistant
             </div>
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-[var(--text-tertiary)]">
               Grounded in your HR data. Every action is audited.
             </div>
           </div>
@@ -275,30 +275,44 @@ export function ChatWorkspace() {
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-5 py-6"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-relevant="additions"
         >
           {showWelcome ? (
             <WelcomeCard onPick={(s) => void handleSend(s)} />
           ) : loadingMessages ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading conversation...
             </div>
           ) : (
             <div className="mx-auto flex max-w-3xl flex-col gap-5">
               {messages.map((m) => (
-                <MessageBubble key={m.id} message={m} />
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  onFeedback={(id, type) => {
+                    // TODO: send feedback to analytics/learning pipeline
+                    console.log('[feedback]', { id, type });
+                  }}
+                />
               ))}
             </div>
           )}
         </div>
 
         {error && (
-          <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-xs text-red-700">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="border-t border-[var(--danger-border)] bg-[var(--danger-bg)] px-5 py-2 text-xs text-[var(--danger-text)]"
+          >
             {error}
           </div>
         )}
 
-        <div className="border-t border-slate-200 bg-white p-4">
+        <div className="border-t border-[var(--border-default)] bg-white p-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -318,12 +332,12 @@ export function ChatWorkspace() {
               placeholder="Ask about employees, leave, documents, policies..."
               rows={1}
               disabled={sending}
-              className="min-h-[44px] max-h-40 flex-1 resize-none rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+              className="min-h-[44px] max-h-40 flex-1 resize-none rounded-lg border border-[var(--border-default)] bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-600 text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--primary)] text-white transition-colors hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send"
             >
               {sending ? (
@@ -333,7 +347,7 @@ export function ChatWorkspace() {
               )}
             </button>
           </form>
-          <div className="mx-auto mt-2 max-w-3xl text-[11px] text-slate-400">
+          <div className="mx-auto mt-2 max-w-3xl text-[11px] text-[var(--text-disabled)]">
             Press Enter to send · Shift+Enter for a newline
           </div>
         </div>
@@ -345,13 +359,13 @@ export function ChatWorkspace() {
 function WelcomeCard({ onPick }: { onPick: (s: string) => void }) {
   return (
     <div className="mx-auto max-w-2xl pt-10 text-center">
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary)] text-white">
         <Sparkles className="h-6 w-6" />
       </div>
-      <h2 className="text-lg font-semibold text-slate-900">
+      <h2 className="text-lg font-semibold text-[var(--text-primary)]">
         What can I help you with?
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-[var(--text-tertiary)]">
         I have access to your employee directory, leave, documents, workflows,
         and policies. Ask in plain English.
       </p>
@@ -363,7 +377,7 @@ function WelcomeCard({ onPick }: { onPick: (s: string) => void }) {
               key={s}
               type="button"
               onClick={() => onPick(s)}
-              className="rounded-lg border border-slate-200 bg-white p-3 text-left text-sm text-slate-700 transition-colors hover:border-emerald-400 hover:bg-emerald-50"
+              className="rounded-lg border border-[var(--border-default)] bg-white p-3 text-left text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)] hover:bg-[var(--success-bg)]"
             >
               {s}
             </button>

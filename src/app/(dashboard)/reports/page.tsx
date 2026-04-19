@@ -1,16 +1,17 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, Download, FileText, Clock, Plus, TrendingUp, Users, DollarSign, Calendar } from 'lucide-react';
+import { BarChart3, Download, FileText, Clock, Plus } from 'lucide-react';
 import { formatDateOnly } from '@/lib/domain/shared/date-value';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
+import { TopActionZone } from '@/components/shared/TopActionZone';
 
 const reports = [
-  { id: 'r-1', name: 'Headcount Report', category: 'hr', icon: Users, lastRun: '2025-04-01', frequency: 'Monthly' },
-  { id: 'r-2', name: 'Payroll Summary', category: 'finance', icon: DollarSign, lastRun: '2025-03-31', frequency: 'Monthly' },
-  { id: 'r-3', name: 'Leave Utilization', category: 'leave', icon: Calendar, lastRun: '2025-03-30', frequency: 'Quarterly' },
-  { id: 'r-4', name: 'Attrition Analysis', category: 'hr', icon: TrendingUp, lastRun: '2025-03-15', frequency: 'Quarterly' },
-  { id: 'r-5', name: 'Compliance Audit', category: 'compliance', icon: FileText, lastRun: '2025-03-01', frequency: 'Monthly' },
-  { id: 'r-6', name: 'Team Performance', category: 'performance', icon: BarChart3, lastRun: '2025-02-28', frequency: 'Quarterly' },
+  { id: 'r-1', name: 'Headcount Report', category: 'hr', lastRun: '2025-04-01', frequency: 'Monthly' },
+  { id: 'r-2', name: 'Payroll Summary', category: 'finance', lastRun: '2025-03-31', frequency: 'Monthly' },
+  { id: 'r-3', name: 'Leave Utilization', category: 'leave', lastRun: '2025-03-30', frequency: 'Quarterly' },
+  { id: 'r-4', name: 'Attrition Analysis', category: 'hr', lastRun: '2025-03-15', frequency: 'Quarterly' },
+  { id: 'r-5', name: 'Compliance Audit', category: 'compliance', lastRun: '2025-03-01', frequency: 'Monthly' },
+  { id: 'r-6', name: 'Team Performance', category: 'performance', lastRun: '2025-02-28', frequency: 'Quarterly' },
 ];
 
 const recentRuns = [
@@ -21,87 +22,85 @@ const recentRuns = [
 
 export default function ReportsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{reports.length} reports available</p>
+          <h1 className="ds-display">Insights</h1>
+          <p className="ds-meta mt-1">{reports.length} reports available</p>
         </div>
-        <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button size="sm" className="h-9 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
           <Plus className="w-4 h-4 mr-2" />
           Custom Report
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100"><BarChart3 className="w-4 h-4 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">{reports.length}</p><p className="text-xs text-slate-500">Available Reports</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100"><Clock className="w-4 h-4 text-emerald-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">{recentRuns.length}</p><p className="text-xs text-slate-500">Runs This Month</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-100"><Download className="w-4 h-4 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">12</p><p className="text-xs text-slate-500">Total Downloads</p></div>
-          </CardContent>
-        </Card>
+      <ContextualCopilot
+        context="reports and analytics"
+        placeholder="Generate a report, analyze trends, or find insights..."
+        suggestions={[
+          'Show headcount trend over 6 months',
+          'What is our current attrition rate?',
+          'Generate a compliance summary',
+        ]}
+      />
+
+      <TopActionZone items={undefined} />
+
+      {/* Stats — flat */}
+      <div className="flex items-center gap-8 py-2">
+        <div>
+          <p className="ds-display">{reports.length}</p>
+          <p className="ds-meta">Available Reports</p>
+        </div>
+        <div>
+          <p className="ds-display">{recentRuns.length}</p>
+          <p className="ds-meta">Runs This Month</p>
+        </div>
+        <div>
+          <p className="ds-display">12</p>
+          <p className="ds-meta">Total Downloads</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Report Library */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900">Report Library</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {reports.map(r => {
-                const Icon = r.icon;
-                return (
-                  <div key={r.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                    <div className="p-2 rounded-lg bg-slate-100"><Icon className="w-4 h-4 text-slate-600" /></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900">{r.name}</p>
-                      <p className="text-xs text-slate-500 capitalize">{r.category} · {r.frequency} · Last: {formatDateOnly(r.lastRun)}</p>
-                    </div>
-                    <Button size="sm" variant="outline" className="h-7 text-xs">Generate</Button>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)]">
+            <span className="ds-caption">Report Library</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {reports.map(r => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                <div className="p-1.5 rounded-md bg-[var(--muted-surface)]"><BarChart3 className="w-4 h-4 text-[var(--text-tertiary)]" /></div>
+                <div className="flex-1 min-w-0">
+                  <p className="ds-title">{r.name}</p>
+                  <p className="ds-meta capitalize">{r.category} · {r.frequency} · Last: {formatDateOnly(r.lastRun)}</p>
+                </div>
+                <Button size="sm" variant="outline" className="h-7 text-xs">Generate</Button>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Recent Runs */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-500" />
-              Recent Runs
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {recentRuns.map(run => (
-                <div key={run.id} className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{run.report}</p>
-                    <p className="text-xs text-slate-500">{run.rows} rows · {new Date(run.date).toLocaleString()}</p>
-                  </div>
-                  <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">{run.status}</Badge>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs"><Download className="w-3 h-3" /></Button>
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)] flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[var(--text-tertiary)]" />
+            <span className="ds-caption">Recent Runs</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {recentRuns.map(run => (
+              <div key={run.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="ds-title">{run.report}</p>
+                  <p className="ds-meta">{run.rows} rows · {new Date(run.date).toLocaleString()}</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <Badge variant="outline" className="status-active text-[11px]">{run.status}</Badge>
+                <Button size="sm" variant="ghost" className="h-7 text-xs"><Download className="w-3 h-3" /></Button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

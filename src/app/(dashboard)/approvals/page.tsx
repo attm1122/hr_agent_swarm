@@ -1,94 +1,180 @@
-import Link from 'next/link';
+export const dynamic = 'force-dynamic';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CheckSquare, Clock, AlertTriangle, Calendar, FileText, Shield } from 'lucide-react';
+import { CheckSquare, Clock, AlertTriangle, Calendar, FileText, CheckCircle2, XCircle } from 'lucide-react';
 import { actionQueue, getEmployeeById, leaveRequests } from '@/lib/data/mock-data';
 import { formatDateOnly } from '@/lib/domain/shared/date-value';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { TopActionZone } from '@/components/shared/TopActionZone';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
 
 export default function ApprovalsPage() {
   const pendingItems = actionQueue;
   const pendingLeave = leaveRequests.filter(lr => lr.status === 'pending');
 
+  // Separate into quick wins and needs review
+  const quickWins = pendingLeave.filter(lr => lr.daysRequested <= 2);
+  const needsReview = pendingLeave.filter(lr => lr.daysRequested > 2);
+  const otherItems = pendingItems.filter(item => item.type !== 'leave_request');
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Approvals</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{pendingItems.length} items requiring your attention</p>
+          <h1 className="ds-display">Actions</h1>
+          <p className="ds-meta mt-1">{pendingItems.length} items requiring attention</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border shadow-sm bg-amber-50/50 border-amber-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-100"><Clock className="w-4 h-4 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">{pendingLeave.length}</p><p className="text-xs text-slate-500">Leave Requests</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm bg-red-50/50 border-red-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-100"><AlertTriangle className="w-4 h-4 text-red-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">1</p><p className="text-xs text-slate-500">Expiring Documents</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100"><Shield className="w-4 h-4 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">2</p><p className="text-xs text-slate-500">Milestones Due</p></div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Copilot */}
+      <ContextualCopilot
+        context="pending approvals"
+        placeholder="Summarize pending items, approve low-risk requests, or check for conflicts..."
+        suggestions={[
+          'Approve all low-risk leave requests',
+          'Which approvals conflict with team deadlines?',
+          'Summarize my pending actions',
+        ]}
+      />
 
-      <Card className="border shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-slate-900">Pending Items</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-slate-100">
-            {pendingItems.map(item => {
-              const priorityStyle = {
-                critical: 'bg-red-100 text-red-700 border-red-200',
-                high: 'bg-amber-100 text-amber-700 border-amber-200',
-                medium: 'bg-blue-100 text-blue-700 border-blue-200',
-                low: 'bg-slate-100 text-slate-700 border-slate-200',
-              }[item.priority];
+      {/* Action Zone */}
+      <TopActionZone
+        items={[
+          ...(quickWins.length > 0 ? [{
+            id: 'quick-wins',
+            label: `${quickWins.length} quick win${quickWins.length !== 1 ? 's' : ''}`,
+            severity: 'info' as const,
+            description: 'Low-risk leave requests with no conflicts',
+            action: { label: 'Approve All', onClick: () => {} },
+          }] : []),
+          ...(needsReview.length > 0 ? [{
+            id: 'needs-review',
+            label: `${needsReview.length} request${needsReview.length !== 1 ? 's' : ''} need${needsReview.length === 1 ? 's' : ''} review`,
+            severity: 'warning' as const,
+            description: 'Longer leave or potential conflicts detected',
+            action: { label: 'Review', onClick: () => {} },
+          }] : []),
+        ]}
+      />
 
-              const typeIcon = {
-                leave_request: Calendar,
-                expiring_document: FileText,
-                milestone: Clock,
-              }[item.type] || CheckSquare;
-              const TypeIcon = typeIcon;
-
+      {/* Quick Wins */}
+      {quickWins.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="ds-heading flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[var(--success)]" />
+            Quick Wins
+          </h2>
+          <div className="bg-white rounded-lg border border-[var(--border-default)] divide-y divide-[var(--border-subtle)]">
+            {quickWins.map(lr => {
+              const emp = getEmployeeById(lr.employeeId);
               return (
-                <div key={item.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
-                  <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${priorityStyle}`}>
-                    <TypeIcon className="w-4 h-4" />
-                  </div>
+                <div key={lr.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-[var(--success-bg)] text-[var(--success-text)] text-[10px]">
+                      {emp ? `${emp.firstName[0]}${emp.lastName[0]}` : '??'}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
-                    {item.dueDate && <p className="text-xs text-slate-400 mt-0.5">Due: {formatDateOnly(item.dueDate)}</p>}
+                    <p className="ds-title">{emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'}</p>
+                    <p className="ds-meta">
+                      {lr.leaveType.replace('_', ' ')} · {formatDateOnly(lr.startDate)} – {formatDateOnly(lr.endDate)} · {lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''}
+                    </p>
                   </div>
-                  <Badge variant="outline" className={`${priorityStyle} text-xs capitalize`}>{item.priority}</Badge>
-                  {item.type === 'leave_request' ? (
-                    <div className="flex gap-1.5">
-                      <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">Approve</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50">Reject</Button>
-                    </div>
-                  ) : (
-                    <Link href={item.entityType === 'document' ? '/compliance' : item.entityType === 'milestone' ? '/compliance' : '/hr'}>
-                      <Button size="sm" variant="ghost" className="h-7 text-xs">Review</Button>
-                    </Link>
-                  )}
+                  <StatusBadge status="pending" size="sm" />
+                  <div className="flex gap-1.5">
+                    <Button size="sm" className="h-7 text-xs bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-[var(--danger-text)] border-[var(--danger-border)] hover:bg-[var(--danger-bg)]">
+                      Reject
+                    </Button>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {/* Needs Review */}
+      {needsReview.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="ds-heading flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-[var(--warning)]" />
+            Needs Review
+          </h2>
+          <div className="bg-white rounded-lg border border-[var(--border-default)] divide-y divide-[var(--border-subtle)]">
+            {needsReview.map(lr => {
+              const emp = getEmployeeById(lr.employeeId);
+              return (
+                <div key={lr.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-[var(--warning-bg)] text-[var(--warning-text)] text-[10px]">
+                      {emp ? `${emp.firstName[0]}${emp.lastName[0]}` : '??'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="ds-title">{emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown'}</p>
+                    <p className="ds-meta">
+                      {lr.leaveType.replace('_', ' ')} · {formatDateOnly(lr.startDate)} – {formatDateOnly(lr.endDate)} · {lr.daysRequested} day{lr.daysRequested !== 1 ? 's' : ''}
+                    </p>
+                    {lr.reason && <p className="ds-meta mt-0.5">{lr.reason}</p>}
+                  </div>
+                  <StatusBadge status="pending" size="sm" />
+                  <div className="flex gap-1.5">
+                    <Button size="sm" className="h-7 text-xs bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-[var(--danger-text)] border-[var(--danger-border)] hover:bg-[var(--danger-bg)]">
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Other Items */}
+      {otherItems.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="ds-heading">Other Items</h2>
+          <div className="bg-white rounded-lg border border-[var(--border-default)] divide-y divide-[var(--border-subtle)]">
+            {otherItems.map(item => {
+              const priorityStyle = {
+                critical: 'bg-[var(--danger-bg)] text-[var(--danger-text)]',
+                high: 'bg-[var(--warning-bg)] text-[var(--warning-text)]',
+                medium: 'bg-[var(--info-bg)] text-[var(--info-text)]',
+                low: 'bg-[var(--neutral-bg)] text-[var(--neutral-text)]',
+              }[item.priority];
+
+              return (
+                <div key={item.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${priorityStyle}`}>
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="ds-title">{item.title}</p>
+                    <p className="ds-meta">{item.description}</p>
+                    {item.dueDate && <p className="ds-meta">Due: {formatDateOnly(item.dueDate)}</p>}
+                  </div>
+                  <Badge variant="outline" className={`${priorityStyle} text-[11px] capitalize`}>
+                    {item.priority}
+                  </Badge>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs">
+                    Review
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

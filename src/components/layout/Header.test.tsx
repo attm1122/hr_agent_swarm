@@ -49,8 +49,8 @@ describe('Header', () => {
 
   it('renders notification dot', () => {
     const { container } = render(<Header />);
-    // Red notification dot
-    const dot = container.querySelector('.bg-red-500');
+    // Danger notification dot using CSS variable
+    const dot = container.querySelector('.bg-\\[var\\(--danger\\)\\]');
     expect(dot).toBeInTheDocument();
   });
 });

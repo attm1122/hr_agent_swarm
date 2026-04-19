@@ -24,15 +24,15 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       role="status"
       aria-live="polite"
     >
-      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
-        <Icon className="w-6 h-6 text-slate-400" aria-hidden="true" />
+      <div className="w-12 h-12 rounded-xl bg-[var(--muted-surface)] flex items-center justify-center mb-4">
+        <Icon className="w-6 h-6 text-[var(--text-disabled)]" aria-hidden="true" />
       </div>
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      <p className="text-xs text-slate-500 mt-1 max-w-xs">{description}</p>
+      <h3 className="ds-title">{title}</h3>
+      <p className="ds-meta mt-1 max-w-xs">{description}</p>
       {action && (
         <Button
           size="sm"
-          className="mt-4 h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="mt-4 h-8 bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
           onClick={action.onClick}
           {...(action.href ? { asChild: true } : {})}
         >

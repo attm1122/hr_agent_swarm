@@ -1,41 +1,78 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Clock, XCircle, AlertCircle, HelpCircle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle, HelpCircle, MinusCircle, Info } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: string;
   className?: string;
+  size?: 'sm' | 'md';
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  active: { label: 'Active', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  inactive: { label: 'Inactive', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: Clock },
-  on_leave: { label: 'On Leave', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Clock },
-  terminated: { label: 'Terminated', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
-  pending: { label: 'Pending', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: AlertCircle },
-  approved: { label: 'Approved', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
-  completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  expiring: { label: 'Expiring', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: AlertCircle },
-  expired: { label: 'Expired', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
-  missing: { label: 'Missing', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
+const statusConfig: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  // Positive states
+  active: { label: 'Active', icon: CheckCircle2 },
+  approved: { label: 'Approved', icon: CheckCircle2 },
+  completed: { label: 'Completed', icon: CheckCircle2 },
+  paid: { label: 'Paid', icon: CheckCircle2 },
+
+  // Pending / warning states
+  pending: { label: 'Pending', icon: Clock },
+  on_leave: { label: 'On Leave', icon: Clock },
+  expiring: { label: 'Expiring', icon: AlertCircle },
+  warning: { label: 'Warning', icon: AlertCircle },
+  draft: { label: 'Draft', icon: MinusCircle },
+
+  // Negative states
+  rejected: { label: 'Rejected', icon: XCircle },
+  terminated: { label: 'Terminated', icon: XCircle },
+  expired: { label: 'Expired', icon: XCircle },
+  missing: { label: 'Missing', icon: XCircle },
+  failed: { label: 'Failed', icon: XCircle },
+
+  // Info states
+  info: { label: 'Info', icon: Info },
+  sent: { label: 'Sent', icon: CheckCircle2 },
 };
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+const statusToSeverity: Record<string, string> = {
+  active: 'status-active',
+  approved: 'status-active',
+  completed: 'status-active',
+  paid: 'status-active',
+  sent: 'status-active',
+  pending: 'status-pending',
+  on_leave: 'status-pending',
+  draft: 'status-neutral',
+  expiring: 'status-warning',
+  warning: 'status-warning',
+  rejected: 'status-danger',
+  terminated: 'status-danger',
+  expired: 'status-danger',
+  missing: 'status-danger',
+  failed: 'status-danger',
+  info: 'status-info',
+};
+
+export function StatusBadge({ status, className, size = 'sm' }: StatusBadgeProps) {
   const config = statusConfig[status] || {
     label: status,
-    color: 'bg-slate-100 text-slate-600 border-slate-200',
     icon: HelpCircle,
   };
 
+  const severityClass = statusToSeverity[status] || 'status-neutral';
   const Icon = config.icon;
 
   return (
     <Badge
       variant="outline"
-      className={cn('text-xs font-medium capitalize gap-1 px-2 py-0.5', config.color, className)}
+      className={cn(
+        'font-medium capitalize gap-1',
+        size === 'sm' ? 'text-[11px] px-1.5 py-0 h-5' : 'text-xs px-2 py-0.5 h-6',
+        severityClass,
+        className
+      )}
     >
-      <Icon className="w-3 h-3" aria-hidden="true" />
+      <Icon className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} aria-hidden="true" />
       {config.label}
     </Badge>
   );

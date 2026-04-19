@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DollarSign, TrendingUp, Users, BarChart3, ArrowRight } from 'lucide-react';
 import { employees, teams, getTeamById, getPositionById } from '@/lib/data/mock-data';
+import { ContextualCopilot } from '@/components/shared/ContextualCopilot';
+import { TopActionZone } from '@/components/shared/TopActionZone';
 
 export default function CompensationPage() {
   const teamSummary = teams.map(team => {
@@ -15,11 +16,11 @@ export default function CompensationPage() {
   const activeCount = employees.filter(e => e.status === 'active').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Compensation</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Salary and benefits overview across {teams.length} teams</p>
+          <h1 className="ds-display">Compensation</h1>
+          <p className="ds-meta mt-1">Salary and benefits across {teams.length} teams</p>
         </div>
         <Button variant="outline" size="sm" className="h-9">
           <BarChart3 className="w-4 h-4 mr-2" />
@@ -27,78 +28,81 @@ export default function CompensationPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border shadow-sm bg-emerald-50/50 border-emerald-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-100"><Users className="w-4 h-4 text-emerald-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">{activeCount}</p><p className="text-xs text-slate-500">Active Employees</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100"><DollarSign className="w-4 h-4 text-blue-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">$2.8M</p><p className="text-xs text-slate-500">Total Annual Payroll</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-100"><TrendingUp className="w-4 h-4 text-amber-600" /></div>
-            <div><p className="text-2xl font-bold text-slate-900">4.2%</p><p className="text-xs text-slate-500">Avg Increase (YoY)</p></div>
-          </CardContent>
-        </Card>
+      <ContextualCopilot
+        context="compensation and payroll"
+        placeholder="Analyze salary distribution, check pay equity, or review budget..."
+        suggestions={[
+          'Show salary distribution by tenure',
+          'What is our gender pay gap?',
+          'Who is due for a compensation review?',
+        ]}
+      />
+
+      <TopActionZone items={undefined} />
+
+      {/* Stats — flat */}
+      <div className="flex items-center gap-8 py-2">
+        <div>
+          <p className="ds-display">{activeCount}</p>
+          <p className="ds-meta">Active Employees</p>
+        </div>
+        <div>
+          <p className="ds-display">$2.8M</p>
+          <p className="ds-meta">Annual Payroll</p>
+        </div>
+        <div>
+          <p className="ds-display">4.2%</p>
+          <p className="ds-meta">Avg Increase (YoY)</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Team Breakdown */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900">Team Headcount</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-slate-100">
-              {teamSummary.map(({ team, headcount }) => (
-                <div key={team.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{team.name}</p>
-                    <p className="text-xs text-slate-500">{team.department} · {team.code}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-24 bg-slate-100 rounded-full h-2">
-                      <div className="bg-emerald-500 rounded-full h-2" style={{ width: `${(headcount / activeCount) * 100}%` }} />
-                    </div>
-                    <Badge variant="secondary" className="text-xs min-w-[2rem] justify-center">{headcount}</Badge>
-                  </div>
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)]">
+            <span className="ds-caption">Team Headcount</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {teamSummary.map(({ team, headcount }) => (
+              <div key={team.id} className="flex items-center justify-between px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                <div>
+                  <p className="ds-title">{team.name}</p>
+                  <p className="ds-meta">{team.department} · {team.code}</p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 bg-[var(--muted-surface)] rounded-full h-1.5">
+                    <div className="bg-[var(--primary)] rounded-full h-1.5" style={{ width: `${(headcount / activeCount) * 100}%` }} />
+                  </div>
+                  <Badge variant="secondary" className="text-[11px] min-w-[2rem] justify-center">{headcount}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {/* Top Earners placeholder */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-slate-900">Recent Salary Changes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {employees.slice(0, 5).map(emp => {
-                const pos = emp.positionId ? getPositionById(emp.positionId) : null;
-                return (
-                  <Link key={emp.id} href={`/employees/${emp.id}`} className="flex items-center gap-3 p-2 -mx-2 rounded-md hover:bg-slate-50 transition-colors">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs">{emp.firstName[0]}{emp.lastName[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">{emp.firstName} {emp.lastName}</p>
-                      <p className="text-xs text-slate-500">{pos?.title}</p>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                  </Link>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Recent Changes */}
+        <div className="bg-white rounded-lg border border-[var(--border-default)] overflow-hidden">
+          <div className="px-4 py-2.5 bg-[var(--muted-surface)] border-b border-[var(--border-default)]">
+            <span className="ds-caption">Recent Salary Changes</span>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {employees.slice(0, 5).map(emp => {
+              const pos = emp.positionId ? getPositionById(emp.positionId) : null;
+              return (
+                <Link key={emp.id} href={`/employees/${emp.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--muted-surface)] transition-colors">
+                  <Avatar className="w-7 h-7">
+                    <AvatarFallback className="bg-[var(--success-bg)] text-[var(--success-text)] text-[10px]">{emp.firstName[0]}{emp.lastName[0]}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="ds-title">{emp.firstName} {emp.lastName}</p>
+                    <p className="ds-meta">{pos?.title}</p>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[var(--text-disabled)]" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

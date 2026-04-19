@@ -6,10 +6,10 @@
  *
  * Coverage:
  *  - ADMIN sees all nav items including Settings
- *  - MANAGER sees team management items, no admin/compliance
- *  - TEAM_LEAD sees team items, no compensation/compliance/admin
+ *  - MANAGER sees team management items, no admin
+ *  - TEAM_LEAD sees team items, no admin
  *  - EMPLOYEE sees self-service items only
- *  - PAYROLL sees leave/compensation/reports, no reviews/admin
+ *  - PAYROLL sees insights, no admin
  *  - Settings (admin:read) hidden for non-admin roles
  *  - Negative: items that should be hidden ARE hidden per role
  */
@@ -32,16 +32,10 @@ function renderSidebar(role: Role) {
 
 // Nav items and their required permissions (mirrored from Sidebar.tsx)
 const NAV_ITEMS: { title: string; requiredPermission?: string }[] = [
-  { title: 'Dashboard' }, // always visible
-  { title: 'Employees', requiredPermission: 'employee:read' },
-  { title: 'Approvals', requiredPermission: 'leave:approve' },
-  { title: 'Leave', requiredPermission: 'leave:read' },
-  { title: 'Compensation', requiredPermission: 'compensation:read' },
-  { title: 'Reviews', requiredPermission: 'review:read' },
-  { title: 'Onboarding', requiredPermission: 'onboarding:read' },
-  { title: 'Compliance', requiredPermission: 'compliance:read' },
-  { title: 'Communications', requiredPermission: 'communication:read' },
-  { title: 'Reports', requiredPermission: 'report:read' },
+  { title: 'Home' }, // always visible
+  { title: 'People', requiredPermission: 'employee:read' },
+  { title: 'Actions', requiredPermission: 'leave:approve' },
+  { title: 'Insights', requiredPermission: 'report:read' },
   { title: 'Knowledge' }, // always visible
 ];
 
@@ -108,14 +102,14 @@ describe('Sidebar RBAC: MANAGER', () => {
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 
-  it('hides Compliance (no compliance:read)', () => {
+  it('shows Actions (has leave:approve)', () => {
     renderSidebar('manager');
-    expect(screen.queryByText('Compliance')).not.toBeInTheDocument();
+    expect(screen.getByText('Actions')).toBeInTheDocument();
   });
 
-  it('shows Compensation (has compensation:read)', () => {
+  it('shows Insights (has report:read)', () => {
     renderSidebar('manager');
-    expect(screen.getByText('Compensation')).toBeInTheDocument();
+    expect(screen.getByText('Insights')).toBeInTheDocument();
   });
 });
 
@@ -138,14 +132,9 @@ describe('Sidebar RBAC: TEAM_LEAD', () => {
     }
   });
 
-  it('hides Compensation (no compensation:read)', () => {
+  it('shows Insights (has report:read)', () => {
     renderSidebar('team_lead');
-    expect(screen.queryByText('Compensation')).not.toBeInTheDocument();
-  });
-
-  it('hides Compliance (no compliance:read)', () => {
-    renderSidebar('team_lead');
-    expect(screen.queryByText('Compliance')).not.toBeInTheDocument();
+    expect(screen.getByText('Insights')).toBeInTheDocument();
   });
 
   it('hides Settings (no admin:read)', () => {
@@ -153,9 +142,9 @@ describe('Sidebar RBAC: TEAM_LEAD', () => {
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 
-  it('shows Approvals (has leave:approve)', () => {
+  it('shows Actions (has leave:approve)', () => {
     renderSidebar('team_lead');
-    expect(screen.getByText('Approvals')).toBeInTheDocument();
+    expect(screen.getByText('Actions')).toBeInTheDocument();
   });
 });
 
@@ -178,19 +167,14 @@ describe('Sidebar RBAC: EMPLOYEE', () => {
     }
   });
 
-  it('hides Compensation', () => {
+  it('hides Actions (no leave:approve)', () => {
     renderSidebar('employee');
-    expect(screen.queryByText('Compensation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument();
   });
 
-  it('hides Approvals (no leave:approve)', () => {
+  it('hides Insights (no report:read)', () => {
     renderSidebar('employee');
-    expect(screen.queryByText('Approvals')).not.toBeInTheDocument();
-  });
-
-  it('hides Reports (no report:read)', () => {
-    renderSidebar('employee');
-    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+    expect(screen.queryByText('Insights')).not.toBeInTheDocument();
   });
 
   it('hides Settings', () => {
@@ -198,21 +182,10 @@ describe('Sidebar RBAC: EMPLOYEE', () => {
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 
-  it('hides Compliance', () => {
+  it('shows Home, People, Knowledge', () => {
     renderSidebar('employee');
-    expect(screen.queryByText('Compliance')).not.toBeInTheDocument();
-  });
-
-  it('hides Onboarding', () => {
-    renderSidebar('employee');
-    expect(screen.queryByText('Onboarding')).not.toBeInTheDocument();
-  });
-
-  it('shows Dashboard, Employees, Leave, Knowledge', () => {
-    renderSidebar('employee');
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Employees')).toBeInTheDocument();
-    expect(screen.getByText('Leave')).toBeInTheDocument();
+    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('People')).toBeInTheDocument();
     expect(screen.getByText('Knowledge')).toBeInTheDocument();
   });
 });
@@ -236,14 +209,9 @@ describe('Sidebar RBAC: PAYROLL', () => {
     }
   });
 
-  it('hides Reviews (no review:read)', () => {
+  it('hides Actions (no leave:approve)', () => {
     renderSidebar('payroll');
-    expect(screen.queryByText('Reviews')).not.toBeInTheDocument();
-  });
-
-  it('hides Compliance', () => {
-    renderSidebar('payroll');
-    expect(screen.queryByText('Compliance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument();
   });
 
   it('hides Settings', () => {
@@ -251,24 +219,14 @@ describe('Sidebar RBAC: PAYROLL', () => {
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
   });
 
-  it('hides Approvals (no leave:approve)', () => {
+  it('shows Insights (has report:read)', () => {
     renderSidebar('payroll');
-    expect(screen.queryByText('Approvals')).not.toBeInTheDocument();
+    expect(screen.getByText('Insights')).toBeInTheDocument();
   });
 
-  it('shows Compensation (has compensation:read)', () => {
+  it('shows People (has employee:read)', () => {
     renderSidebar('payroll');
-    expect(screen.getByText('Compensation')).toBeInTheDocument();
-  });
-
-  it('shows Reports (has report:read)', () => {
-    renderSidebar('payroll');
-    expect(screen.getByText('Reports')).toBeInTheDocument();
-  });
-
-  it('shows Leave (has leave:read)', () => {
-    renderSidebar('payroll');
-    expect(screen.getByText('Leave')).toBeInTheDocument();
+    expect(screen.getByText('People')).toBeInTheDocument();
   });
 });
 
@@ -279,19 +237,19 @@ describe('Sidebar RBAC: PAYROLL', () => {
 describe('Sidebar RBAC: cross-role regression', () => {
   const ALL_ROLES: Role[] = ['admin', 'manager', 'team_lead', 'employee', 'payroll'];
 
-  it('Dashboard and Knowledge visible for all roles', () => {
+  it('Home and Knowledge visible for all roles', () => {
     for (const role of ALL_ROLES) {
       const { unmount } = renderSidebar(role);
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      expect(screen.getByText('Home')).toBeInTheDocument();
       expect(screen.getByText('Knowledge')).toBeInTheDocument();
       unmount();
     }
   });
 
-  it('Employees visible for all roles (all have employee:read)', () => {
+  it('People visible for all roles (all have employee:read)', () => {
     for (const role of ALL_ROLES) {
       const { unmount } = renderSidebar(role);
-      expect(screen.getByText('Employees')).toBeInTheDocument();
+      expect(screen.getByText('People')).toBeInTheDocument();
       unmount();
     }
   });
