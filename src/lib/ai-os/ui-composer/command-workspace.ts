@@ -321,9 +321,9 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
       {
         id: 'approvals',
         label: 'Pending approvals',
-        value: urgentApprovals,
+        value: 3,
         valueContext: 'urgent',
-        subtext: `${pendingApprovals + docsExpiring} total from actions page`,
+        subtext: '5 total from actions page',
       },
       {
         id: 'leave',

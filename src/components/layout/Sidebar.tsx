@@ -52,24 +52,23 @@ function buildNavItems(role: Role): NavItem[] {
       priority: 'normal',
     },
     {
+      title: 'Actions',
+      href: '/approvals',
+      icon: CheckSquare,
+      priority: 'normal',
+      requiredPermission: 'leave:approve',
+    },
+    {
       title: 'People',
       href: '/employees',
       icon: Users,
       requiredPermission: 'employee:read',
     },
     {
-      title: 'Actions',
-      href: '/approvals',
-      icon: CheckSquare,
-      badge: counts.approvals,
-      priority: counts.approvals > 0 ? 'elevated' : 'normal',
-      requiredPermission: 'leave:approve',
-    },
-    {
       title: 'Insights',
       href: '/reports',
       icon: PieChart,
-      priority: counts.compliance > 0 ? 'elevated' : 'normal',
+      priority: 'normal',
       requiredPermission: 'report:read',
     },
     {

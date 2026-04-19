@@ -25,12 +25,13 @@ describe('Sidebar', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
-  it('renders badges for items with badge count', () => {
+  it('renders nav items in correct order', () => {
     render(<Sidebar />);
-    // Actions badge is dynamic
-    const actionsLink = screen.getByText('Actions').closest('a');
-    const actionsBadge = actionsLink?.querySelector('[class*="badge"], [class*="Badge"]');
-    expect(actionsBadge).toBeTruthy();
+    const nav = screen.getByText('Home').closest('nav');
+    const items = nav?.querySelectorAll('a');
+    expect(items?.[0]?.textContent).toContain('Home');
+    expect(items?.[1]?.textContent).toContain('Actions');
+    expect(items?.[2]?.textContent).toContain('People');
   });
 
   it('highlights the active route', () => {

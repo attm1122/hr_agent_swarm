@@ -60,21 +60,7 @@ export default function PromptBar({ onSubmit, busy, suggestions, initialValue }:
         </Button>
       </div>
 
-      {suggestions && suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {suggestions.map(s => (
-            <button
-              key={s}
-              type="button"
-              disabled={busy}
-              onClick={() => onSubmit(s)}
-              className="rounded-full border border-[#E5E2DD] bg-[#F8F6F3] px-3 py-1 text-[11px] text-[#6B6B6B] transition hover:border-[#D1CFCA] hover:text-[#1A1A1A] disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Suggestions rendered below by CommandWorkspace */}
     </div>
   );
 }
