@@ -4,8 +4,16 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Sparkles, Users, CheckSquare, PieChart, BookOpen, Settings,
-  Menu, X, ChevronLeft, ChevronRight
+  Sparkles,
+  Users,
+  CheckSquare,
+  PieChart,
+  BookOpen,
+  Settings,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +34,8 @@ interface NavItem {
 function getSignalCounts() {
   return {
     approvals: actionQueue.length,
-    compliance: documents.filter(d => d.status === 'expiring' || d.status === 'expired').length +
+    compliance:
+      documents.filter(d => d.status === 'expiring' || d.status === 'expired').length +
       milestones.filter(m => m.milestoneType === 'visa_expiry' && m.status !== 'completed').length,
   };
 }
@@ -100,13 +109,17 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
   const userPerms = permissions || [];
 
   const navItems = allNav.filter(item => {
-    if (item.requiredPermission && !userPerms.includes(item.requiredPermission) && role !== 'admin') return false;
+    if (item.requiredPermission && !userPerms.includes(item.requiredPermission) && role !== 'admin')
+      return false;
     return true;
   });
 
-  const filteredBottomNav = role === 'admin'
-    ? bottomNavItems
-    : bottomNavItems.filter(item => !item.requiredPermission || userPerms.includes(item.requiredPermission));
+  const filteredBottomNav =
+    role === 'admin'
+      ? bottomNavItems
+      : bottomNavItems.filter(
+          item => !item.requiredPermission || userPerms.includes(item.requiredPermission)
+        );
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -128,7 +141,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
           'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]',
           active
-            ? 'bg-[var(--success-bg)] text-[var(--success-text)]'
+            ? 'bg-[#FEF3C7] text-[#92400E]'
             : 'text-[var(--text-secondary)] hover:bg-[var(--muted-surface)] hover:text-[var(--text-primary)]'
         )}
         aria-current={active ? 'page' : undefined}
@@ -138,12 +151,17 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
           <Icon
             className={cn(
               'w-[18px] h-[18px] shrink-0',
-              active ? 'text-[var(--primary)]' : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'
+              active
+                ? 'text-[#B45309]'
+                : 'text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'
             )}
             aria-hidden="true"
           />
           {hasUrgency && active === false && (
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--warning)]" aria-hidden="true" />
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--warning)]"
+              aria-hidden="true"
+            />
           )}
         </div>
         {!collapsed && (
@@ -155,7 +173,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
                 className={cn(
                   'h-5 min-w-5 flex items-center justify-center text-[11px] px-1.5 shrink-0 font-semibold',
                   active
-                    ? 'bg-[var(--primary)] text-white'
+                    ? 'bg-[#F59E0B] text-white'
                     : 'bg-[var(--muted-surface)] text-[var(--text-tertiary)]'
                 )}
               >
@@ -181,7 +199,11 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
           aria-expanded={mobileOpen}
           aria-controls="sidebar-nav"
         >
-          {mobileOpen ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
+          {mobileOpen ? (
+            <X className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <Menu className="w-5 h-5" aria-hidden="true" />
+          )}
         </Button>
       </div>
 
@@ -198,7 +220,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
       <aside
         id="sidebar-nav"
         className={cn(
-          'flex flex-col h-full bg-white border-r border-[var(--border-default)] z-40 transition-all duration-250 ease-in-out',
+          'flex flex-col h-full bg-[#F0EDE8] border-r border-[#E5E2DD] z-40 transition-all duration-250 ease-in-out',
           'fixed lg:static inset-y-0 left-0',
           sidebarWidth,
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -207,7 +229,7 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
         aria-label="Main navigation"
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 h-14 border-b border-[var(--border-default)] shrink-0">
+        <div className="flex items-center gap-3 px-4 h-14 border-b border-[#E5E2DD] shrink-0">
           <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-white" aria-hidden="true" />
           </div>
@@ -221,16 +243,16 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
         {/* Main nav */}
         <div className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
           <nav className="space-y-1" aria-label="Primary">
-            {navItems.map((item) => (
+            {navItems.map(item => (
               <NavLink key={item.href} item={item} />
             ))}
           </nav>
         </div>
 
         {/* Bottom nav */}
-        <div className="border-t border-[var(--border-default)] p-3 shrink-0">
+        <div className="border-t border-[#E5E2DD] p-3 shrink-0">
           <nav className="space-y-1" aria-label="Secondary">
-            {filteredBottomNav.map((item) => (
+            {filteredBottomNav.map(item => (
               <NavLink key={item.href} item={item} />
             ))}
           </nav>
@@ -243,7 +265,11 @@ export function Sidebar({ role = 'admin', permissions }: SidebarProps) {
             onClick={() => setCollapsed(!collapsed)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4 mr-2" />}
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 mr-2" />
+            )}
             {!collapsed && <span className="text-xs">Collapse</span>}
           </Button>
         </div>

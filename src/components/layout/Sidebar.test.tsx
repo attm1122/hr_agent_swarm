@@ -37,14 +37,14 @@ describe('Sidebar', () => {
     mockUsePathname.mockReturnValue('/');
     render(<Sidebar />);
     const homeLink = screen.getByText('Home').closest('a');
-    expect(homeLink?.className).toContain('bg-[var(--success-bg)]');
+    expect(homeLink?.className).toContain('bg-[#FEF3C7]');
   });
 
   it('highlights people route when on sub-path', () => {
     mockUsePathname.mockReturnValue('/employees/emp-001');
     render(<Sidebar />);
     const peopleLink = screen.getByText('People').closest('a');
-    expect(peopleLink?.className).toContain('bg-[var(--success-bg)]');
+    expect(peopleLink?.className).toContain('bg-[#FEF3C7]');
   });
 
   it('renders nav links with correct hrefs', () => {
@@ -78,15 +78,15 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     const peopleLink = screen.getByText('People').closest('a');
     expect(peopleLink?.className).toContain('text-[var(--text-secondary)]');
-    expect(peopleLink?.className).not.toContain('bg-[var(--success-bg)]');
+    expect(peopleLink?.className).not.toContain('bg-[#FEF3C7]');
   });
 
   it('highlights settings link when active', () => {
     mockUsePathname.mockReturnValue('/admin');
     render(<Sidebar />);
     const settingsLink = screen.getByText('Settings').closest('a');
-    expect(settingsLink?.className).toContain('bg-[var(--success-bg)]');
-    expect(settingsLink?.className).toContain('text-[var(--success-text)]');
+    expect(settingsLink?.className).toContain('bg-[#FEF3C7]');
+    expect(settingsLink?.className).toContain('text-[#92400E]');
   });
 
   it('settings link is not active on other routes', () => {
@@ -94,6 +94,6 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     const settingsLink = screen.getByText('Settings').closest('a');
     expect(settingsLink?.className).toContain('text-[var(--text-secondary)]');
-    expect(settingsLink?.className).not.toContain('bg-[var(--success-bg)]');
+    expect(settingsLink?.className).not.toContain('bg-[#FEF3C7]');
   });
 });

@@ -10,21 +10,18 @@ describe('Header', () => {
   });
 
   it('renders with custom user', () => {
-    render(
-      <Header user={{ name: 'John Doe', email: 'john@test.com', role: 'Engineer' }} />
-    );
+    render(<Header user={{ name: 'John Doe', email: 'john@test.com', role: 'Engineer' }} />);
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('Engineer')).toBeInTheDocument();
   });
 
-  it('renders search button', () => {
+  it('renders search bar', () => {
     render(<Header />);
-    expect(screen.getByLabelText('Search pages and commands')).toBeInTheDocument();
+    expect(screen.getByText('Search all your content...')).toBeInTheDocument();
   });
 
   it('renders notification bell', () => {
     const { container } = render(<Header />);
-    // Bell icon is an SVG
     const svgs = container.querySelectorAll('svg');
     expect(svgs.length).toBeGreaterThan(0);
   });
@@ -35,22 +32,18 @@ describe('Header', () => {
   });
 
   it('renders correct initials for custom user', () => {
-    render(
-      <Header user={{ name: 'John Doe', email: 'john@test.com', role: 'Dev' }} />
-    );
+    render(<Header user={{ name: 'John Doe', email: 'john@test.com', role: 'Dev' }} />);
     expect(screen.getByText('JD')).toBeInTheDocument();
   });
 
   it('renders dropdown menu items', () => {
     render(<Header />);
-    // The dropdown trigger should be present
     expect(screen.getByText('Sarah Chen')).toBeInTheDocument();
   });
 
   it('renders notification dot', () => {
     const { container } = render(<Header />);
-    // Danger notification dot using CSS variable
-    const dot = container.querySelector('.bg-\\[var\\(--danger\\)\\]');
+    const dot = container.querySelector('[aria-label*="Notifications"]');
     expect(dot).toBeInTheDocument();
   });
 });

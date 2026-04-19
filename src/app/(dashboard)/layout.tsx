@@ -8,11 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ShieldX } from 'lucide-react';
 import { getSession } from '@/lib/auth/session';
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
 
   if (!session) {
@@ -34,16 +30,12 @@ export default async function DashboardLayout({
   return (
     <>
       <SkipLink />
-      <div className="flex h-screen surface-canvas">
+      <div className="flex h-screen bg-[#F8F6F3]">
         <Sidebar role={session.role} permissions={session.permissions} />
         <div className="flex flex-col flex-1 overflow-hidden min-w-0">
           <Header user={{ name: session.name, email: session.email, role: session.title }} />
-          <main
-            className="flex-1 overflow-auto p-5 lg:p-6 pb-20 lg:pb-6 scrollbar-thin"
-            id="main-content"
-            tabIndex={-1}
-          >
-            {children}
+          <main className="flex-1 overflow-auto scrollbar-thin" id="main-content" tabIndex={-1}>
+            <div className="max-w-5xl mx-auto p-5 lg:p-6 pb-20 lg:pb-6">{children}</div>
           </main>
           <MobileNav role={session.role} permissions={session.permissions} />
         </div>

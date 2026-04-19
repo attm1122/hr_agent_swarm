@@ -35,7 +35,7 @@ async function safeLoadBalances(employeeId: string | undefined) {
   if (!employeeId) return null;
   try {
     const balances = await getLeaveStore().listBalances(employeeId, 'default');
-    const annual = balances.find((b) => b.leaveType === 'annual');
+    const annual = balances.find(b => b.leaveType === 'annual');
     return annual?.remainingDays ?? null;
   } catch {
     return null;
@@ -48,9 +48,14 @@ function signalToInsight(signal: RiskSignal, index: number) {
   return {
     id: `sig-${index}`,
     title: signal.title,
-    severity: signal.severity === 'critical' ? 'danger' as const :
-              signal.severity === 'high' ? 'warning' as const :
-              signal.severity === 'medium' ? 'info' as const : 'neutral' as const,
+    severity:
+      signal.severity === 'critical'
+        ? ('danger' as const)
+        : signal.severity === 'high'
+          ? ('warning' as const)
+          : signal.severity === 'medium'
+            ? ('info' as const)
+            : ('neutral' as const),
     narrative: `${signal.summary} — ${signal.recommendation}`,
     ctaLabel: signal.action_options[0]?.label,
     ctaIntent: signal.action_options[0]?.intent?.rawInput,
@@ -58,35 +63,51 @@ function signalToInsight(signal: RiskSignal, index: number) {
   };
 }
 
-function leaveToTimelineEvent(lr: LeaveRequest, index: number): CommandWorkspaceData['timeline'][number] {
+function leaveToTimelineEvent(
+  lr: LeaveRequest,
+  index: number
+): CommandWorkspaceData['timeline'][number] {
   const emp = getEmployeeById(lr.employeeId);
   return {
     id: `leave-${lr.id}`,
     title: `${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId} — ${lr.leaveType.replace('_', ' ')}`,
     date: lr.startDate,
     type: 'leave' as const,
-    status: lr.status === 'pending' ? 'upcoming' :
-            lr.startDate <= new Date().toISOString().slice(0, 10) ? 'today' : 'upcoming',
+    status:
+      lr.status === 'pending'
+        ? 'upcoming'
+        : lr.startDate <= new Date().toISOString().slice(0, 10)
+          ? 'today'
+          : 'upcoming',
     assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
     actionLabel: lr.status === 'pending' ? 'Review' : undefined,
     actionIntent: `Review leave request from ${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId}`,
   };
 }
 
-function milestoneToTimelineEvent(ms: Milestone, index: number): CommandWorkspaceData['timeline'][number] {
+function milestoneToTimelineEvent(
+  ms: Milestone,
+  index: number
+): CommandWorkspaceData['timeline'][number] {
   const emp = getEmployeeById(ms.employeeId);
   return {
     id: `ms-${ms.id}`,
     title: ms.description ?? ms.milestoneType,
     date: ms.milestoneDate,
-    type: ms.milestoneType.includes('review') ? 'review' :
-          ms.milestoneType.includes('visa') ? 'deadline' : 'milestone',
+    type: ms.milestoneType.includes('review')
+      ? 'review'
+      : ms.milestoneType.includes('visa')
+        ? 'deadline'
+        : 'milestone',
     status: ms.status === 'upcoming' ? 'upcoming' : 'completed',
     assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
   };
 }
 
-function leaveToWorkflow(lr: LeaveRequest, index: number): CommandWorkspaceData['workflows'][number] {
+function leaveToWorkflow(
+  lr: LeaveRequest,
+  index: number
+): CommandWorkspaceData['workflows'][number] {
   const emp = getEmployeeById(lr.employeeId);
   const isUrgent = lr.daysRequested >= 5;
   return {
@@ -99,7 +120,11 @@ function leaveToWorkflow(lr: LeaveRequest, index: number): CommandWorkspaceData[
     assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
     actions: [
       { label: 'Approve', variant: 'primary' as const, intent: `Approve leave request ${lr.id}` },
-      { label: 'Review', variant: 'secondary' as const, intent: `Review leave request from ${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId}` },
+      {
+        label: 'Review',
+        variant: 'secondary' as const,
+        intent: `Review leave request from ${emp ? `${emp.firstName} ${emp.lastName}` : lr.employeeId}`,
+      },
     ],
   };
 }
@@ -111,7 +136,7 @@ async function composeEmployee(opts: CommandWorkspaceOptions): Promise<CommandWo
   const firstName = opts.userName?.split(' ')[0] ?? 'there';
   const leaveBalanceDays = await safeLoadBalances(opts.employeeId);
   const myPendingLeave = mockLeaveRequests.filter(
-    (r) => r.employeeId === opts.employeeId && r.status === 'pending',
+    r => r.employeeId === opts.employeeId && r.status === 'pending'
   );
 
   return {
@@ -122,21 +147,38 @@ async function composeEmployee(opts: CommandWorkspaceOptions): Promise<CommandWo
       avatarFallback: me ? `${me.firstName[0]}${me.lastName[0]}` : 'ME',
     },
     metrics: [
-      { id: 'headcount', label: 'Headcount', value: '1', valueContext: 'total', subtext: 'you', delta: { direction: 'flat' as const, value: '—' } },
-      { id: 'approvals', label: 'Pending approvals', value: myPendingLeave.length, valueContext: myPendingLeave.length === 1 ? 'urgent' : 'urgent', subtext: 'your requests' },
+      {
+        id: 'headcount',
+        label: 'Headcount',
+        value: '1',
+        valueContext: 'total',
+        subtext: 'you',
+        delta: { direction: 'flat' as const, value: '—' },
+      },
+      {
+        id: 'approvals',
+        label: 'Pending approvals',
+        value: myPendingLeave.length,
+        valueContext: myPendingLeave.length === 1 ? 'urgent' : 'urgent',
+        subtext: 'your requests',
+      },
       { id: 'leave', label: 'On leave today', value: 0, valueContext: 'sick', subtext: 'sick' },
-      { id: 'risk', label: 'Risk indicators', value: 0, valueContext: 'critical', subtext: 'active' },
+      {
+        id: 'risk',
+        label: 'Risk indicators',
+        value: 0,
+        valueContext: 'critical',
+        subtext: 'active',
+      },
     ],
     insights: [],
     timeline: [
       ...myPendingLeave.map(leaveToTimelineEvent),
       ...mockMilestones
-        .filter((m) => m.employeeId === opts.employeeId && m.status === 'upcoming')
+        .filter(m => m.employeeId === opts.employeeId && m.status === 'upcoming')
         .map(milestoneToTimelineEvent),
     ],
-    workflows: [
-      ...myPendingLeave.map(leaveToWorkflow),
-    ],
+    workflows: [...myPendingLeave.map(leaveToWorkflow)],
     aiSuggestions: [
       'Update my address',
       'How much leave do I have left?',
@@ -151,10 +193,10 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
   const firstName = opts.userName?.split(' ')[0] ?? 'Manager';
   const teamMembers = opts.employeeId ? getDirectReports(opts.employeeId) : [];
   const teamPendingLeave = mockLeaveRequests.filter(
-    (r) => r.status === 'pending' && teamMembers.some((m) => m.id === r.employeeId),
+    r => r.status === 'pending' && teamMembers.some(m => m.id === r.employeeId)
   );
   const teamMilestones = mockMilestones.filter(
-    (m) => m.status === 'upcoming' && teamMembers.some((tm) => tm.id === m.employeeId),
+    m => m.status === 'upcoming' && teamMembers.some(tm => tm.id === m.employeeId)
   );
 
   return {
@@ -166,19 +208,43 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
       scope: teamMembers.length > 0 ? `${teamMembers.length} direct reports` : undefined,
     },
     metrics: [
-      { id: 'headcount', label: 'Headcount', value: teamMembers.length, valueContext: 'total', subtext: 'active', delta: { direction: 'up' as const, value: `+${teamMembers.length}` } },
-      { id: 'approvals', label: 'Pending approvals', value: teamPendingLeave.length, valueContext: 'urgent', subtext: 'from your team', delta: teamPendingLeave.length > 0 ? { direction: 'up' as const, value: `${teamPendingLeave.length} urgent` } : undefined },
+      {
+        id: 'headcount',
+        label: 'Headcount',
+        value: teamMembers.length,
+        valueContext: 'total',
+        subtext: 'active',
+        delta: { direction: 'up' as const, value: `+${teamMembers.length}` },
+      },
+      {
+        id: 'approvals',
+        label: 'Pending approvals',
+        value: teamPendingLeave.length,
+        valueContext: 'urgent',
+        subtext: 'from your team',
+        delta:
+          teamPendingLeave.length > 0
+            ? { direction: 'up' as const, value: `${teamPendingLeave.length} urgent` }
+            : undefined,
+      },
       { id: 'leave', label: 'On leave today', value: 0, valueContext: 'sick', subtext: 'sick' },
-      { id: 'risk', label: 'Risk indicators', value: 0, valueContext: 'critical', subtext: 'this week' },
+      {
+        id: 'risk',
+        label: 'Risk indicators',
+        value: 0,
+        valueContext: 'critical',
+        subtext: 'this week',
+      },
     ],
     insights: [
       {
         id: 'team-health',
         title: 'Team health',
         severity: teamPendingLeave.length > 0 ? 'info' : 'neutral',
-        narrative: teamPendingLeave.length > 0
-          ? `${teamPendingLeave.length} leave request${teamPendingLeave.length > 1 ? 's' : ''} awaiting your decision. Review coverage before approving.`
-          : 'Your team is fully staffed with no pending decisions.',
+        narrative:
+          teamPendingLeave.length > 0
+            ? `${teamPendingLeave.length} leave request${teamPendingLeave.length > 1 ? 's' : ''} awaiting your decision. Review coverage before approving.`
+            : 'Your team is fully staffed with no pending decisions.',
         ctaLabel: teamPendingLeave.length > 0 ? 'Review all' : undefined,
         ctaIntent: 'Show all pending leave requests for my team',
       },
@@ -189,18 +255,27 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
     ],
     workflows: [
       ...teamPendingLeave.map(leaveToWorkflow),
-      ...teamMilestones.map((ms) => {
+      ...teamMilestones.map(ms => {
         const emp = getEmployeeById(ms.employeeId);
         return {
           id: `wf-ms-${ms.id}`,
           title: ms.description ?? ms.milestoneType,
           description: `${emp ? `${emp.firstName} ${emp.lastName}` : ms.employeeId} · Due ${ms.milestoneDate}`,
-          severity: (ms.milestoneType.includes('visa') ? 'critical' :
-                    ms.milestoneType.includes('probation') ? 'warning' : 'info') as 'critical' | 'warning' | 'info',
+          severity: (ms.milestoneType.includes('visa')
+            ? 'critical'
+            : ms.milestoneType.includes('probation')
+              ? 'warning'
+              : 'info') as 'critical' | 'warning' | 'info',
           status: 'Upcoming',
           dueDate: ms.milestoneDate,
           assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
-          actions: [{ label: 'Review', variant: 'secondary' as const, intent: `Review ${ms.description} for ${emp ? `${emp.firstName} ${emp.lastName}` : ms.employeeId}` }],
+          actions: [
+            {
+              label: 'Review',
+              variant: 'secondary' as const,
+              intent: `Review ${ms.description} for ${emp ? `${emp.firstName} ${emp.lastName}` : ms.employeeId}`,
+            },
+          ],
         };
       }),
     ],
@@ -215,38 +290,63 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
 
 async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspaceData> {
   const firstName = opts.userName?.split(' ')[0] ?? 'HR';
-  const activeEmployees = mockEmployees.filter((e) => e.status === 'active').length;
-  const pendingApprovals = mockLeaveRequests.filter((l) => l.status === 'pending').length;
-  const docsExpiring = mockDocuments.filter((d) => d.status === 'expiring').length;
+  const activeEmployees = mockEmployees.filter(e => e.status === 'active').length;
+  const pendingApprovals = mockLeaveRequests.filter(l => l.status === 'pending').length;
+  const docsExpiring = mockDocuments.filter(d => d.status === 'expiring').length;
   const upcomingMilestones = mockMilestones
-    .filter((m) => m.status === 'upcoming')
+    .filter(m => m.status === 'upcoming')
     .sort((a, b) => a.milestoneDate.localeCompare(b.milestoneDate));
 
-  const visaMilestones = upcomingMilestones.filter((m) => m.milestoneType === 'visa_expiry');
-  const probationMilestones = upcomingMilestones.filter((m) => m.milestoneType === 'probation_end');
+  const visaMilestones = upcomingMilestones.filter(m => m.milestoneType === 'visa_expiry');
+  const probationMilestones = upcomingMilestones.filter(m => m.milestoneType === 'probation_end');
 
   return {
     identity: {
       name: opts.userName ?? firstName,
       role: 'admin',
-      roleLabel: 'HR view',
+      roleLabel: 'HR View',
       avatarFallback: 'HR',
       scope: '21 stories',
     },
     metrics: [
-      { id: 'headcount', label: 'Headcount', value: activeEmployees, valueContext: 'total', subtext: 'active', delta: { direction: 'up' as const, value: '+2' } },
-      { id: 'approvals', label: 'Pending approvals', value: pendingApprovals, valueContext: 'urgent', subtext: 'leave & docs', delta: pendingApprovals > 0 ? { direction: 'up' as const, value: `${pendingApprovals} urgent` } : undefined },
-      { id: 'leave', label: 'On leave today', value: mockEmployees.filter((e) => e.status === 'on_leave').length, valueContext: 'sick', subtext: 'sick' },
-      { id: 'risk', label: 'Risk indicators', value: docsExpiring + visaMilestones.length, valueContext: 'critical', subtext: 'active expiry reports', delta: docsExpiring + visaMilestones.length > 0 ? { direction: 'up' as const, value: 'urgent' } : undefined },
+      {
+        id: 'headcount',
+        label: 'Headcount',
+        value: activeEmployees,
+        valueContext: 'total',
+        subtext: `${activeEmployees} active`,
+      },
+      {
+        id: 'approvals',
+        label: 'Pending approvals',
+        value: pendingApprovals,
+        valueContext: 'urgent',
+        subtext: `${mockLeaveRequests.filter(l => l.status === 'pending').length + mockDocuments.filter(d => d.status === 'expiring').length} total from actions page`,
+      },
+      {
+        id: 'leave',
+        label: 'On leave today',
+        value: mockEmployees.filter(e => e.status === 'on_leave').length,
+        valueContext: '',
+        subtext: 'sick',
+      },
+      {
+        id: 'risk',
+        label: 'BGS indicators',
+        value: docsExpiring + visaMilestones.length,
+        valueContext: 'critical',
+        subtext: 'todo from copy reports',
+      },
     ],
     insights: [
       {
         id: 'approval-workload',
         title: 'Approval workload',
         severity: pendingApprovals > 2 ? 'warning' : 'info',
-        narrative: pendingApprovals > 0
-          ? `${pendingApprovals} item${pendingApprovals > 1 ? 's' : ''} need approval. ${docsExpiring > 0 ? `${docsExpiring} document${docsExpiring > 1 ? 's' : ''} expiring soon.` : ''}`
-          : 'No pending approvals. All leave and document requests are current.',
+        narrative:
+          pendingApprovals > 0
+            ? `${pendingApprovals} item${pendingApprovals > 1 ? 's' : ''} need approval. ${docsExpiring > 0 ? `${docsExpiring} document${docsExpiring > 1 ? 's' : ''} expiring soon.` : ''}`
+            : 'No pending approvals. All leave and document requests are current.',
         ctaLabel: pendingApprovals > 0 ? 'Process queue' : undefined,
         ctaIntent: 'Show all pending approvals',
       },
@@ -254,9 +354,10 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
         id: 'compliance-status',
         title: 'Compliance status',
         severity: docsExpiring > 0 || visaMilestones.length > 0 ? 'warning' : 'neutral',
-        narrative: docsExpiring > 0
-          ? `${docsExpiring} document${docsExpiring > 1 ? 's' : ''} expiring. ${visaMilestones.length > 0 ? `${visaMilestones.length} visa renewal${visaMilestones.length > 1 ? 's' : ''} approaching.` : ''}`
-          : 'All compliance documents are current. No visa renewals due in the next 90 days.',
+        narrative:
+          docsExpiring > 0
+            ? `${docsExpiring} document${docsExpiring > 1 ? 's' : ''} expiring. ${visaMilestones.length > 0 ? `${visaMilestones.length} visa renewal${visaMilestones.length > 1 ? 's' : ''} approaching.` : ''}`
+            : 'All compliance documents are current. No visa renewals due in the next 90 days.',
       },
     ],
     timeline: [
@@ -285,28 +386,34 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
         status: 'upcoming',
         assignee: 'Discuss employee on projects',
       },
-      ...mockLeaveRequests
-        .filter((r) => r.status === 'pending')
-        .map(leaveToTimelineEvent),
+      ...mockLeaveRequests.filter(r => r.status === 'pending').map(leaveToTimelineEvent),
       ...upcomingMilestones.slice(0, 6).map(milestoneToTimelineEvent),
     ],
     workflows: [
-      ...mockLeaveRequests.filter((r) => r.status === 'pending').map(leaveToWorkflow),
-      ...(docsExpiring > 0 ? mockDocuments.filter((d) => d.status === 'expiring').map((doc) => {
-        const emp = getEmployeeById(doc.employeeId);
-        return {
-          id: `wf-doc-${doc.id}`,
-          title: `Renew document: ${doc.fileName}`,
-          description: `${emp ? `${emp.firstName} ${emp.lastName}` : doc.employeeId} · Expires ${doc.expiresAt ?? 'soon'}`,
-          severity: 'warning' as const,
-          status: 'Expiring',
-          dueDate: doc.expiresAt ?? undefined,
-          assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
-          actions: [
-            { label: 'Remind', variant: 'secondary' as const, intent: `Remind ${emp ? `${emp.firstName} ${emp.lastName}` : doc.employeeId} to renew ${doc.fileName}` },
-          ],
-        };
-      }) : []),
+      ...mockLeaveRequests.filter(r => r.status === 'pending').map(leaveToWorkflow),
+      ...(docsExpiring > 0
+        ? mockDocuments
+            .filter(d => d.status === 'expiring')
+            .map(doc => {
+              const emp = getEmployeeById(doc.employeeId);
+              return {
+                id: `wf-doc-${doc.id}`,
+                title: `Renew document: ${doc.fileName}`,
+                description: `${emp ? `${emp.firstName} ${emp.lastName}` : doc.employeeId} · Expires ${doc.expiresAt ?? 'soon'}`,
+                severity: 'warning' as const,
+                status: 'Expiring',
+                dueDate: doc.expiresAt ?? undefined,
+                assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
+                actions: [
+                  {
+                    label: 'Remind',
+                    variant: 'secondary' as const,
+                    intent: `Remind ${emp ? `${emp.firstName} ${emp.lastName}` : doc.employeeId} to renew ${doc.fileName}`,
+                  },
+                ],
+              };
+            })
+        : []),
       ...probationMilestones.map((ms, i) => {
         const emp = getEmployeeById(ms.employeeId);
         return {
@@ -317,7 +424,13 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
           status: 'Upcoming',
           dueDate: ms.milestoneDate,
           assignee: emp ? `${emp.firstName} ${emp.lastName}` : undefined,
-          actions: [{ label: 'Schedule', variant: 'secondary' as const, intent: `Schedule probation review for ${emp ? `${emp.firstName} ${emp.lastName}` : ms.employeeId}` }],
+          actions: [
+            {
+              label: 'Schedule',
+              variant: 'secondary' as const,
+              intent: `Schedule probation review for ${emp ? `${emp.firstName} ${emp.lastName}` : ms.employeeId}`,
+            },
+          ],
         };
       }),
     ],
@@ -333,7 +446,7 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
 /* ───────────────────────────────────────── public API */
 
 export async function composeCommandWorkspace(
-  opts: CommandWorkspaceOptions = {},
+  opts: CommandWorkspaceOptions = {}
 ): Promise<CommandWorkspaceData> {
   const role = normaliseRole(opts.userRole);
 

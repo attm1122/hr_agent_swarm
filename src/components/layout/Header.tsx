@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Home } from 'lucide-react';
+import { Bell, Search, Command } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,8 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CommandMenu } from '@/components/shared/CommandMenu';
-import { Breadcrumb } from '@/components/shared/Breadcrumb';
 
 interface HeaderProps {
   user?: {
@@ -22,45 +20,52 @@ interface HeaderProps {
   };
 }
 
-export function Header({ user = { name: 'Sarah Chen', email: 'sarah.chen@company.com', role: 'Chief People Officer' } }: HeaderProps) {
-  const initials = user.name.split(' ').map(n => n[0]).join('');
+export function Header({
+  user = { name: 'Sarah Chen', email: 'sarah.chen@company.com', role: 'Chief People Officer' },
+}: HeaderProps) {
+  const initials = user.name
+    .split(' ')
+    .map(n => n[0])
+    .join('');
 
   return (
-    <header className="flex items-center h-14 px-4 lg:px-5 bg-white border-b border-[var(--border-default)] shrink-0">
-      <div className="flex items-center flex-1 gap-4 min-w-0">
-        {/* Spacer for mobile hamburger */}
-        <div className="w-10 lg:hidden" />
-
-        {/* Breadcrumb */}
-        <div className="hidden md:flex items-center">
-          <Breadcrumb />
+    <header className="flex items-center h-14 px-4 lg:px-5 bg-white border-b border-[#E5E2DD] shrink-0">
+      {/* Search bar */}
+      <div className="flex-1 max-w-md">
+        <div className="flex items-center gap-2 h-9 px-3 rounded-lg bg-[#F8F6F3] border border-[#E5E2DD] text-[#9C9C9C] hover:border-[#D1CFCA] transition-colors">
+          <Search className="w-4 h-4" />
+          <span className="text-sm">Search all your content...</span>
+          <div className="ml-auto flex items-center gap-1 text-[11px] text-[#9C9C9C]">
+            <Command className="w-3 h-3" />
+            <span>K</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <CommandMenu />
-
+      <div className="flex items-center gap-3 ml-4">
+        {/* Notification bell */}
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--muted-surface)]"
+          className="relative h-9 w-9 text-[#9C9C9C] hover:text-[#1A1A1A] hover:bg-[#F8F6F3]"
           aria-label="Notifications, 1 unread"
         >
-          <Bell className="w-[18px] h-[18px]" aria-hidden="true" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--danger)] rounded-full ring-2 ring-white" aria-hidden="true" />
+          <Bell className="w-[18px] h-[18px]" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#EF4444] rounded-full ring-2 ring-white" />
         </Button>
 
+        {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <div className="flex items-center gap-2 h-9 px-2 hover:bg-[var(--muted-surface)] rounded-md cursor-pointer">
+            <div className="flex items-center gap-2 h-9 px-2 hover:bg-[#F8F6F3] rounded-md cursor-pointer">
               <Avatar className="w-7 h-7">
-                <AvatarFallback className="bg-[var(--success-bg)] text-[var(--success-text)] text-[11px] font-semibold">
+                <AvatarFallback className="bg-[#F4FCE8] text-[#3F6212] text-[11px] font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-medium text-[var(--text-primary)] leading-none">{user.name}</span>
-                <span className="text-xs text-[var(--text-tertiary)] leading-none mt-0.5">{user.role}</span>
+                <span className="text-sm font-medium text-[#1A1A1A] leading-none">{user.name}</span>
+                <span className="text-xs text-[#9C9C9C] leading-none mt-0.5">{user.role}</span>
               </div>
             </div>
           </DropdownMenuTrigger>
@@ -70,7 +75,7 @@ export function Header({ user = { name: 'Sarah Chen', email: 'sarah.chen@company
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Preferences</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-[var(--danger-text)]">Log out</DropdownMenuItem>
+            <DropdownMenuItem className="text-[#B91C1C]">Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

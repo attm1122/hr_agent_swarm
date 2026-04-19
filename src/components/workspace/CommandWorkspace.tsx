@@ -14,18 +14,14 @@ import { MetricCard } from './MetricCard';
 import { EventItem } from './EventItem';
 import { ActionCard } from './ActionCard';
 import type { CommandWorkspaceData } from './types';
-import type {
-  AiOsEvent,
-  Intent,
-  DecisionTrace,
-  UIAction,
-  UIBlock,
-} from '@/lib/ai-os';
+import type { AiOsEvent, Intent, DecisionTrace, UIAction, UIBlock } from '@/lib/ai-os';
 import type { ToolCallTrace } from '@/lib/ai/orchestrator';
 
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  return d
+    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    .toLowerCase();
 }
 
 interface RunState {
@@ -57,7 +53,9 @@ export default function CommandWorkspace({
   homeHeadline,
 }: CommandWorkspaceProps) {
   const [run, setRun] = useState<RunState>(EMPTY_RUN);
-  const [correction, setCorrection] = useState<{ original: string; alternatives: string[] } | null>(null);
+  const [correction, setCorrection] = useState<{ original: string; alternatives: string[] } | null>(
+    null
+  );
   const abortRef = useRef<AbortController | null>(null);
   const blocksEndRef = useRef<HTMLDivElement>(null);
 
@@ -92,9 +90,8 @@ export default function CommandWorkspace({
           401: 'Your session has expired. Please refresh the page.',
         };
         const errText =
-          friendlyMessages[res.status] ??
-          (await res.text().catch(() => 'Request failed'));
-        setRun((r) => ({ ...r, status: 'error', error: errText }));
+          friendlyMessages[res.status] ?? (await res.text().catch(() => 'Request failed'));
+        setRun(r => ({ ...r, status: 'error', error: errText }));
         return;
       }
 
@@ -122,10 +119,10 @@ export default function CommandWorkspace({
         }
       }
 
-      setRun((r) => ({ ...r, status: 'done' }));
+      setRun(r => ({ ...r, status: 'done' }));
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return;
-      setRun((r) => ({
+      setRun(r => ({
         ...r,
         status: 'error',
         error: err instanceof Error ? err.message : 'Unknown error',
@@ -134,44 +131,90 @@ export default function CommandWorkspace({
   }, []);
 
   function applyEvent(event: AiOsEvent) {
-    setRun((r) => {
+    setRun(r => {
       switch (event.kind) {
-        case 'ready': return r;
-        case 'intent_parsed': return { ...r, intent: event.intent };
-        case 'decision': return { ...r, decision: event.trace };
-        case 'agent_call': return { ...r, agentCalls: [...r.agentCalls, event.call] };
-        case 'block': return { ...r, blocks: [...r.blocks, event.block] };
-        case 'headline': return { ...r, headline: event.text };
-        case 'artifact_ready': return r;
-        case 'clarification_required': return { ...r, status: 'clarifying' };
-        case 'done': return { ...r, status: 'done' };
-        case 'error': return { ...r, status: 'error', error: event.message };
-        default: return r;
+        case 'ready':
+          return r;
+        case 'intent_parsed':
+          return { ...r, intent: event.intent };
+        case 'decision':
+          return { ...r, decision: event.trace };
+        case 'agent_call':
+          return { ...r, agentCalls: [...r.agentCalls, event.call] };
+        case 'block':
+          return { ...r, blocks: [...r.blocks, event.block] };
+        case 'headline':
+          return { ...r, headline: event.text };
+        case 'artifact_ready':
+          return r;
+        case 'clarification_required':
+          return { ...r, status: 'clarifying' };
+        case 'done':
+          return { ...r, status: 'done' };
+        case 'error':
+          return { ...r, status: 'error', error: event.message };
+        default:
+          return r;
       }
     });
   }
 
-  const onAction = useCallback((action: UIAction) => {
-    if (action.href) {
-      window.open(action.href, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (action.intent?.rawInput) {
-      if (action.confirmCopy && !window.confirm(action.confirmCopy)) return;
-      submit(action.intent.rawInput);
-    }
-  }, [submit]);
+  const onAction = useCallback(
+    (action: UIAction) => {
+      if (action.href) {
+        window.open(action.href, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if (action.intent?.rawInput) {
+        if (action.confirmCopy && !window.confirm(action.confirmCopy)) return;
+        submit(action.intent.rawInput);
+      }
+    },
+    [submit]
+  );
 
   const isIdle = run.status === 'idle';
   const isStreaming = run.status === 'streaming';
-  const blocksToShow = isIdle ? homeBlocks ?? [] : run.blocks;
+  const blocksToShow = isIdle ? (homeBlocks ?? []) : run.blocks;
   const headlineToShow = isIdle ? homeHeadline : run.headline;
 
   const progressSteps = [
-    { id: 'understand', label: 'Understanding', status: (run.intent ? 'complete' : isStreaming ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
-    { id: 'decide', label: 'Deciding', status: (run.decision ? 'complete' : run.intent && isStreaming ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
-    { id: 'execute', label: 'Executing', status: (run.agentCalls.length > 0 && run.status === 'done' ? 'complete' : run.decision && isStreaming ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
-    { id: 'compose', label: 'Composing', status: (run.status === 'done' ? 'complete' : run.blocks.length > 0 && isStreaming ? 'active' : 'pending') as 'pending' | 'active' | 'complete' | 'error' },
+    {
+      id: 'understand',
+      label: 'Understanding',
+      status: (run.intent ? 'complete' : isStreaming ? 'active' : 'pending') as
+        | 'pending'
+        | 'active'
+        | 'complete'
+        | 'error',
+    },
+    {
+      id: 'decide',
+      label: 'Deciding',
+      status: (run.decision ? 'complete' : run.intent && isStreaming ? 'active' : 'pending') as
+        | 'pending'
+        | 'active'
+        | 'complete'
+        | 'error',
+    },
+    {
+      id: 'execute',
+      label: 'Executing',
+      status: (run.agentCalls.length > 0 && run.status === 'done'
+        ? 'complete'
+        : run.decision && isStreaming
+          ? 'active'
+          : 'pending') as 'pending' | 'active' | 'complete' | 'error',
+    },
+    {
+      id: 'compose',
+      label: 'Composing',
+      status: (run.status === 'done'
+        ? 'complete'
+        : run.blocks.length > 0 && isStreaming
+          ? 'active'
+          : 'pending') as 'pending' | 'active' | 'complete' | 'error',
+    },
   ];
 
   return (
@@ -186,7 +229,7 @@ export default function CommandWorkspace({
 
         {/* ─── B. Metrics Row ─── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {data.metrics.map((m) => (
+          {data.metrics.map(m => (
             <MetricCard
               key={m.id}
               title={m.label}
@@ -195,7 +238,15 @@ export default function CommandWorkspace({
               subtext={m.subtext ?? m.context ?? ''}
               change={m.delta?.value}
               changeDirection={m.delta?.direction}
-              icon={m.id === 'headcount' ? 'users' : m.id === 'approvals' ? 'clipboard' : m.id === 'leave' ? 'plane' : 'shield'}
+              icon={
+                m.id === 'headcount'
+                  ? 'users'
+                  : m.id === 'approvals'
+                    ? 'clipboard'
+                    : m.id === 'leave'
+                      ? 'plane'
+                      : 'shield'
+              }
               isUrgent={m.id === 'approvals' || m.id === 'risk'}
             />
           ))}
@@ -207,7 +258,7 @@ export default function CommandWorkspace({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
-                Upcoming
+                Upcoming Events
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
                 {data.timeline.length} events
@@ -216,7 +267,9 @@ export default function CommandWorkspace({
 
             <div className="rounded-xl border border-[var(--border-default)] bg-white p-4">
               {data.timeline.length === 0 ? (
-                <p className="text-sm text-[var(--text-tertiary)] text-center py-6">No upcoming events</p>
+                <p className="text-sm text-[var(--text-tertiary)] text-center py-6">
+                  No upcoming events
+                </p>
               ) : (
                 <div className="space-y-0">
                   {data.timeline.map((event, i) => (
@@ -225,7 +278,15 @@ export default function CommandWorkspace({
                       time={event.date.includes('T') ? formatTime(event.date) : undefined}
                       title={event.title}
                       description={event.assignee}
-                      dotColor={event.type === 'leave' ? 'blue' : event.type === 'review' ? 'amber' : event.type === 'milestone' ? 'green' : 'teal'}
+                      dotColor={
+                        event.type === 'leave'
+                          ? 'blue'
+                          : event.type === 'review'
+                            ? 'amber'
+                            : event.type === 'milestone'
+                              ? 'green'
+                              : 'teal'
+                      }
                       isLast={i === data.timeline.length - 1}
                     />
                   ))}
@@ -238,31 +299,46 @@ export default function CommandWorkspace({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
-                Actions
+                Action Cards
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
-                {data.workflows.filter((w) => w.severity === 'critical' || w.severity === 'warning').length} urgent
+                {
+                  data.workflows.filter(w => w.severity === 'critical' || w.severity === 'warning')
+                    .length
+                }{' '}
+                urgent
               </span>
             </div>
 
             <div className="space-y-2">
               {data.workflows.length === 0 ? (
                 <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] p-4 text-center">
-                  <p className="text-sm text-[var(--success-text)]">All caught up — no pending actions</p>
+                  <p className="text-sm text-[var(--success-text)]">
+                    All caught up — no pending actions
+                  </p>
                 </div>
               ) : (
-                data.workflows.map((item) => (
+                data.workflows.map(item => (
                   <ActionCard
                     key={item.id}
                     title={item.title}
                     description={item.description}
                     assignee={item.assignee}
-                    assigneeInitials={item.assignee?.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                    assigneeInitials={item.assignee
+                      ?.split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .slice(0, 2)}
                     dueDate={item.dueDate}
                     isUrgent={item.severity === 'critical' || item.severity === 'warning'}
-                    actions={item.actions.map((a) => ({
+                    actions={item.actions.map(a => ({
                       label: a.label,
-                      variant: a.variant === 'primary' ? 'primary' : a.variant === 'danger' ? 'secondary' : 'secondary',
+                      variant:
+                        a.variant === 'primary'
+                          ? 'primary'
+                          : a.variant === 'danger'
+                            ? 'secondary'
+                            : 'secondary',
                       onClick: a.intent ? () => submit(a.intent!) : undefined,
                     }))}
                   />
@@ -316,18 +392,14 @@ export default function CommandWorkspace({
               aria-atomic="false"
               aria-relevant="additions"
             >
-              {blocksToShow.map((block) => (
+              {blocksToShow.map(block => (
                 <BlockRenderer key={block.id} block={block} onAction={onAction} />
               ))}
               <div ref={blocksEndRef} />
             </div>
 
             {(run.intent || run.decision || run.agentCalls.length > 0) && (
-              <AuditTrail
-                intent={run.intent}
-                decision={run.decision}
-                agentCalls={run.agentCalls}
-              />
+              <AuditTrail intent={run.intent} decision={run.decision} agentCalls={run.agentCalls} />
             )}
           </div>
         )}
@@ -337,7 +409,7 @@ export default function CommandWorkspace({
           <CorrectionPrompt
             originalIntent={correction.original}
             alternatives={correction.alternatives}
-            onSelect={(text) => {
+            onSelect={text => {
               setCorrection(null);
               submit(text);
             }}
