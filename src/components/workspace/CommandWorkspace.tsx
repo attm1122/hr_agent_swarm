@@ -261,7 +261,7 @@ export default function CommandWorkspace({
                 Upcoming Events
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
-                {data.timeline.length} events
+                {data.timeline.filter(e => e.type === 'event').length} events
               </span>
             </div>
 
@@ -272,22 +272,17 @@ export default function CommandWorkspace({
                 </p>
               ) : (
                 <div className="space-y-0">
-                  {data.timeline.slice(0, 5).map((event, i) => (
+                  {data.timeline
+                  .filter(e => e.type === 'event')
+                  .slice(0, 3)
+                  .map((event, i, arr) => (
                     <EventItem
                       key={event.id}
                       time={event.date.includes('T') ? formatTime(event.date) : undefined}
                       title={event.title}
                       description={event.assignee}
-                      dotColor={
-                        event.type === 'leave'
-                          ? 'blue'
-                          : event.type === 'review'
-                            ? 'amber'
-                            : event.type === 'milestone'
-                              ? 'green'
-                              : 'teal'
-                      }
-                      isLast={i === data.timeline.length - 1}
+                      dotColor="teal"
+                      isLast={i === arr.length - 1}
                     />
                   ))}
                 </div>
@@ -302,47 +297,38 @@ export default function CommandWorkspace({
                 Action Cards
               </h2>
               <span className="text-[11px] text-[var(--text-tertiary)]">
-                {
-                  data.workflows.slice(0, 5).filter(w => w.severity === 'critical' || w.severity === 'warning')
-                    .length
-                }{' '}
-                urgent
+                {data.workflows.filter(w => w.id.startsWith('wf-leave')).slice(0, 3).length} pending
               </span>
             </div>
 
             <div className="space-y-2">
-              {data.workflows.slice(0, 5).length === 0 ? (
+              {data.workflows.filter(w => w.id.startsWith('wf-leave')).slice(0, 3).length === 0 ? (
                 <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] p-4 text-center">
                   <p className="text-sm text-[var(--success-text)]">
                     All caught up — no pending actions
                   </p>
                 </div>
               ) : (
-                data.workflows.slice(0, 5).map(item => (
-                  <ActionCard
-                    key={item.id}
-                    title={item.title}
-                    description={item.description}
-                    assignee={item.assignee}
-                    assigneeInitials={item.assignee
-                      ?.split(' ')
-                      .map(n => n[0])
-                      .join('')
-                      .slice(0, 2)}
-                    dueDate={item.dueDate}
-                    isUrgent={item.severity === 'critical' || item.severity === 'warning'}
-                    actions={item.actions.map(a => ({
-                      label: a.label,
-                      variant:
-                        a.variant === 'primary'
-                          ? 'primary'
-                          : a.variant === 'danger'
-                            ? 'secondary'
-                            : 'secondary',
-                      onClick: a.intent ? () => submit(a.intent!) : undefined,
-                    }))}
-                  />
-                ))
+                data.workflows
+                  .filter(w => w.id.startsWith('wf-leave'))
+                  .slice(0, 3)
+                  .map(item => (
+                    <ActionCard
+                      key={item.id}
+                      title={item.title}
+                      isUrgent={true}
+                      actions={item.actions.map(a => ({
+                        label: a.label,
+                        variant:
+                          a.variant === 'primary'
+                            ? 'primary'
+                            : a.variant === 'danger'
+                              ? 'secondary'
+                              : 'secondary',
+                        onClick: a.intent ? () => submit(a.intent!) : undefined,
+                      }))}
+                    />
+                  ))
               )}
             </div>
           </div>

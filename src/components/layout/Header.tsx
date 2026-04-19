@@ -23,6 +23,7 @@ interface HeaderProps {
 export function Header({
   user = { name: 'Sarah Chen', email: 'sarah.chen@company.com', role: 'Chief People Officer' },
 }: HeaderProps) {
+  const firstName = user.name.split(' ')[0];
   const initials = user.name
     .split(' ')
     .map(n => n[0])
@@ -64,7 +65,7 @@ export function Header({
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-medium text-[#1A1A1A] leading-none">{user.name}</span>
+                <span className="text-sm font-medium text-[#1A1A1A] leading-none">{firstName}</span>
                 <span className="text-xs text-[#9C9C9C] leading-none mt-0.5">{user.role}</span>
               </div>
             </div>

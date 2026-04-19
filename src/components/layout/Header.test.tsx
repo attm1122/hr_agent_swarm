@@ -5,13 +5,13 @@ import { Header } from './Header';
 describe('Header', () => {
   it('renders with default user', () => {
     render(<Header />);
-    expect(screen.getByText('Sarah Chen')).toBeInTheDocument();
+    expect(screen.getByText('Sarah')).toBeInTheDocument();
     expect(screen.getByText('Chief People Officer')).toBeInTheDocument();
   });
 
   it('renders with custom user', () => {
     render(<Header user={{ name: 'John Doe', email: 'john@test.com', role: 'Engineer' }} />);
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('John')).toBeInTheDocument();
     expect(screen.getByText('Engineer')).toBeInTheDocument();
   });
 
@@ -38,7 +38,7 @@ describe('Header', () => {
 
   it('renders dropdown menu items', () => {
     render(<Header />);
-    expect(screen.getByText('Sarah Chen')).toBeInTheDocument();
+    expect(screen.getByText('Sarah')).toBeInTheDocument();
   });
 
   it('renders notification dot', () => {
