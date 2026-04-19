@@ -122,9 +122,10 @@ async function composeEmployee(opts: CommandWorkspaceOptions): Promise<CommandWo
       avatarFallback: me ? `${me.firstName[0]}${me.lastName[0]}` : 'ME',
     },
     metrics: [
-      { id: 'leave', label: 'Annual leave', value: typeof leaveBalanceDays === 'number' ? `${leaveBalanceDays}d` : '—', context: 'remaining' },
-      { id: 'pending', label: 'Pending', value: myPendingLeave.length, context: 'requests' },
-      { id: 'actions', label: 'Actions', value: 0, context: 'for you' },
+      { id: 'headcount', label: 'Headcount', value: '1', context: 'you', delta: { direction: 'flat' as const, value: '—' } },
+      { id: 'approvals', label: 'Pending approvals', value: myPendingLeave.length, context: 'your requests' },
+      { id: 'leave', label: 'On leave today', value: 0, context: 'sick' },
+      { id: 'risk', label: 'Risk indicators', value: 0, context: 'active' },
     ],
     insights: [],
     timeline: [
@@ -165,10 +166,10 @@ async function composeManager(opts: CommandWorkspaceOptions): Promise<CommandWor
       scope: teamMembers.length > 0 ? `${teamMembers.length} direct reports` : undefined,
     },
     metrics: [
-      { id: 'team', label: 'Team size', value: teamMembers.length },
-      { id: 'leave', label: 'Leave to decide', value: teamPendingLeave.length, delta: teamPendingLeave.length > 0 ? { direction: 'up', value: 'pending' } : undefined },
-      { id: 'reviews', label: 'Reviews due', value: 0 },
-      { id: 'risk', label: 'Risk signals', value: 0, context: 'this week' },
+      { id: 'headcount', label: 'Headcount', value: teamMembers.length, context: 'active', delta: { direction: 'up' as const, value: `+${teamMembers.length}` } },
+      { id: 'approvals', label: 'Pending approvals', value: teamPendingLeave.length, context: 'from your team', delta: teamPendingLeave.length > 0 ? { direction: 'up' as const, value: `${teamPendingLeave.length} urgent` } : undefined },
+      { id: 'leave', label: 'On leave today', value: 0, context: 'sick' },
+      { id: 'risk', label: 'Risk indicators', value: 0, context: 'this week' },
     ],
     insights: [
       {
@@ -233,10 +234,10 @@ async function composeHr(opts: CommandWorkspaceOptions): Promise<CommandWorkspac
       scope: 'Organisation',
     },
     metrics: [
-      { id: 'headcount', label: 'Headcount', value: activeEmployees, delta: { direction: 'up', value: '+2' } },
-      { id: 'approvals', label: 'Pending approvals', value: pendingApprovals, context: 'leave & docs' },
-      { id: 'leave', label: 'On leave today', value: mockEmployees.filter((e) => e.status === 'on_leave').length },
-      { id: 'risk', label: 'Risk indicators', value: docsExpiring + visaMilestones.length, delta: { direction: 'up', value: 'urgent' } },
+      { id: 'headcount', label: 'Headcount', value: activeEmployees, context: 'active', delta: { direction: 'up' as const, value: '+2' } },
+      { id: 'approvals', label: 'Pending approvals', value: pendingApprovals, context: 'leave & docs', delta: pendingApprovals > 0 ? { direction: 'up' as const, value: `${pendingApprovals} urgent` } : undefined },
+      { id: 'leave', label: 'On leave today', value: mockEmployees.filter((e) => e.status === 'on_leave').length, context: 'sick' },
+      { id: 'risk', label: 'Risk indicators', value: docsExpiring + visaMilestones.length, context: 'active expiry reports', delta: docsExpiring + visaMilestones.length > 0 ? { direction: 'up' as const, value: 'urgent' } : undefined },
     ],
     insights: [
       {

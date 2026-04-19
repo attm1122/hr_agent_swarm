@@ -136,14 +136,14 @@
 
 :root {
   /* ── Semantic Palette ──────────────────────────────────────── */
-  --primary: #059669;
-  --primary-hover: #047857;
+  --primary: #0D9488;
+  --primary-hover: #0F766E;
   --primary-foreground: #ffffff;
 
-  --success: #10b981;
-  --success-bg: #ecfdf5;
-  --success-border: #a7f3d0;
-  --success-text: #047857;
+  --success: #65A30D;
+  --success-bg: #F4FCE8;
+  --success-border: #D4F7A6;
+  --success-text: #3F6212;
 
   --warning: #f59e0b;
   --warning-bg: #fffbeb;
@@ -166,21 +166,22 @@
   --neutral-text: #475569;
 
   /* ── Surfaces ──────────────────────────────────────────────── */
-  --canvas: #f8fafc;
+  --canvas: #FAF8F5;
   --base: #ffffff;
-  --muted-surface: #f1f5f9;
+  --muted-surface: #F5F2ED;
   --elevated: #ffffff;
+  --sidebar-bg: #F0EDE8;
 
   /* ── Text ──────────────────────────────────────────────────── */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --text-disabled: #94a3b8;
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6B6B;
+  --text-tertiary: #9C9C9C;
+  --text-disabled: #C4C4C4;
 
   /* ── Borders ───────────────────────────────────────────────── */
-  --border-subtle: #f1f5f9;
-  --border-default: #e2e8f0;
-  --border-strong: #cbd5e1;
+  --border-subtle: #F5F2ED;
+  --border-default: #E5E2DD;
+  --border-strong: #D1CFCA;
 
   /* ── shadcn overrides ──────────────────────────────────────── */
   --background: var(--canvas);

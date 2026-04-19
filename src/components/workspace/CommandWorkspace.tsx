@@ -9,11 +9,10 @@ import AuditTrail from '@/components/assistant/AuditTrail';
 import ErrorBoundary from '@/components/assistant/ErrorBoundary';
 import { ConfidenceBadge } from '@/components/shared/ConfidenceBadge';
 import { CorrectionPrompt } from '@/components/shared/CorrectionPrompt';
-import { CompactProfileCard } from './CompactProfileCard';
-import { MetricsRow } from './MetricsRow';
-import { InsightPanel } from './InsightPanel';
-import { TimelinePanel } from './TimelinePanel';
-import { WorkflowList } from './WorkflowList';
+import { WelcomeHeader } from './WelcomeHeader';
+import { MetricCard } from './MetricCard';
+import { EventItem } from './EventItem';
+import { ActionCard } from './ActionCard';
 import type { CommandWorkspaceData } from './types';
 import type {
   AiOsEvent,
@@ -132,45 +131,31 @@ export default function CommandWorkspace({
   function applyEvent(event: AiOsEvent) {
     setRun((r) => {
       switch (event.kind) {
-        case 'ready':
-          return r;
-        case 'intent_parsed':
-          return { ...r, intent: event.intent };
-        case 'decision':
-          return { ...r, decision: event.trace };
-        case 'agent_call':
-          return { ...r, agentCalls: [...r.agentCalls, event.call] };
-        case 'block':
-          return { ...r, blocks: [...r.blocks, event.block] };
-        case 'headline':
-          return { ...r, headline: event.text };
-        case 'artifact_ready':
-          return r;
-        case 'clarification_required':
-          return { ...r, status: 'clarifying' };
-        case 'done':
-          return { ...r, status: 'done' };
-        case 'error':
-          return { ...r, status: 'error', error: event.message };
-        default:
-          return r;
+        case 'ready': return r;
+        case 'intent_parsed': return { ...r, intent: event.intent };
+        case 'decision': return { ...r, decision: event.trace };
+        case 'agent_call': return { ...r, agentCalls: [...r.agentCalls, event.call] };
+        case 'block': return { ...r, blocks: [...r.blocks, event.block] };
+        case 'headline': return { ...r, headline: event.text };
+        case 'artifact_ready': return r;
+        case 'clarification_required': return { ...r, status: 'clarifying' };
+        case 'done': return { ...r, status: 'done' };
+        case 'error': return { ...r, status: 'error', error: event.message };
+        default: return r;
       }
     });
   }
 
-  const onAction = useCallback(
-    (action: UIAction) => {
-      if (action.href) {
-        window.open(action.href, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      if (action.intent?.rawInput) {
-        if (action.confirmCopy && !window.confirm(action.confirmCopy)) return;
-        submit(action.intent.rawInput);
-      }
-    },
-    [submit],
-  );
+  const onAction = useCallback((action: UIAction) => {
+    if (action.href) {
+      window.open(action.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (action.intent?.rawInput) {
+      if (action.confirmCopy && !window.confirm(action.confirmCopy)) return;
+      submit(action.intent.rawInput);
+    }
+  }, [submit]);
 
   const isIdle = run.status === 'idle';
   const isStreaming = run.status === 'streaming';
@@ -186,42 +171,116 @@ export default function CommandWorkspace({
 
   return (
     <ErrorBoundary>
-      <div className="mx-auto w-full max-w-7xl px-4 py-5 space-y-5">
-        {/* ─── Top row: Identity + Metrics ─── */}
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          <CompactProfileCard identity={data.identity} />
-          <MetricsRow metrics={data.metrics} />
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 space-y-6">
+        {/* ─── A. Welcome Header ─── */}
+        <WelcomeHeader
+          name={data.identity.name}
+          roleLabel={data.identity.roleLabel}
+          scope={data.identity.scope}
+        />
+
+        {/* ─── B. Metrics Row ─── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {data.metrics.map((m) => (
+            <MetricCard
+              key={m.id}
+              id={m.id}
+              icon={m.id === 'headcount' ? 'users' : m.id === 'approvals' ? 'clipboard' : m.id === 'leave' ? 'plane' : 'shield'}
+              color={m.id === 'headcount' ? 'green' : m.id === 'approvals' ? 'amber' : m.id === 'leave' ? 'blue' : 'red'}
+              label={m.label}
+              value={m.value}
+              subtext={m.context ?? ''}
+              changeText={m.delta?.value}
+              changeDirection={m.delta?.direction}
+            />
+          ))}
         </div>
 
-        {/* ─── Main grid: Insight + Timeline + Workflow ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Left: Insight Panel (occupies 5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Headline */}
-            {headlineToShow && (
-              <div className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
-                <Sparkles className="h-4 w-4 text-[var(--primary)]" />
-                {headlineToShow}
-              </div>
-            )}
+        {/* ─── C/D/E. Main Content: Events + Actions ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Left: Upcoming Events */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+                Upcoming
+              </h2>
+              <span className="text-[11px] text-[var(--text-tertiary)]">
+                {data.timeline.length} events
+              </span>
+            </div>
 
-            {/* Streaming progress */}
+            <div className="rounded-xl border border-[var(--border-default)] bg-white p-4">
+              {data.timeline.length === 0 ? (
+                <p className="text-sm text-[var(--text-tertiary)] text-center py-6">No upcoming events</p>
+              ) : (
+                <div className="space-y-0">
+                  {data.timeline.map((event, i) => (
+                    <EventItem
+                      key={event.id}
+                      time={event.date.includes('T') ? event.date.split('T')[1].slice(0, 5) : undefined}
+                      date={event.date}
+                      title={event.title}
+                      description={event.assignee}
+                      type={event.type === 'leave' ? 'leave' : event.type === 'review' ? 'review' : event.type === 'milestone' ? 'sync' : 'deadline'}
+                      isLast={i === data.timeline.length - 1}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Action Cards */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+                Actions
+              </h2>
+              <span className="text-[11px] text-[var(--text-tertiary)]">
+                {data.workflows.filter((w) => w.severity === 'critical' || w.severity === 'warning').length} urgent
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {data.workflows.length === 0 ? (
+                <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] p-4 text-center">
+                  <p className="text-sm text-[var(--success-text)]">All caught up — no pending actions</p>
+                </div>
+              ) : (
+                data.workflows.map((item) => (
+                  <ActionCard
+                    key={item.id}
+                    title={item.title}
+                    description={item.description}
+                    assignee={item.assignee}
+                    dueDate={item.dueDate}
+                    severity={item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'neutral'}
+                    actions={item.actions.map((a) => ({
+                      label: a.label,
+                      variant: a.variant === 'primary' ? 'primary' : a.variant === 'danger' ? 'secondary' : 'secondary',
+                      onClick: a.intent ? () => submit(a.intent!) : undefined,
+                    }))}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── AI Streaming Blocks (appear below metrics when active) ─── */}
+        {!isIdle && (
+          <div className="space-y-4">
             {isStreaming && <ProgressIndicator steps={progressSteps} />}
 
-            {/* Confidence */}
             {run.decision && !isStreaming && (
               <div className="flex items-center gap-3">
                 <ConfidenceBadge
                   confidence={run.intent?.confidence ?? 0.8}
                   sources={run.decision.reasons.slice(0, 3)}
                 />
-                {run.decision.mode === 'ESCALATE' && (
-                  <span className="ds-meta text-[var(--warning-text)]">Human review required</span>
-                )}
               </div>
             )}
 
-            {/* Error */}
             {run.status === 'error' && (
               <div
                 role="alert"
@@ -232,7 +291,6 @@ export default function CommandWorkspace({
               </div>
             )}
 
-            {/* Loading state */}
             {isStreaming && run.blocks.length === 0 && (
               <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--muted-surface)] px-4 py-6 text-sm text-[var(--text-tertiary)]">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -240,7 +298,13 @@ export default function CommandWorkspace({
               </div>
             )}
 
-            {/* AI Blocks OR Idle Insights */}
+            {headlineToShow && (
+              <div className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
+                <Sparkles className="h-4 w-4 text-[var(--primary)]" />
+                {headlineToShow}
+              </div>
+            )}
+
             <div
               className="flex flex-col gap-3"
               aria-live="polite"
@@ -253,15 +317,6 @@ export default function CommandWorkspace({
               <div ref={blocksEndRef} />
             </div>
 
-            {/* Idle insights when no AI running */}
-            {isIdle && (
-              <InsightPanel
-                insights={data.insights}
-                onAskAi={(q) => submit(q)}
-              />
-            )}
-
-            {/* Audit trail */}
             {(run.intent || run.decision || run.agentCalls.length > 0) && (
               <AuditTrail
                 intent={run.intent}
@@ -270,23 +325,7 @@ export default function CommandWorkspace({
               />
             )}
           </div>
-
-          {/* Center: Timeline (occupies 3 cols) */}
-          <div className="lg:col-span-3">
-            <TimelinePanel
-              events={data.timeline}
-              onAskAi={(q) => submit(q)}
-            />
-          </div>
-
-          {/* Right: Workflow Rail (occupies 4 cols) */}
-          <div className="lg:col-span-4">
-            <WorkflowList
-              items={data.workflows}
-              onAction={(intent) => submit(intent)}
-            />
-          </div>
-        </div>
+        )}
 
         {/* ─── Correction prompt ─── */}
         {correction && (
@@ -301,9 +340,9 @@ export default function CommandWorkspace({
           />
         )}
 
-        {/* ─── AI Command Bar (Bottom) ─── */}
-        <div className="sticky bottom-4 z-20">
-          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-lg backdrop-blur-sm">
+        {/* ─── F. AI Prompt Bar ─── */}
+        <div className="pt-2">
+          <div className="rounded-xl border border-[var(--border-default)] bg-white shadow-sm">
             <PromptBar
               onSubmit={submit}
               busy={isStreaming}
