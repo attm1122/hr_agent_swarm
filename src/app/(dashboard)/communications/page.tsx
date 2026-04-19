@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageSquare, Plus, Send, Clock, CheckCircle2, FileText } from 'lucide-react';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 
 const templates = [
   { id: 'ct-1', name: 'Welcome Email', category: 'onboarding', channel: 'email', uses: 12 },

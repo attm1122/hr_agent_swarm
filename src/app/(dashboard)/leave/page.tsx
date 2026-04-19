@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Plus, Clock, CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { Calendar, Plus, Clock, CheckCircle2, XCircle, ArrowRight, Loader2, FileX } from 'lucide-react';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { leaveRequests, getEmployeeById } from '@/lib/data/mock-data';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 import type { LeaveRequest } from '@/types';
 
 async function callSwarm(intent: string, payload: Record<string, unknown>) {
@@ -104,6 +105,14 @@ export default function LeavePage() {
           <CardTitle className="text-base font-semibold text-slate-900">All Leave Requests</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
+          {requests.length === 0 ? (
+            <EmptyState
+              icon={FileX}
+              title="No leave requests"
+              description="There are no leave requests to display."
+              action={{ label: 'New Leave Request', onClick: () => {} }}
+            />
+          ) : (
           <div className="divide-y divide-slate-100">
             {requests.map(lr => {
               const emp = getEmployeeById(lr.employeeId);
@@ -162,6 +171,7 @@ export default function LeavePage() {
               );
             })}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

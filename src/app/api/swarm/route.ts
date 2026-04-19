@@ -9,12 +9,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestLogger } from '@/lib/observability/logger';
+import { getCorrelationId } from '@/lib/observability/correlation';
+import { sanitizeError } from '@/lib/security/hardening/error-sanitizer';
 import { SwarmRequestSchema, type AgentIntent } from '@/lib/validation/schemas';
 import { IdempotencyStore } from '@/lib/validation/idempotency';
-import { getCoordinator } from '@/lib/agents/coordinator';
+import { createCoordinator } from '@/lib/agents/factory';
 import { requireSession } from '@/lib/auth/session';
 import { createCacheAdapter } from '@/lib/infrastructure/redis/redis-cache-adapter';
-import { RedisRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit-redis';
+import { RedisRateLimiter, RATE_LIMITS } from '@/lib/infrastructure/rate-limit/rate-limit-redis';
 import { z } from 'zod';
 
 // Initialize infrastructure
@@ -44,6 +47,8 @@ function createErrorResponse(
 
 export async function POST(req: NextRequest) {
   const startTime = performance.now();
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:swarm', correlationId);
   
   try {
     // Authentication
@@ -108,8 +113,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Get coordinator
-    const coordinator = getCoordinator();
+    // Create coordinator with explicit dependencies
+    const coordinator = createCoordinator();
 
     // Execute agent
     const result = await coordinator.route({
@@ -146,7 +151,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Swarm API error:', error);
+    routeLogger.error('Swarm API error', { error: error instanceof Error ? error.message : String(error) });
     
     if (error instanceof z.ZodError) {
       return createErrorResponse(
@@ -157,10 +162,13 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
-      'INTERNAL_ERROR',
-      500
+    const sanitized = sanitizeError(error, {
+      correlationId,
+      fallbackCode: 'INTERNAL_ERROR',
+    });
+    return NextResponse.json(
+      { error: sanitized },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

@@ -9,6 +9,7 @@ import type {
   LLMEmbeddingRequest,
   LLMEmbeddingResponse,
 } from '@/lib/ports/infrastructure-ports';
+import { logger } from '@/lib/observability/logger';
 import OpenAI from 'openai';
 
 export class OpenAIAdapter implements LLMProviderPort {
@@ -71,7 +72,7 @@ export class OpenAIAdapter implements LLMProviderPort {
         finishReason: completion.choices[0]?.finish_reason || 'unknown',
       };
     } catch (error) {
-      console.error('OpenAI completion error:', error);
+      logger.error('OpenAI completion error', { component: 'infra:llm', error: error instanceof Error ? error.message : String(error) });
       throw new Error(`LLM completion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -93,7 +94,7 @@ export class OpenAIAdapter implements LLMProviderPort {
         },
       };
     } catch (error) {
-      console.error('OpenAI embedding error:', error);
+      logger.error('OpenAI embedding error', { component: 'infra:llm', error: error instanceof Error ? error.message : String(error) });
       throw new Error(`Embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -123,12 +124,13 @@ export class OpenAIAdapter implements LLMProviderPort {
 }
 
 // Factory
-export function createLLMAdapter(): LLMProviderPort | null {
+export function createLLMAdapter(): LLMProviderPort {
   const apiKey = process.env.OPENAI_API_KEY;
   
   if (!apiKey) {
-    console.warn('OPENAI_API_KEY not configured, LLM features disabled');
-    return null;
+    throw new Error(
+      'OPENAI_API_KEY is not configured. Set it in environment variables to enable LLM features.'
+    );
   }
   
   return new OpenAIAdapter({

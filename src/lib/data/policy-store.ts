@@ -4,7 +4,8 @@
  * Production: Replace with Supabase database calls.
  */
 
-import type { PolicyDocument, PolicyChunk, PolicySearchResult, PolicyAnswer } from '@/types';
+import type { PolicyDocument, PolicyChunk } from '@/lib/domain/document/types';
+import type { PolicySearchResult, PolicyAnswer } from '@/types';
 
 const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 

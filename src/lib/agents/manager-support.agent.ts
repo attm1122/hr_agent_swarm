@@ -26,6 +26,7 @@ import {
 import { getManagerOperationalRepository } from '@/lib/repositories/manager-operational-repository';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
+import { logger } from '@/lib/observability/logger';
 
 export class ManagerSupportAgent implements Agent {
   readonly type = 'manager_support' as const;
@@ -58,7 +59,7 @@ export class ManagerSupportAgent implements Agent {
         const operationalRepo = getManagerOperationalRepository(supabase);
         return getManagerSupportRepository(operationalRepo);
       } catch (err) {
-        console.warn('Failed to initialize Supabase client, using local fallback:', err);
+        logger.warn('Failed to initialize Supabase client, using local fallback', { component: 'agents:manager-support', error: err instanceof Error ? err.message : String(err) });
       }
     }
 

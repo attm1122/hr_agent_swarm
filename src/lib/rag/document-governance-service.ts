@@ -22,7 +22,7 @@ import type {
   DocumentRetrievalStatus,
   DocumentSupersessionInfo,
   DocumentRevocationInfo,
-} from '@/types/rag';
+} from './types';
 import type { Role } from '@/types';
 import { hasCapability } from '@/lib/auth/authorization';
 import {
@@ -30,7 +30,7 @@ import {
   getDateOnlyRelativeState,
   toDateOnlyString,
   toUTCDateFromDateOnly,
-} from '@/lib/date-only';
+} from '@/lib/domain/shared/date-value';
 
 // ============================================
 // State Machine Definition

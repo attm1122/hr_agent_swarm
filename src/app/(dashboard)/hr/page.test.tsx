@@ -22,7 +22,7 @@ describe('HR dashboard data helpers', () => {
 
     expect(anniversaries.length).toBeGreaterThan(0);
     anniversaries.forEach((anniversary) => {
-      expect(milestones.find((milestone) => milestone.id === anniversary.id)?.milestoneType).toBe('service_anniversary');
+      expect(milestones.find((milestone) => milestone.id === anniversary.id)?.milestoneType).toBe('work_anniversary');
       expect(['upcoming', 'due']).toContain(anniversary.state);
     });
   });

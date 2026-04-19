@@ -34,7 +34,7 @@ import {
   differenceFromTodayInDateOnlyDays,
   formatDateOnly,
   getDateOnlyRelativeState,
-} from '@/lib/date-only';
+} from '@/lib/domain/shared/date-value';
 
 // Mock data for POC - replace with actual API calls
 async function getKnowledgeDocuments(tenantId: string, filters?: Record<string, string>) {

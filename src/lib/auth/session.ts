@@ -17,6 +17,7 @@ import {
 } from './authorization';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
+import { createLogger } from '@/lib/observability/logger';
 
 export interface Session {
   userId: string;
@@ -64,8 +65,14 @@ function isProductionAuthEnabled(): boolean {
 }
 
 function isMockAuthEnabled(): boolean {
+  // Security: If production auth is explicitly enabled, NEVER allow mock auth
+  if (process.env.NEXT_PUBLIC_PRODUCTION_AUTH === 'true') {
+    return false;
+  }
   return process.env.MOCK_AUTH_ENABLED === 'true';
 }
+
+const logger = createLogger('auth-session');
 
 function isRole(value: string): value is Role {
   return ['admin', 'manager', 'team_lead', 'employee', 'payroll'].includes(value);
@@ -163,14 +170,14 @@ export async function getSession(): Promise<Session | null> {
     const role = metadata.role;
     
     if (!role || !isRole(role)) {
-      console.error('User missing valid role in metadata:', user.id);
+      logger.error('User missing valid role in metadata:', { userId: user.id });
       return null;
     }
 
     // Tenant isolation: Must have tenant_id
     const tenantId = metadata.tenant_id;
     if (!tenantId) {
-      console.error('User missing tenant_id in metadata:', user.id);
+      logger.error('User missing tenant_id in metadata:', { userId: user.id });
       return null;
     }
 
@@ -184,7 +191,7 @@ export async function getSession(): Promise<Session | null> {
       tenantId,
     );
   } catch (error) {
-    console.error('Session resolution error:', error);
+    logger.error('Session resolution error:', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -241,7 +248,7 @@ export async function getBrowserSession(): Promise<Session | null> {
       tenantId,
     );
   } catch (error) {
-    console.error('Browser session resolution error:', error);
+    logger.error('Browser session resolution error:', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }

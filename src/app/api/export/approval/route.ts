@@ -11,16 +11,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestLogger } from '@/lib/observability/logger';
+import { getCorrelationId } from '@/lib/observability/correlation';
 import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
-import { securityMiddleware, addSecurityHeaders } from '@/lib/security';
-import { logSecurityEvent, logSensitiveAction } from '@/lib/security';
+import { securityMiddleware, addSecurityHeaders } from '@/lib/infrastructure/security-middleware';
+import { logSecurityEvent, logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 import { getEmployeeList } from '@/lib/services/employee.service';
 import type { AgentContext } from '@/types';
-import { toDateOnlyString } from '@/lib/date-only';
+import { toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 // In-memory store - replace with database in production
 interface ExportApproval {
@@ -253,6 +255,9 @@ export async function GET(req: NextRequest) {
  * Approve or reject an export request
  */
 export async function PATCH(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:export-approval', correlationId);
+
   try {
     const { session, context, securityContext } = await requireVerifiedSessionContext();
 
@@ -451,7 +456,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const message = err instanceof Error ? err.message : 'Approval action failed';
-    console.error('Export approval error:', err);
+    routeLogger.error('Export approval error', { error: err instanceof Error ? err.message : String(err) });
 
     return addSecurityHeaders(
       NextResponse.json({ error: message }, { status: 500 })

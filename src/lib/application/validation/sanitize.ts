@@ -1,3 +1,5 @@
+import { logger } from '@/lib/observability/logger';
+
 /**
  * Input Sanitization and Output Encoding Module
  * Prevents XSS, injection attacks, and unsafe content rendering.
@@ -238,11 +240,14 @@ export function sanitizeId(id: string): string | null {
 export function safeJsonStringify(obj: unknown): string {
   return JSON.stringify(obj, (key, value) => {
     if (typeof value === 'string') {
-      // Escape special characters for safe embedding in HTML
+      // Escape special characters for safe embedding in HTML <script> tags
+      // U+2028 and U+2029 are valid in JSON but break JavaScript parsers
       return value
         .replace(/</g, '\\u003c')
         .replace(/>/g, '\\u003e')
-        .replace(/&/g, '\\u0026');
+        .replace(/&/g, '\\u0026')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
     }
     return value;
   });
@@ -260,7 +265,8 @@ export function logSanitizationEvent(
   // In production: send to security monitoring service
   if (process.env.NODE_ENV === 'production') {
      
-    console.warn(`[SECURITY] ${type} in ${source}:`, {
+    logger.warn(`[SECURITY] ${type} in ${source}:`, {
+      component: 'sanitize',
       timestamp: new Date().toISOString(),
       type,
       source,

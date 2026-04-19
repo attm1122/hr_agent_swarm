@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
+import { logger } from '@/lib/observability/logger';
 import { OutboxService } from '../outbox/outbox-service';
 
 export interface TransactionContext {
@@ -60,7 +61,7 @@ export class TransactionManager {
         const { error: beginError } = await this.supabase.rpc('begin_transaction');
         if (beginError) {
           // Fallback: execute without explicit transaction
-          console.warn('Transaction RPC not available, using fallback:', beginError.message);
+          logger.warn('Transaction RPC not available, using fallback', { component: 'infra:database', error: beginError.message });
           return await callback(ctx);
         }
 
@@ -80,7 +81,7 @@ export class TransactionManager {
           try {
             await this.supabase.rpc('rollback_transaction');
           } catch (rollbackError) {
-            console.error('Rollback failed:', rollbackError);
+            logger.error('Rollback failed', { component: 'infra:database', error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError) });
           }
           throw error;
         }

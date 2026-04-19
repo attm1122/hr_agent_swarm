@@ -15,7 +15,7 @@ import {
   milestones, documents,
 } from '@/lib/data/mock-data';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/date-only';
+import { formatDateOnly, getFullYearsSinceDateOnly } from '@/lib/domain/shared/date-value';
 import { getDerivedMilestoneState } from '@/lib/milestones';
 import type { Employee } from '@/types';
 

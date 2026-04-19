@@ -23,10 +23,10 @@ import type {
   Jurisdiction,
   ApprovalStatus,
   ConfidentialityLevel,
-} from '@/types/rag';
+} from './types';
 import type { Role } from '@/types';
 import { getAccessibleZones, requiresApprovedContent } from './knowledge-zones';
-import { getDateOnlyRelativeState } from '@/lib/date-only';
+import { getDateOnlyRelativeState } from '@/lib/domain/shared/date-value';
 
 // ============================================
 // Filter Types

@@ -1,5 +1,5 @@
 import type { AgentRunRepositoryPort } from '@/lib/ports';
-import type { AgentRunRecord } from '@/types';
+import type { AgentRunRecord } from '@/lib/domain/audit/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseAgentRunRepository

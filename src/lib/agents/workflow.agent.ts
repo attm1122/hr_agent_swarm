@@ -29,6 +29,7 @@ import {
   canViewWorkflow,
   hasCapability,
 } from '@/lib/auth/authorization';
+import { canTransitionStep } from '@/lib/domain/workflow/workflow-state-machine';
 import { getEmployeeById, getEmployeeFullName } from '@/lib/data/mock-data';
 
 // Ensure store is initialized
@@ -188,11 +189,14 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Workflow step not found');
     }
 
-    if (step.approverId && step.approverId !== context.employeeId) {
-      // Check if admin can override
-      if (!hasCapability(context.role, 'workflow:manage:all')) {
-        return createErrorResult('Access denied: not assigned to approve this step', ['RBAC violation']);
-      }
+    const transition = canTransitionStep(step.status, 'approve', {
+      approverId: context.employeeId!,
+      stepApproverId: step.approverId,
+      stepApproverRole: step.approverRole,
+      userRole: context.role,
+    });
+    if (!transition.allowed) {
+      return createErrorResult(transition.reason || 'Cannot approve this step', ['RBAC violation']);
     }
 
     const success = approveWorkflowStep(stepId, context.employeeId!, comments);
@@ -237,10 +241,14 @@ export class WorkflowAgent implements Agent {
       return createErrorResult('Workflow step not found');
     }
 
-    if (step.approverId && step.approverId !== context.employeeId) {
-      if (!hasCapability(context.role, 'workflow:manage:all')) {
-        return createErrorResult('Access denied: not assigned to reject this step', ['RBAC violation']);
-      }
+    const transition = canTransitionStep(step.status, 'reject', {
+      approverId: context.employeeId!,
+      stepApproverId: step.approverId,
+      stepApproverRole: step.approverRole,
+      userRole: context.role,
+    });
+    if (!transition.allowed) {
+      return createErrorResult(transition.reason || 'Cannot reject this step', ['RBAC violation']);
     }
 
     const success = rejectWorkflowStep(stepId, context.employeeId!, comments);

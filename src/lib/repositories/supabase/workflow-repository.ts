@@ -1,5 +1,5 @@
 import type { WorkflowRepositoryPort } from '@/lib/ports';
-import type { WorkflowInstance, WorkflowStep } from '@/types';
+import type { WorkflowInstance, WorkflowStep } from '@/lib/domain/workflow/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseWorkflowRepository
@@ -126,8 +126,8 @@ export class SupabaseWorkflowRepository
       {
         status: 'approved',
         approverId: approverId,
-        approvedAt: new Date().toISOString(),
-      } as any,
+        actedAt: new Date().toISOString(),
+      },
       tenantId
     );
   }
@@ -143,9 +143,9 @@ export class SupabaseWorkflowRepository
       {
         status: 'rejected',
         approverId: approverId,
-        approvedAt: new Date().toISOString(),
-        rejectionReason: reason,
-      } as any,
+        actedAt: new Date().toISOString(),
+        comments: reason,
+      },
       tenantId
     );
   }

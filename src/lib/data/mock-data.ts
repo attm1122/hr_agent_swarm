@@ -3,9 +3,11 @@
  * Lightweight, type-safe, presentation-quality
  */
 
+import type { Employee, Team, Position } from '@/lib/domain/employee/types';
+import type { EmployeeDocument } from '@/lib/domain/document/types';
+import type { LeaveBalance, LeaveRequest } from '@/lib/domain/leave/types';
 import type { 
-  Employee, Team, Position, EmployeeDocument, LeaveBalance, 
-  LeaveRequest, CompensationRecord, Milestone, ReviewCycle, 
+  CompensationRecord, Milestone, ReviewCycle, 
   ReviewInstance, Goal, ActionItem 
 } from '@/types';
 

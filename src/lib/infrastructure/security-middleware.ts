@@ -12,8 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Role, AgentContext } from '@/types';
 import { checkRateLimit, generateRateLimitKey } from './rate-limit';
 import { validateCsrfToken, extractCsrfToken, requiresCsrfProtection } from './csrf';
-import { sanitizeObject, containsXss, containsSqlInjection } from './sanitize';
-import { logSecurityEvent } from './audit-logger';
+import { sanitizeObject, containsXss, containsSqlInjection } from '../application/validation/sanitize';
+import { logSecurityEvent } from './audit/audit-logger';
 
 // Minimal context for security logging
 interface SecurityContext {
@@ -55,7 +55,7 @@ export async function securityMiddleware(
   // 1. Rate Limiting
   if (mergedConfig.rateLimitTier) {
     const rateLimitKey = generateRateLimitKey(userContext.userId, clientIp, userContext.sessionId);
-    const rateLimit = checkRateLimit(rateLimitKey, mergedConfig.rateLimitTier, userContext.role);
+    const rateLimit = await checkRateLimit(rateLimitKey, mergedConfig.rateLimitTier, userContext.role);
     
     if (!rateLimit.allowed) {
       logSecurityEvent(
@@ -85,8 +85,9 @@ export async function securityMiddleware(
   // 2. CSRF Protection (for state-changing methods)
   if (mergedConfig.requireCsrf && requiresCsrfProtection(request.method)) {
     const csrfToken = extractCsrfToken(request.headers);
+    const csrfValid = csrfToken ? await validateCsrfToken(csrfToken, userContext.sessionId) : false;
     
-    if (!csrfToken || !validateCsrfToken(csrfToken, userContext.sessionId)) {
+    if (!csrfValid) {
       logSecurityEvent(
         'csrf_violation',
         userContext as unknown as AgentContext,

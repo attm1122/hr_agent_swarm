@@ -19,6 +19,7 @@
 import type { AgentContext, AgentIntent } from '@/types';
 import { createHash } from 'crypto';
 import { createAdminClient } from '@/infrastructure/database/client';
+import { createLogger } from '@/lib/observability/logger';
 
 export type AuditEventType = 
   | 'agent_execute'
@@ -74,6 +75,8 @@ const FLUSH_INTERVAL_MS = 5000; // 5 seconds
 const RETENTION_DAYS = 90;
 
 let lastHash = '';
+
+const logger = createLogger('audit-logger');
 
 /**
  * Create integrity hash for audit entry (tamper detection)
@@ -324,7 +327,7 @@ async function flushBuffer(): Promise<void> {
   
   try {
     // Get tenant ID from env or default
-    const tenantId = process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000000';
+    const tenantId = process.env.DEFAULT_TENANT_ID ?? '00000000-0000-0000-0000-000000000000';
     
     // Map to database columns (snake_case)
     const dbEntries = entries.map(e => mapToDbColumns(e, tenantId));
@@ -338,10 +341,10 @@ async function flushBuffer(): Promise<void> {
         throw error;
       }
       
-      console.log('[AUDIT_FLUSH]', { count: entries.length, status: 'persisted' });
+      logger.info('[AUDIT_FLUSH]', { count: entries.length, status: 'persisted' });
     } else {
       // Development: Log to console for visibility
-      entries.forEach(e => console.log('[AUDIT]', e.eventType, e.userId, e.resourceType));
+      entries.forEach(e => logger.info('[AUDIT]', { eventType: e.eventType, userId: e.userId, resourceType: e.resourceType }));
     }
   } catch (error) {
     // Critical: Don't lose audit logs on failure
@@ -349,7 +352,7 @@ async function flushBuffer(): Promise<void> {
     auditBuffer.unshift(...entries);
     
     // Alert on audit failure - this is a security incident
-    console.error('[CRITICAL AUDIT FAILURE] Failed to persist audit logs:', error);
+    logger.error('[CRITICAL AUDIT FAILURE] Failed to persist audit logs:', { error: error instanceof Error ? error.message : String(error) });
     
     // In production: Alert security team immediately
     alertSecurityTeam({
@@ -374,7 +377,7 @@ function alertSecurityTeam(entry: Omit<AuditLogEntry, 'integrityHash'>): void {
   // POC: Console alert
   // Production: Send to security monitoring
    
-  console.error('[SECURITY_ALERT]', {
+  logger.error('[SECURITY_ALERT]', {
     eventType: entry.eventType,
     userId: entry.userId,
     reason: entry.errorMessage,

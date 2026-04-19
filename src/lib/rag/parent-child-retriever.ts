@@ -20,7 +20,7 @@ import type {
   KnowledgeChunk,
   KnowledgeDocument,
   RetrievalCandidate,
-} from '@/types/rag';
+} from './types';
 import type { AgentContext } from '@/types';
 import { filterByPermissions } from './permission-aware-retriever';
 
@@ -160,7 +160,7 @@ async function enrichCandidate(
   const { allowed } = filterByPermissions(
     [{ ...chunk, documentId: chunk.documentId } as KnowledgeChunk],
     context,
-    { allowedZones: [chunk.knowledgeZone], jurisdiction: chunk.jurisdiction } as any
+    { allowedZones: [chunk.knowledgeZone], jurisdiction: chunk.jurisdiction } as unknown as import('./types').QueryClassification
   );
 
   if (allowed.length === 0) {

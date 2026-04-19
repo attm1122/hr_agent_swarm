@@ -337,11 +337,15 @@ export function canManagePolicy(ctx: AgentContext): boolean {
 
 const PAY_SENSITIVE_FIELDS = ['salary', 'baseSalary', 'bonus', 'compensation', 'payGrade', 'stockOptions', 'totalCompensation', 'ssn', 'dateOfBirth', 'bankAccount', 'taxId'];
 
+const MAX_STRIP_DEPTH = 5;
+
 export function stripSensitiveFields<T extends Record<string, unknown>>(
   record: T,
-  clearance: DataSensitivity[]
+  clearance: DataSensitivity[],
+  depth = 0,
 ): T {
   if (clearance.includes('pay_sensitive')) return record;
+  if (depth > MAX_STRIP_DEPTH) return record;
 
   const stripped = { ...record };
   for (const field of PAY_SENSITIVE_FIELDS) {
@@ -357,6 +361,7 @@ export function stripSensitiveFields<T extends Record<string, unknown>>(
       (stripped as Record<string, unknown>)[key] = stripSensitiveFields(
         val as Record<string, unknown>,
         clearance,
+        depth + 1,
       );
     }
   }

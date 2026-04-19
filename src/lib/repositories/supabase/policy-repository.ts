@@ -1,5 +1,5 @@
 import type { PolicyRepositoryPort } from '@/lib/ports';
-import type { PolicyDocument, PolicyChunk } from '@/types';
+import type { PolicyDocument, PolicyChunk } from '@/lib/domain/document/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabasePolicyRepository

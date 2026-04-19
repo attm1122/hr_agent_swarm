@@ -9,7 +9,8 @@ import {
   AlertCircle, Clock, CheckCircle2, Calendar, FileText, 
   Shield, AlertTriangle
 } from 'lucide-react';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
 import type { ActionItem } from '@/types';
 
@@ -51,11 +52,11 @@ export function ActionQueue({ items, title = 'Action Queue' }: ActionQueueProps)
           <CardTitle className="text-lg font-semibold text-slate-900">{title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-3" />
-            <p className="text-sm font-medium text-slate-700">All caught up!</p>
-            <p className="text-xs text-slate-500 mt-1">No pending actions requiring attention</p>
-          </div>
+          <EmptyState
+            icon={CheckCircle2}
+            title="All caught up!"
+            description="No pending actions requiring your attention right now."
+          />
         </CardContent>
       </Card>
     );

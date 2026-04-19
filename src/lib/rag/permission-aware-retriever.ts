@@ -26,13 +26,14 @@ import type {
   KnowledgeDocument,
   QueryClassification,
   RetrievalCandidate,
-} from '@/types/rag';
+} from './types';
 import type { AgentContext, Role } from '@/types';
 import { hasCapability } from '@/lib/auth/authorization';
-import { logSensitiveAction } from '@/lib/security/audit-logger';
+import { logSensitiveAction } from '@/lib/infrastructure/audit/audit-logger';
 import { executeHybridRetrieval, HybridRetrievalConfig } from './hybrid-retriever';
 import { buildMetadataFilter, MetadataFilter, documentMatchesFilter } from './metadata-filter-builder';
 import { canAccessZone, getAccessibleZones } from './knowledge-zones';
+import { logger } from '@/lib/observability/logger';
 
 // ============================================
 // Permission Check Result
@@ -340,7 +341,7 @@ function logRetrievalAccess(
 
   // In production, this would write to audit database
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[RAG Retrieval] ${decision.toUpperCase()}: ${reason}`);
+    logger.info('RAG Retrieval access log', { component: 'rag:retriever', decision, reason });
   }
 }
 

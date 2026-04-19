@@ -3,6 +3,7 @@
  */
 
 import type { CachePort } from '@/lib/ports';
+import { logger } from '@/lib/observability/logger';
 import { createClient, type RedisClientType } from 'redis';
 
 export class RedisCacheAdapter implements CachePort {
@@ -22,7 +23,7 @@ export class RedisCacheAdapter implements CachePort {
     });
 
     this.client.on('error', (err) => {
-      console.error('Redis client error:', err);
+      logger.error('Redis client error', { component: 'infra:redis', error: err instanceof Error ? err.message : String(err) });
     });
 
     await this.client.connect();

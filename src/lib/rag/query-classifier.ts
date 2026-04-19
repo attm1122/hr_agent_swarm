@@ -23,7 +23,7 @@ import type {
   ActorPersona,
   ResponseMode,
   KnowledgeZone,
-} from '@/types/rag';
+} from './types';
 import type { AgentContext } from '@/types';
 
 // ============================================

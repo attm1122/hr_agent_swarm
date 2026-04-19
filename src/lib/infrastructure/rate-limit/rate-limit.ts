@@ -14,6 +14,7 @@
  */
 
 import type { Role } from '@/types';
+import { createLogger } from '@/lib/observability/logger';
 
 interface RateLimitEntry {
   count: number;
@@ -28,6 +29,8 @@ interface RateLimitConfig {
 
 // In-memory store (POC). Production: Redis.
 const rateLimitStore = new Map<string, RateLimitEntry>();
+
+const logger = createLogger('rate-limit');
 
 // Memory management constants
 const MAX_STORE_SIZE = 10000; // Maximum entries before forced cleanup
@@ -50,7 +53,7 @@ const cleanupInterval = setInterval(() => {
   // Log cleanup in production
   if (process.env.NODE_ENV === 'production' && cleaned > 0) {
      
-    console.log(`[RATE_LIMIT] Cleaned ${cleaned} expired entries`);
+    logger.info(`[RATE_LIMIT] Cleaned ${cleaned} expired entries`);
   }
 }, 60000); // Clean every minute
 
@@ -61,7 +64,7 @@ const memoryCheckInterval = setInterval(() => {
   // Alert if store is too large
   if (storeSize > MAX_STORE_SIZE * CLEANUP_THRESHOLD) {
      
-    console.warn(`[RATE_LIMIT] Store size ${storeSize} approaching limit ${MAX_STORE_SIZE}. Consider migrating to Redis.`);
+    logger.warn(`[RATE_LIMIT] Store size ${storeSize} approaching limit ${MAX_STORE_SIZE}. Consider migrating to Redis.`);
     
     // Emergency cleanup - remove oldest 20% of entries
     if (storeSize > MAX_STORE_SIZE) {
@@ -74,7 +77,7 @@ const memoryCheckInterval = setInterval(() => {
       }
       
        
-      console.warn(`[RATE_LIMIT] Emergency cleanup removed ${toRemove} entries`);
+      logger.warn(`[RATE_LIMIT] Emergency cleanup removed ${toRemove} entries`);
     }
   }
 }, MEMORY_CHECK_INTERVAL);

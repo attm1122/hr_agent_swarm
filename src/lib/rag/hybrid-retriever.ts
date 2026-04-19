@@ -22,7 +22,7 @@ import type {
   RetrievalCandidate,
   QueryClassification,
   RetrievalProfile,
-} from '@/types/rag';
+} from './types';
 import type { AgentContext } from '@/types';
 import type { MetadataFilter, ChunkFilter } from './metadata-filter-builder';
 import { buildMetadataFilter } from './metadata-filter-builder';
@@ -414,7 +414,7 @@ export async function executeHybridRetrieval(
   // Convert to retrieval candidates
   const candidates: RetrievalCandidate[] = merged.slice(0, finalLimit).map(item => ({
     chunk: item.chunk,
-    document: {} as any, // TODO: Fetch document from repository
+    document: {} as unknown as import('./types').KnowledgeDocument, // TODO: Fetch document from repository
     semanticScore: item.semanticScore,
     lexicalScore: item.lexicalScore,
     combinedScore: item.combinedScore,

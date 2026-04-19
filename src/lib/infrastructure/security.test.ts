@@ -17,14 +17,14 @@ import {
   resetRateLimit,
   getRateLimitStatus,
   RATE_LIMITS,
-} from './rate-limit';
+} from '@/lib/infrastructure/rate-limit/rate-limit';
 import {
   generateCsrfToken,
   validateCsrfToken,
   extractCsrfToken,
   invalidateSessionTokens,
   requiresCsrfProtection,
-} from './csrf';
+} from '@/lib/infrastructure/csrf/csrf';
 import {
   encodeHtml,
   stripDangerousHtml,
@@ -36,7 +36,7 @@ import {
   sanitizeUrl,
   sanitizeFilename,
   sanitizeId,
-} from './sanitize';
+} from '@/lib/application/validation/sanitize';
 import type { Role } from '@/types';
 
 // ============================================

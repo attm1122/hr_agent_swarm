@@ -19,6 +19,16 @@ import {
 import { ROLE_CAPABILITIES, ROLE_SCOPE, ROLE_SENSITIVITY } from './authorization';
 import type { Role } from '@/types';
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() =>
+    Promise.resolve({
+      auth: {
+        getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+      },
+    })
+  ),
+}));
+
 const ALL_ROLES: Role[] = ['admin', 'manager', 'team_lead', 'employee', 'payroll'];
 
 function enableMockAuth(role: Role = 'employee') {
@@ -29,6 +39,7 @@ function enableMockAuth(role: Role = 'employee') {
   vi.stubEnv('MOCK_AUTH_EMAIL', 'test@company.com');
   vi.stubEnv('MOCK_AUTH_ROLE', role);
   vi.stubEnv('MOCK_AUTH_TITLE', 'Test Title');
+  vi.stubEnv('MOCK_AUTH_TENANT_ID', 'tenant-test');
 }
 
 afterEach(() => {
@@ -38,7 +49,7 @@ afterEach(() => {
 describe('buildSession', () => {
   it('populates permissions, scope, and sensitivity from role', () => {
     for (const role of ALL_ROLES) {
-      const session = buildSession('u1', 'e1', 'Test', 'test@co.com', role, 'Title');
+      const session = buildSession('u1', 'e1', 'Test', 'test@co.com', role, 'Title', 'tenant-1');
       expect(session.role).toBe(role);
       expect(session.permissions).toEqual(ROLE_CAPABILITIES[role]);
       expect(session.scope).toBe(ROLE_SCOPE[role]);
@@ -48,14 +59,15 @@ describe('buildSession', () => {
 });
 
 describe('getSession', () => {
-  it('returns null when no explicit auth is configured', () => {
-    expect(getSession()).toBeNull();
+  it('returns null when no explicit auth is configured', async () => {
+    await expect(getSession()).resolves.toBeNull();
   });
 
-  it('returns the explicitly configured non-production mock session', () => {
+  it('returns the explicitly configured non-production mock session', async () => {
     enableMockAuth('manager');
+    vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'false');
 
-    const session = getSession();
+    const session = await getSession();
 
     expect(session).not.toBeNull();
     expect(session?.role).toBe('manager');
@@ -63,15 +75,15 @@ describe('getSession', () => {
     expect(session?.name).toBe('Test User');
   });
 
-  it('throws when mock auth is enabled with missing fields', () => {
+  it('throws when mock auth is enabled with missing fields', async () => {
     vi.stubEnv('MOCK_AUTH_ENABLED', 'true');
     vi.stubEnv('MOCK_AUTH_ROLE', 'employee');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/missing required variables/i);
+    await expect(getSession()).rejects.toThrowError(SessionResolutionError);
+    await expect(getSession()).rejects.toThrowError(/missing required variables/i);
   });
 
-  it('throws when mock auth role is invalid', () => {
+  it('throws when mock auth role is invalid', async () => {
     vi.stubEnv('MOCK_AUTH_ENABLED', 'true');
     vi.stubEnv('MOCK_AUTH_USER_ID', 'user-test');
     vi.stubEnv('MOCK_AUTH_EMPLOYEE_ID', 'emp-test');
@@ -80,49 +92,44 @@ describe('getSession', () => {
     vi.stubEnv('MOCK_AUTH_ROLE', 'super_admin');
     vi.stubEnv('MOCK_AUTH_TITLE', 'Test Title');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/invalid/i);
+    await expect(getSession()).rejects.toThrowError(SessionResolutionError);
+    await expect(getSession()).rejects.toThrowError(/invalid/i);
   });
 
-  it('throws on production auth misconfiguration when production auth is disabled', () => {
+  it('returns null on production auth misconfiguration when production auth is disabled', async () => {
     vi.stubEnv('NODE_ENV', 'production');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/not configured/i);
+    await expect(getSession()).resolves.toBeNull();
   });
 
-  it('throws when mock auth is enabled in production', () => {
+  it('throws when mock auth is enabled in production', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     enableMockAuth('employee');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/forbidden in production/i);
+    await expect(getSession()).rejects.toThrowError(SessionResolutionError);
+    await expect(getSession()).rejects.toThrowError(/forbidden in production/i);
   });
 
-  it('throws when production auth is marked enabled but not implemented', () => {
+  it('returns null when production auth is marked enabled', async () => {
     vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'true');
 
-    expect(() => getSession()).toThrowError(SessionResolutionError);
-    expect(() => getSession()).toThrowError(/not implemented/i);
+    await expect(getSession()).resolves.toBeNull();
   });
 });
 
 describe('requireSession', () => {
-  it('throws AUTH_REQUIRED when no session is available', () => {
-    try {
-      requireSession();
-      expect.unreachable('requireSession should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(SessionResolutionError);
-      expect((error as SessionResolutionError).code).toBe('AUTH_REQUIRED');
-      expect((error as SessionResolutionError).status).toBe(401);
-    }
+  it('throws AUTH_REQUIRED when no session is available', async () => {
+    await expect(requireSession()).rejects.toBeInstanceOf(SessionResolutionError);
+    await expect(requireSession()).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+      status: 401,
+    });
   });
 });
 
 describe('getAgentContext', () => {
   it('inherits scope and sensitivity from a verified session', () => {
-    const session = buildSession('u1', 'e1', 'Test', 'test@co.com', 'team_lead', 'TL');
+    const session = buildSession('u1', 'e1', 'Test', 'test@co.com', 'team_lead', 'TL', 'tenant-1');
     const ctx = getAgentContext(session);
     expect(ctx.role).toBe('team_lead');
     expect(ctx.scope).toBe('team');
@@ -133,18 +140,19 @@ describe('getAgentContext', () => {
 });
 
 describe('requireVerifiedSessionContext', () => {
-  it('builds verified session, RBAC context, and security context together', () => {
+  it('builds verified session, RBAC context, and security context together', async () => {
     enableMockAuth('payroll');
 
-    const { session, context, securityContext } = requireVerifiedSessionContext();
+    const result = await requireVerifiedSessionContext();
 
-    expect(session.role).toBe('payroll');
-    expect(context.role).toBe('payroll');
-    expect(context.employeeId).toBe('emp-test');
-    expect(securityContext).toEqual({
+    expect(result.session.role).toBe('payroll');
+    expect(result.context.role).toBe('payroll');
+    expect(result.context.employeeId).toBe('emp-test');
+    expect(result.securityContext).toEqual({
       userId: 'emp-test',
       role: 'payroll',
       sessionId: 'user-test',
+      tenantId: 'tenant-test',
     });
   });
 });
@@ -160,16 +168,18 @@ describe('verifyAuthConfiguration', () => {
     expect(result.errors.some((error) => error.includes('missing required variables'))).toBe(true);
   });
 
-  it('flags production auth as release-blocking until implemented', () => {
+  it('flags missing supabase configuration in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('NEXT_PUBLIC_PRODUCTION_AUTH', 'true');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
 
     const result = verifyAuthConfiguration();
 
     expect(result.isConfigured).toBe(false);
-    expect(result.errors).toContain(
-      'Production authentication is enabled but not implemented. Configure real authentication before release.'
-    );
+    expect(result.errors).toContain('NEXT_PUBLIC_SUPABASE_URL is not configured');
+    expect(result.errors).toContain('NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured');
   });
 });
 
@@ -183,7 +193,7 @@ describe('getPermissionsForRole', () => {
 
 describe('hasPermission', () => {
   it('checks session permissions', () => {
-    const session = buildSession('u1', 'e1', 'Test', 'test@co.com', 'employee', 'Emp');
+    const session = buildSession('u1', 'e1', 'Test', 'test@co.com', 'employee', 'Emp', 'tenant-1');
     expect(hasPermission(session, 'employee:read')).toBe(true);
     expect(hasPermission(session, 'admin:write')).toBe(false);
   });

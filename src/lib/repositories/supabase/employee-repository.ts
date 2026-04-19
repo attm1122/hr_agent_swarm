@@ -3,7 +3,7 @@
  */
 
 import type { EmployeeRepositoryPort } from '@/lib/ports';
-import type { Employee, EmployeeSummary } from '@/types';
+import type { Employee, EmployeeSummary } from '@/lib/domain/employee/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseEmployeeRepository
@@ -113,7 +113,7 @@ export class SupabaseEmployeeRepository
         .from('employees')
         .select('*')
         .eq('tenant_id', params.tenantId)
-        .or(`first_name.ilike.%${params.query}%,last_name.ilike.%${params.query}%,email.ilike.%${params.query}%`);
+        .or(`first_name.ilike.%${params.query.replace(/[,.]/g, '')}%,last_name.ilike.%${params.query.replace(/[,.]/g, '')}%,email.ilike.%${params.query.replace(/[,.]/g, '')}%`);
 
       if (params.filters?.teamId) {
         dbQuery = dbQuery.eq('team_id', params.filters.teamId);

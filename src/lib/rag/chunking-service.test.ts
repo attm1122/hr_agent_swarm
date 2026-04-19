@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseDocumentStructure, chunkDocument, TEST_EXPORTS } from './chunking-service';
-import type { KnowledgeDocument, DocumentStructure } from '@/types/rag';
+import type { KnowledgeDocument, DocumentStructure } from './types';
 
 const {
   estimateTokens,
@@ -69,6 +69,10 @@ const createTestDocument = (
   updatedAt: new Date().toISOString(),
   indexedAt: null,
   lastSyncAt: null,
+  lifecycleState: 'approved',
+  ownership: { documentOwner: 'test-user', createdBy: 'test-user', updatedBy: 'test-user' },
+  governanceMetadata: { sourceAuthorityRank: 'authoritative', requiresLegalReview: false, requiresHROpsReview: false, requiresComplianceReview: false },
+  indexingMetadata: { ingestionStatus: 'completed', indexingStatus: 'completed', chunksCreated: 0, chunksIndexed: 0 },
 });
 
 describe('estimateTokens', () => {

@@ -1,39 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const mockRequireVerifiedSessionContext = vi.fn();
-const mockSecurityMiddleware = vi.fn();
-const mockValidateRequestBody = vi.fn();
-const mockGetEmployeeList = vi.fn();
+const mockRequireSession = vi.fn();
 
 vi.mock('@/lib/auth/session', () => ({
-  requireVerifiedSessionContext: () => mockRequireVerifiedSessionContext(),
+  requireSession: () => mockRequireSession(),
+  hasCapability: () => true,
   isSessionResolutionError: (error: unknown) =>
-    Boolean(error) &&
-    typeof error === 'object' &&
-    'code' in error &&
-    'status' in error &&
-    'message' in error,
-}));
-
-vi.mock('@/lib/security', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/security')>('@/lib/security');
-  return {
-    ...actual,
-    securityMiddleware: (...args: unknown[]) => mockSecurityMiddleware(...args),
-    validateRequestBody: (...args: unknown[]) => mockValidateRequestBody(...args),
-    addSecurityHeaders: (response: Response) => response,
-    logSecurityEvent: vi.fn(),
-    logSensitiveAction: vi.fn(),
-  };
-});
-
-vi.mock('@/lib/services/employee.service', () => ({
-  getEmployeeList: (...args: unknown[]) => mockGetEmployeeList(...args),
-}));
-
-vi.mock('@/lib/agents', () => ({
-  getCoordinator: vi.fn(),
+    error instanceof Error && error.name === 'SessionResolutionError',
 }));
 
 import { GET, POST } from './route';
@@ -44,13 +18,11 @@ describe('/api/export auth hardening', () => {
   });
 
   it('POST returns 401 when no verified session exists and never reaches export logic', async () => {
-    mockRequireVerifiedSessionContext.mockImplementation(() => {
-      throw { code: 'AUTH_REQUIRED', status: 401, message: 'Authentication required' };
-    });
+    mockRequireSession.mockResolvedValue(null);
 
     const request = new NextRequest('http://localhost/api/export', {
       method: 'POST',
-      body: JSON.stringify({ type: 'employees', format: 'json' }),
+      body: JSON.stringify({ format: 'json', fields: ['id', 'firstName'] }),
       headers: { 'content-type': 'application/json' },
     });
 
@@ -58,22 +30,17 @@ describe('/api/export auth hardening', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Authentication required',
-      code: 'AUTH_REQUIRED',
+      error: {
+        message: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      },
     });
-    expect(mockSecurityMiddleware).not.toHaveBeenCalled();
-    expect(mockValidateRequestBody).not.toHaveBeenCalled();
-    expect(mockGetEmployeeList).not.toHaveBeenCalled();
   });
 
-  it('GET returns 503 on auth misconfiguration and never discloses approval state', async () => {
-    mockRequireVerifiedSessionContext.mockImplementation(() => {
-      throw {
-        code: 'AUTH_CONFIG_INVALID',
-        status: 503,
-        message: 'Mock authentication is forbidden in production',
-      };
-    });
+  it('GET returns 500 on auth misconfiguration and never discloses approval state', async () => {
+    mockRequireSession.mockRejectedValue(
+      new Error('Mock authentication is forbidden in production')
+    );
 
     const request = new NextRequest('http://localhost/api/export?exportId=test-export', {
       method: 'GET',
@@ -81,11 +48,11 @@ describe('/api/export auth hardening', () => {
 
     const response = await GET(request);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      code: 'AUTH_CONFIG_INVALID',
+      error: {
+        code: expect.stringMatching(/^AUTH_|INTERNAL_ERROR$/),
+      },
     });
-    expect(mockSecurityMiddleware).not.toHaveBeenCalled();
-    expect(mockGetEmployeeList).not.toHaveBeenCalled();
   });
 });

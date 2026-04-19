@@ -50,7 +50,7 @@ describe('ActionQueue', () => {
   it('renders empty state when no items', () => {
     render(<ActionQueue items={[]} />);
     expect(screen.getByText('All caught up!')).toBeInTheDocument();
-    expect(screen.getByText('No pending actions requiring attention')).toBeInTheDocument();
+    expect(screen.getByText('No pending actions requiring your attention right now.')).toBeInTheDocument();
   });
 
   it('renders default title', () => {

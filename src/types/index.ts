@@ -6,111 +6,44 @@
 import type { AgentIntent } from '@/lib/validation/schemas';
 export type { AgentIntent };
 
-export interface Employee {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  employeeNumber: string;
-  hireDate: string;
-  terminationDate: string | null;
-  status: 'active' | 'inactive' | 'on_leave' | 'terminated' | 'pending';
-  teamId: string | null;
-  positionId: string | null;
-  managerId: string | null;
-  workLocation: 'onsite' | 'remote' | 'hybrid' | null;
-  employmentType: 'full_time' | 'part_time' | 'contract' | 'intern';
-  avatarUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Re-export moved domain types (strangler-fig pattern)
+export type {
+  Employee,
+  Team,
+  Position,
+  EmployeeSummary,
+} from '@/lib/domain/employee/types';
 
-export interface Team {
-  id: string;
-  name: string;
-  code: string;
-  parentTeamId: string | null;
-  department: string;
-  costCenter: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  LeaveBalance,
+  LeaveRequest,
+} from '@/lib/domain/leave/types';
 
-export interface Position {
-  id: string;
-  title: string;
-  level: string;
-  department: string;
-  jobFamily: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  Workflow,
+  ApprovalStep,
+  WorkflowInstance,
+  WorkflowStep,
+  ApprovalInboxItem,
+  WorkflowStatus,
+} from '@/lib/domain/workflow/types';
 
-// ============================================
-// Document Domain
-// ============================================
+export type {
+  EmployeeDocument,
+  DocumentRequirement,
+  PolicyDocument,
+  PolicyChunk,
+} from '@/lib/domain/document/types';
 
-export interface EmployeeDocument {
-  id: string;
-  employeeId: string;
-  sourceId: string;
-  sourcePath: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  category: 'contract' | 'visa' | 'certification' | 'id' | 'medical' | 'tax' | 'performance' | 'other';
-  status: 'active' | 'expired' | 'expiring' | 'missing';
-  uploadedAt: string;
-  expiresAt: string | null;
-  extractedData: Record<string, unknown> | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  CommunicationTemplate,
+  CommunicationDraft,
+} from '@/lib/domain/communication/types';
 
-export interface DocumentRequirement {
-  id: string;
-  category: string;
-  employmentTypes: string[];
-  required: boolean;
-  expires: boolean;
-  expirationWarningDays: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ============================================
-// Leave Domain
-// ============================================
-
-export interface LeaveBalance {
-  id: string;
-  employeeId: string;
-  leaveType: 'annual' | 'sick' | 'personal' | 'parental' | 'bereavement' | 'unpaid' | 'other';
-  entitlementDays: number;
-  takenDays: number;
-  pendingDays: number;
-  remainingDays: number;
-  periodStart: string;
-  periodEnd: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface LeaveRequest {
-  id: string;
-  employeeId: string;
-  leaveType: 'annual' | 'sick' | 'personal' | 'parental' | 'bereavement' | 'unpaid' | 'other';
-  startDate: string;
-  endDate: string;
-  daysRequested: number;
-  reason: string | null;
-  status: 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled';
-  approvedBy: string | null;
-  approvedAt: string | null;
-  rejectionReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  AuditEvent,
+  AgentRunRecord,
+} from '@/lib/domain/audit/types';
 
 // ============================================
 // Compensation Domain
@@ -146,41 +79,6 @@ export interface Milestone {
   status: 'upcoming' | 'due' | 'overdue' | 'completed' | 'acknowledged';
   acknowledgedAt: string | null;
   acknowledgedBy: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ============================================
-// Workflow Domain
-// ============================================
-
-export interface Workflow {
-  id: string;
-  workflowType: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval' | 'review';
-  referenceType: string;
-  referenceId: string;
-  initiatorId: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
-  currentStep: number;
-  totalSteps: number;
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ApprovalStep {
-  id: string;
-  workflowId: string;
-  stepNumber: number;
-  approverId: string;
-  approverRole: string;
-  status: 'pending' | 'approved' | 'rejected' | 'delegated' | 'skipped';
-  comments: string | null;
-  actedAt: string | null;
-  dueDate: string;
-  escalatedTo: string | null;
-  escalatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -224,58 +122,6 @@ export interface Goal {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-// ============================================
-// Communications Domain
-// ============================================
-
-export interface CommunicationTemplate {
-  id: string;
-  name: string;
-  category: string;
-  channel: 'email' | 'slack' | 'teams';
-  subject: string | null;
-  body: string;
-  variables: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CommunicationDraft {
-  id: string;
-  templateId: string | null;
-  channel: 'email' | 'slack' | 'teams';
-  recipientId: string;
-  subject: string | null;
-  body: string;
-  variables: Record<string, string>;
-  status: 'draft' | 'pending_approval' | 'approved' | 'sent' | 'failed';
-  approvedBy: string | null;
-  approvedAt: string | null;
-  sentAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ============================================
-// Audit Domain
-// ============================================
-
-export interface AuditEvent {
-  id: string;
-  eventType: string;
-  entityType: string;
-  entityId: string;
-  actorId: string | null;
-  actorType: 'user' | 'agent' | 'system';
-  action: string;
-  previousState: Record<string, unknown> | null;
-  newState: Record<string, unknown> | null;
-  metadata: Record<string, unknown> | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  createdAt: string;
 }
 
 // ============================================
@@ -527,55 +373,6 @@ export interface OffboardingExitSummary {
 }
 
 // ============================================
-// Workflow & Approvals Domain
-// ============================================
-
-export interface WorkflowInstance {
-  id: string;
-  workflowType: 'leave_approval' | 'salary_change' | 'promotion' | 'termination' | 'onboarding' | 'offboarding' | 'document_approval' | 'communication_approval' | 'review';
-  referenceType: string;
-  referenceId: string;
-  initiatorId: string;
-  status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
-  currentStep: number;
-  totalSteps: number;
-  startedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WorkflowStep {
-  id: string;
-  workflowId: string;
-  stepNumber: number;
-  stepName: string;
-  approverId: string | null;
-  approverRole: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'delegated' | 'skipped';
-  comments: string | null;
-  actedAt: string | null;
-  dueDate: string;
-  escalatedTo: string | null;
-  escalatedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ApprovalInboxItem {
-  workflowId: string;
-  stepId: string;
-  stepNumber: number;
-  stepName: string;
-  workflowType: string;
-  referenceType: string;
-  referenceId: string;
-  initiatorName: string;
-  dueDate: string;
-  isEscalated: boolean;
-}
-
-// ============================================
 // Knowledge & Policy Domain
 // ============================================
 
@@ -598,21 +395,6 @@ export interface PolicyAnswer {
   escalationReason?: string;
 }
 
-export interface EmployeeSummary {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  position: string;
-  team: string;
-  status: Employee['status'];
-  hireDate: string;
-  manager?: string;
-}
-
-// Re-export database types for agent layer use
-export type { PolicyDocument, PolicyChunk } from './database';
-
 export interface ReportColumn {
   key: string;
   label: string;
@@ -622,27 +404,7 @@ export interface ReportColumn {
 }
 
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
-export type WorkflowStatus = 'pending' | 'in_progress' | 'completed' | 'rejected' | 'cancelled';
 
-
-// ============================================================================
-// Agent Run Types
-// ============================================================================
-
-export interface AgentRunRecord {
-  id: string;
-  agentType: string;
-  intent: string;
-  inputPayload: Record<string, unknown>;
-  outputResult: Record<string, unknown> | null;
-  confidence: number | null;
-  executionTimeMs: number;
-  success: boolean;
-  errorMessage: string | null;
-  context: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-  createdAt: string;
-}
 
 // ============================================================================
 // Export Approval Types

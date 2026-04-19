@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
+import { logger } from '@/lib/observability/logger';
 
 export abstract class BaseSupabaseRepository {
   constructor(protected supabase: SupabaseClient<Database>) {}
@@ -38,7 +39,7 @@ export abstract class BaseSupabaseRepository {
   }
 
   protected handleError(error: unknown, context: string): never {
-    console.error(`Repository error in ${context}:`, error);
+    logger.error(`Repository error in ${context}`, { component: 'repositories:base', error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }

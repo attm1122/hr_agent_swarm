@@ -1,8 +1,7 @@
 'use client';
 
-import { Bell, Search } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { CommandMenu } from '@/components/shared/CommandMenu';
 
 interface HeaderProps {
   user?: {
@@ -22,30 +22,38 @@ interface HeaderProps {
 }
 
 export function Header({ user = { name: 'Sarah Chen', email: 'sarah.chen@company.com', role: 'Chief People Officer' } }: HeaderProps) {
+  const initials = user.name.split(' ').map(n => n[0]).join('');
+
   return (
-    <header className="flex items-center justify-between h-14 px-5 bg-white border-b border-slate-200">
+    <header className="flex items-center justify-between h-14 px-4 lg:px-5 bg-white border-b border-slate-200">
       <div className="flex items-center flex-1 gap-4">
-        <div className="relative w-80">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input 
-            placeholder="Search employees, documents, policies..."
-            className="pl-9 bg-slate-50 border-slate-200 h-9 text-sm"
-          />
-        </div>
+        {/* Spacer for mobile hamburger */}
+        <div className="w-10 lg:hidden" />
+
+        <CommandMenu />
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="w-4 h-4 text-slate-600" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9 focus-visible:ring-2 focus-visible:ring-emerald-500"
+          aria-label="Notifications, 1 unread"
+        >
+          <Bell className="w-4 h-4 text-slate-600" aria-hidden="true" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" aria-hidden="true" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <Button variant="ghost" className="flex items-center gap-2 h-9 px-2 hover:bg-slate-100">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 h-9 px-2 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
+              aria-label={`User menu for ${user.name}`}
+            >
               <Avatar className="w-7 h-7">
                 <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-medium">
-                  {user.name.split(' ').map(n => n[0]).join('')}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start">

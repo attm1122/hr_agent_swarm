@@ -13,7 +13,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
-import type { Employee, Milestone, LeaveRequest, ActionItem, ProposedAction, AgentResult } from '@/types';
+import type { Employee } from '@/lib/domain/employee/types';
+import type { LeaveRequest } from '@/lib/domain/leave/types';
+import type { Milestone, ActionItem, ProposedAction, AgentResult } from '@/types';
 import {
   ManagerOperationalRepository,
   ManagerTeamContext,

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { BarChart3, Clock, CheckCircle2, AlertCircle, Plus, ArrowRight } from 'lucide-react';
 import { employees, milestones, getEmployeeById, getPositionById } from '@/lib/data/mock-data';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 import { getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export default function ReviewsPage() {

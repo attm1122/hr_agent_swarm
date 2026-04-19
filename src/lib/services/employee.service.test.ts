@@ -13,8 +13,10 @@
  * - Scope restrictions enforced
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getEmployeeList, getEmployee, getEmployeeCount, getEmployeeProfile } from './employee.service';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { getEmployeeList, getEmployee, getEmployeeCount, getEmployeeProfile, updateEmployeeStatus } from './employee.service';
+import { getEmployeeById, leaveRequests } from '@/lib/data/mock-data';
+import { onboardingPlans } from '@/lib/data/onboarding-store';
 import type { AgentContext, Employee, Role, DataSensitivity } from '@/types';
 
 // Mock the mock-data module
@@ -71,7 +73,7 @@ vi.mock('@/lib/data/mock-data', async () => {
         positionId: 'pos-3',
         managerId: null,
       },
-    ] as Employee[],
+    ] as unknown as Employee[],
     teams: [
       { id: 'team-1', name: 'Engineering', managerId: 'emp-2' },
       { id: 'team-2', name: 'Marketing', managerId: 'emp-4' },
@@ -83,10 +85,10 @@ vi.mock('@/lib/data/mock-data', async () => {
     ],
     getEmployeeById: vi.fn((id: string) => {
       const employees = [
-        { id: 'emp-1', firstName: 'John', lastName: 'Admin', email: 'john@company.com', status: 'active', hireDate: '2020-01-01', salary: 150000, teamId: 'team-1', positionId: 'pos-1', managerId: null },
-        { id: 'emp-2', firstName: 'Jane', lastName: 'Manager', email: 'jane@company.com', status: 'active', hireDate: '2021-03-15', salary: 120000, teamId: 'team-1', positionId: 'pos-2', managerId: 'emp-1' },
-        { id: 'emp-3', firstName: 'Bob', lastName: 'Employee', email: 'bob@company.com', status: 'active', hireDate: '2022-06-01', salary: 80000, teamId: 'team-1', positionId: 'pos-3', managerId: 'emp-2' },
-        { id: 'emp-4', firstName: 'Alice', lastName: 'Other', email: 'alice@other.com', status: 'active', hireDate: '2022-08-15', salary: 85000, teamId: 'team-2', positionId: 'pos-3', managerId: null },
+        { id: 'emp-1', firstName: 'John', lastName: 'Admin', email: 'john@company.com', status: 'active', hireDate: '2020-01-01', salary: 150000, teamId: 'team-1', positionId: 'pos-1', managerId: null } as unknown as Employee,
+        { id: 'emp-2', firstName: 'Jane', lastName: 'Manager', email: 'jane@company.com', status: 'active', hireDate: '2021-03-15', salary: 120000, teamId: 'team-1', positionId: 'pos-2', managerId: 'emp-1' } as unknown as Employee,
+        { id: 'emp-3', firstName: 'Bob', lastName: 'Employee', email: 'bob@company.com', status: 'active', hireDate: '2022-06-01', salary: 80000, teamId: 'team-1', positionId: 'pos-3', managerId: 'emp-2' } as unknown as Employee,
+        { id: 'emp-4', firstName: 'Alice', lastName: 'Other', email: 'alice@other.com', status: 'active', hireDate: '2022-08-15', salary: 85000, teamId: 'team-2', positionId: 'pos-3', managerId: null } as unknown as Employee,
       ];
       return employees.find(e => e.id === id) || null;
     }),
@@ -122,6 +124,14 @@ vi.mock('@/lib/data/mock-data', async () => {
   };
 });
 
+// Reset shared state before each test in the status-update suite
+afterEach(() => {
+  // Clear leave requests that might have been added by tests
+  leaveRequests.length = 0;
+  // Clear onboarding plans that might have been added by tests
+  onboardingPlans.length = 0;
+});
+
 // Helper to create test contexts
 function createTestContext(
   role: Role,
@@ -131,6 +141,7 @@ function createTestContext(
 ): AgentContext {
   return {
     userId: employeeId,
+    tenantId: 'tenant-test',
     role,
     permissions: [],
     scope,
@@ -359,6 +370,188 @@ describe('Employee Service - RBAC Security', () => {
       const boss = await getEmployee(context, 'emp-1');
 
       expect(boss).toBeNull();
+    });
+  });
+
+  describe('updateEmployeeStatus', () => {
+    it('returns success for allowed transition (active → inactive)', async () => {
+      const employee = {
+        id: 'emp-status-1',
+        firstName: 'Status',
+        lastName: 'Test',
+        email: 'status@test.com',
+        status: 'active',
+        hireDate: '2020-01-01',
+        teamId: 'team-1',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-status-1', 'inactive');
+
+      expect(result.success).toBe(true);
+      expect(result.previousStatus).toBe('active');
+      expect(result.newStatus).toBe('inactive');
+      expect(employee.status).toBe('inactive');
+    });
+
+    it('blocks transition when scope is insufficient', async () => {
+      const employee = {
+        id: 'emp-status-2',
+        firstName: 'Scope',
+        lastName: 'Test',
+        email: 'scope@test.com',
+        status: 'active',
+        hireDate: '2020-01-01',
+        teamId: 'team-2',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+
+      const context = createTestContext('employee', 'emp-3', 'self', ['self_visible']);
+      const result = await updateEmployeeStatus(context, 'emp-status-2', 'inactive');
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('Access denied');
+    });
+
+    it('blocks active → terminated when open leave requests exist', async () => {
+      const employee = {
+        id: 'emp-status-3',
+        firstName: 'Leave',
+        lastName: 'Test',
+        email: 'leave@test.com',
+        status: 'active',
+        hireDate: '2020-01-01',
+        teamId: 'team-1',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+      leaveRequests.push({
+        id: 'lr-test-1',
+        employeeId: 'emp-status-3',
+        leaveType: 'annual',
+        startDate: '2026-05-01',
+        endDate: '2026-05-05',
+        daysRequested: 4,
+        reason: 'Test leave',
+        status: 'pending',
+        approvedBy: null,
+        approvedAt: null,
+        rejectionReason: null,
+        createdAt: '2026-04-01',
+        updatedAt: '2026-04-01',
+      });
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-status-3', 'terminated');
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain('open leave requests');
+    });
+
+    it('blocks active → terminated when onboarding is incomplete', async () => {
+      const employee = {
+        id: 'emp-status-4',
+        firstName: 'Onboarding',
+        lastName: 'Test',
+        email: 'onboarding@test.com',
+        status: 'active',
+        hireDate: '2020-01-01',
+        teamId: 'team-1',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+      onboardingPlans.push({
+        id: 'obp-test-1',
+        employeeId: 'emp-status-4',
+        assignedTo: 'emp-1',
+        templateName: 'standard',
+        startDate: '2026-04-01',
+        targetCompletionDate: '2026-04-15',
+        actualCompletionDate: null,
+        status: 'in_progress',
+        createdAt: '2026-04-01',
+        updatedAt: '2026-04-01',
+      });
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-status-4', 'terminated');
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain('incomplete onboarding');
+    });
+
+    it('allows active → terminated when clean', async () => {
+      const employee = {
+        id: 'emp-status-5',
+        firstName: 'Clean',
+        lastName: 'Test',
+        email: 'clean@test.com',
+        status: 'active',
+        hireDate: '2020-01-01',
+        teamId: 'team-1',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-status-5', 'terminated');
+
+      expect(result.success).toBe(true);
+      expect(result.previousStatus).toBe('active');
+      expect(result.newStatus).toBe('terminated');
+      expect(employee.status).toBe('terminated');
+    });
+
+    it('returns not found for missing employee', async () => {
+      vi.mocked(getEmployeeById).mockReturnValue(null as unknown as Employee);
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-missing', 'inactive');
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('Employee not found');
+    });
+
+    it('warns on terminated → active (rehire)', async () => {
+      const employee = {
+        id: 'emp-status-6',
+        firstName: 'Rehire',
+        lastName: 'Test',
+        email: 'rehire@test.com',
+        status: 'terminated',
+        hireDate: '2020-01-01',
+        teamId: 'team-1',
+        positionId: 'pos-1',
+        managerId: null,
+        updatedAt: '2024-01-01',
+      } as unknown as Employee;
+
+      vi.mocked(getEmployeeById).mockReturnValue(employee);
+
+      const context = createTestContext('admin', 'emp-1', 'all', ['self_visible', 'team_visible', 'pay_sensitive', 'hr_admin_sensitive']);
+      const result = await updateEmployeeStatus(context, 'emp-status-6', 'active');
+
+      expect(result.success).toBe(true);
+      expect(result.reason).toContain('Warning');
+      expect(result.reason).toContain('reinstating');
     });
   });
 });

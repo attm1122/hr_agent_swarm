@@ -1,5 +1,6 @@
 import type { LeaveRepositoryPort } from '@/lib/ports';
-import type { LeaveBalance, LeaveRequest } from '@/types';
+import type { LeaveBalance, LeaveRequest } from '@/lib/domain/leave/types';
+import { calculateLeaveBalance } from '@/lib/domain/leave/leave-calculation';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseLeaveRepository
@@ -102,7 +103,7 @@ export class SupabaseLeaveRepository
   async approveRequest(id: string, approverId: string, tenantId: string): Promise<void> {
     await this.updateRequest(
       id,
-      { status: 'approved', approvedBy: approverId, approvedAt: new Date().toISOString() } as any,
+      { status: 'approved', approvedBy: approverId, approvedAt: new Date().toISOString() },
       tenantId
     );
   }
@@ -115,7 +116,7 @@ export class SupabaseLeaveRepository
   ): Promise<void> {
     await this.updateRequest(
       id,
-      { status: 'rejected', approvedBy: approverId, rejectionReason: reason } as any,
+      { status: 'rejected', approvedBy: approverId, rejectionReason: reason },
       tenantId
     );
   }
@@ -130,9 +131,19 @@ export class SupabaseLeaveRepository
     const balance = await this.findBalance(employeeId, leaveType, tenantId);
     if (!balance) throw new Error('Balance not found');
 
+    const newTaken = balance.takenDays + delta;
+    const newRemaining = calculateLeaveBalance(
+      balance.entitlementDays,
+      newTaken,
+      balance.pendingDays
+    );
+
     const { error } = await this.supabase
       .from('leave_balances')
-      .update({ taken_days: balance.takenDays + delta } as unknown as never)
+      .update({
+        taken_days: newTaken,
+        remaining_days: newRemaining,
+      } as unknown as never)
       .eq('employee_id', employeeId)
       .eq('leave_type', leaveType)
       .eq('tenant_id', tenantId);

@@ -19,8 +19,8 @@ import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
-import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/security';
-import { logSecurityEvent } from '@/lib/security';
+import { securityMiddleware, validateRequestBody, addSecurityHeaders } from '@/lib/infrastructure/security-middleware';
+import { logSecurityEvent } from '@/lib/infrastructure/audit/audit-logger';
 import { hasCapability } from '@/lib/auth/authorization';
 import {
   getDocumentRules,

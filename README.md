@@ -1,319 +1,186 @@
 # HR Agent Swarm
 
-**⚠️ IMPORTANT: This is a Proof-of-Concept (POC) Project**
+AI-powered HR management system with multi-agent orchestration, RAG knowledge base, and workflow automation.
 
-This is a deterministic orchestration system demonstrating HR workflow automation with multi-agent patterns. It is NOT a true LLM "agent swarm" with autonomous model-driven behavior. AI features are simulated with rule-based logic for demonstration purposes.
+## 🚀 Quick Start
 
-**Production Readiness**: This codebase is intended for evaluation, architecture review, and as a foundation for production development. It requires additional hardening before production deployment.
+```bash
+# Clone and install
+git clone <repo-url>
+cd hr_agent_swarm
+npm install
 
----
+# Automated setup (interactive)
+npm run setup
 
-## 🎯 Purpose
+# Or manual setup - see QUICKSTART.md
+```
 
-HR Agent Swarm demonstrates a modern architecture for HR management systems with:
+## 📋 Prerequisites
 
-- **Multi-agent orchestration** pattern with specialized domain agents
-- **RAG (Retrieval-Augmented Generation)** pipeline for policy knowledge
-- **Row-Level Security (RLS)** for multi-tenant data isolation
-- **Comprehensive audit logging** for compliance
-- **Approval workflows** for sensitive operations
+- Node.js 20+
+- Supabase account (free tier works)
+- Supabase CLI: `npm install -g supabase`
 
 ## 🏗️ Architecture
 
-### System Overview
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client Layer                              │
-│  Next.js 16 App Router • React 19 • Tailwind CSS • shadcn/ui    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                        API Layer                                 │
-│  RESTful endpoints • CSRF protection • Rate limiting • RBAC     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                      Agent Swarm                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
-│  │ Employee │ │  Leave   │ │Workflows │ │ Knowledge│           │
-│  │  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │           │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
-│                              │                                   │
-│                    ┌─────────────────┐                          │
-│                    │   Coordinator   │                          │
-│                    │  (Router + RLS) │                          │
-│                    └─────────────────┘                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                    Repository Layer                              │
-│  Supabase Client • RLS Policies • Query Builder • Fallback      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                    Data Layer                                    │
-│  PostgreSQL • Row-Level Security • Audit Logs • Vector Store    │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                   Next.js 16 + React 19                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  Auth Layer  │  │  AI Agents   │  │    RAG       │  │
+│  │  (Supabase)  │  │ (OpenAI)     │  │ (Pinecone)   │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │         Hexagonal Architecture                    │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │  │
+│  │  │  Domain  │ │  Ports   │ │  Adapters        │  │  │
+│  │  │  Layer   │ │(Interfaces)│ │ (Supabase, etc) │  │  │
+│  │  └──────────┘ └──────────┘ └──────────────────┘  │  │
+│  └──────────────────────────────────────────────────┘  │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────┐
+│              Supabase PostgreSQL                         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
+│  │  RLS Policies│ │ Tenant Isol. │ │ Outbox Patt. │    │
+│  └──────────────┘ └──────────────┘ └──────────────┘    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Agent Architecture
+## 🛡️ Security Features
 
-The system uses a coordinator pattern where specialist agents handle specific domains:
+- **Tenant Isolation**: Every query filtered by `tenant_id`
+- **Row Level Security (RLS)**: Database-level access control
+- **Audit Logging**: All changes tracked
+- **Outbox Pattern**: Reliable event delivery
+- **Fail-Closed Auth**: No session = no access
 
-| Agent | Domain | Capabilities |
-|-------|--------|--------------|
-| `employee_profile` | Employee Management | Search, profiles, org chart |
-| `leave_milestones` | Leave & Milestones | Balances, requests, upcoming dates |
-| `document_compliance` | Documents | Classification, compliance tracking |
-| `onboarding` | Onboarding | Plans, tasks, progress tracking |
-| `offboarding` | Offboarding | Exit workflows, asset returns |
-| `workflow_approvals` | Approvals | Multi-step workflows, inbox |
-| `knowledge_policy` | Knowledge Base | RAG-powered policy search |
-| `manager_support` | Manager Insights | Team summaries, employee briefs |
+## 📦 Key Features
 
-**Note**: Agent "intelligence" is currently rule-based. LLM integration points exist but use deterministic mock responses.
+| Feature | Description |
+|---------|-------------|
+| **AI Agents** | Multi-agent swarm for HR queries (leave, policies, docs) |
+| **RAG** | Knowledge base with semantic search |
+| **Workflows** | Approval flows for leave, documents, etc. |
+| **Document Mgmt** | OneDrive integration, expiry tracking |
+| **Compliance** | Milestone tracking, visa/cert expiry alerts |
+| **Analytics** | Manager dashboards, HR reports |
 
-### Security Model
+## 🗂️ Project Structure
 
-- **Authentication**: Clerk (planned) or custom JWT
-- **Authorization**: RBAC with permissions matrix
-- **Data Isolation**: PostgreSQL Row-Level Security (RLS) per tenant
-- **Audit**: Tamper-resistant audit logs with integrity hashes
-- **Transport**: Security headers, CSRF tokens, rate limiting
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (dashboard)/        # Protected routes
+│   ├── api/                # API routes
+│   └── auth/               # Login/callback
+├── lib/
+│   ├── agents/             # AI agent implementations
+│   ├── auth/               # Session management
+│   ├── repositories/       # Data access layer
+│   ├── services/           # Business logic
+│   ├── ports/              # Interface definitions
+│   └── infrastructure/     # External adapters
+├── components/             # UI components
+├── types/                  # TypeScript types
+└── hooks/                  # React hooks
 
-## 🚀 Getting Started
+supabase/
+├── migrations/             # Database migrations
+├── seed.sql               # Sample data
+└── config.toml            # CLI config
+```
 
-### Prerequisites
+## 🛠️ Development
 
-- Node.js 20+
-- npm 10+
-- Supabase account (or local Docker)
-- Clerk account (optional, for auth)
-
-### Quick Start
-
-1. **Clone and install**:
 ```bash
-git clone https://github.com/attm1122/hr_agent_swarm.git
-cd hr_agent_swarm
-npm install
-```
-
-2. **Set up environment**:
-```bash
-cp .env.example .env.local
-# Edit .env.local with your credentials
-```
-
-3. **Set up database**:
-```bash
-# Option A: Use Supabase Cloud
-# Create project at https://app.supabase.io
-# Copy connection details to .env.local
-
-# Option B: Local Supabase
-supabase start
-```
-
-4. **Apply schema and seed**:
-```bash
-# Apply schema via Supabase SQL editor or:
-psql $DATABASE_URL -f src/infrastructure/database/schema.sql
-
-# Seed with sample data
-npm run db:seed
-```
-
-5. **Run development server**:
-```bash
+# Dev server with hot reload
 npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-## 📊 Data Model
-
-### Core Entities
-
-- **Tenants**: Multi-tenant isolation boundary
-- **Employees**: Staff with org hierarchy (manager relationships)
-- **Teams**: Organizational units with cost centers
-- **Positions**: Job roles and levels
-
-### HR Domains
-
-- **Leave**: Balance tracking, requests, approvals
-- **Compensation**: Salary records with external sync (HR3)
-- **Documents**: Employee files with expiration tracking
-- **Milestones**: Service anniversaries, visa expiries, probation
-- **Onboarding/Offboarding**: Task workflows with templates
-- **Workflows**: Generic approval engine with multi-step flows
-
-### Knowledge Domain
-
-- **Policy Documents**: Version-controlled HR policies
-- **Chunks**: Embeddable segments for RAG retrieval
-- **Knowledge Zones**: Access-controlled content areas
-
-See `src/infrastructure/database/schema.sql` for full schema.
-
-## 🔐 Authentication Model
-
-### Current State (POC)
-
-The POC uses a mock authentication system for development:
-- Simulated user sessions
-- Mock employee records linked to auth
-- No real JWT validation
-
-### Production Path
-
-For production, implement:
-
-1. **Clerk Integration** (recommended):
-   - Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-   - Set `CLERK_SECRET_KEY`
-   - Use Clerk JWT templates for Supabase
-
-2. **Custom Auth** (alternative):
-   - Implement JWT validation middleware
-   - Store user sessions in database
-   - Link auth users to employee records
-
-3. **RLS Context**:
-   - Pass `tenant_id`, `user_id`, `role` in JWT claims
-   - Policies automatically enforce access control
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Watch mode
-npm run test:watch
 
 # Type checking
 npm run typecheck
 
-# Linting
-npm run lint
+# Run tests
+npm run test
+
+# Build for production
+npm run build
 ```
 
-### Test Coverage
+## 🧪 Testing
 
-| Layer | Status | Notes |
-|-------|--------|-------|
-| Components | ✅ 100% | All UI components tested |
-| Agents | ✅ 100% | Unit + integration |
-| Repositories | ✅ 100% | Mock Supabase + fallback |
-| API Routes | ✅ 100% | Handler isolation |
-| Security | ✅ 100% | Middleware + auth |
-| E2E | ⚠️ Planned | Playwright tests pending |
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# With UI
+npm run test:e2e:ui
+```
 
 ## 🚢 Deployment
 
 ### Vercel (Recommended)
 
-```bash
-vercel --prod
+1. Connect GitHub repo to Vercel
+2. Add environment variables from `.env.local`
+3. Deploy
+
+### Environment Variables
+
+Required:
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_PRODUCTION_AUTH=true
 ```
 
-Required environment variables:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-
-### Database Migrations
-
-```bash
-# Generate types from schema
-npm run db:generate
-
-# Push schema changes
-npm run db:migrate
-
-# Reset database (WARNING: deletes data)
-npm run db:reset
+Optional:
+```env
+OPENAI_API_KEY=            # For AI features
+REDIS_URL=                 # For rate limiting
+SENTRY_DSN=                # Error tracking
 ```
 
-See `MIGRATION_GUIDE.md` for detailed migration instructions.
+## 📚 Documentation
 
-## 📋 Limitations & Known Issues
+- [QUICKSTART.md](QUICKSTART.md) - Get started in 5 minutes
+- [SETUP.md](SETUP.md) - Detailed setup guide
+- [GET_KEYS.md](GET_KEYS.md) - How to get Supabase keys
+- [AGENTS.md](AGENTS.md) - Architecture decisions
 
-### Current POC Limitations
+## 🔐 Security
 
-1. **Authentication**: Mock auth - requires Clerk/production auth
-2. **AI Features**: Deterministic responses - no actual LLM integration
-3. **Real-time**: No WebSocket updates
-4. **Notifications**: No email/push notification system
-5. **File Storage**: OneDrive integration mocked
-6. **HR3 Sync**: External API integration mocked
+See [Security Checklist](QUICKSTART.md#security-checklist) before production.
 
-### Architecture Debt
-
-1. **Repository Pattern**: In-memory fallback adds complexity
-2. **Error Handling**: Some edge cases need hardening
-3. **Rate Limiting**: In-memory only (needs Redis for multi-instance)
-4. **Audit Logs**: Buffer-based (needs WAL for production)
-
-## 🗺️ Roadmap
-
-### Phase 1: Foundation (Complete) ✅
-- Multi-agent architecture
-- Repository pattern with fallback
-- RLS schema design
-- Audit logging infrastructure
-
-### Phase 2: Hardening (Next)
-- [ ] Real authentication (Clerk)
-- [ ] Full RLS policy enforcement
-- [ ] LLM integration (OpenAI/Azure)
-- [ ] WebSocket real-time updates
-- [ ] File storage (Supabase Storage)
-
-### Phase 3: Scale
-- [ ] Redis for sessions/rate limiting
-- [ ] Elasticsearch for search
-- [ ] Kafka for event streaming
-- [ ] Multi-region deployment
-
-### Phase 4: Intelligence
-- [ ] True agent autonomy
-- [ ] Learning from approvals
-- [ ] Predictive analytics
-- [ ] Natural language HR operations
+Key points:
+- Never commit `.env.local`
+- Service role key stays server-side only
+- Enable RLS on all tables
+- Use strong passwords
+- Enable 2FA for admin accounts
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all checks pass: `npm test && npm run build`
-5. Submit a pull request
-
-### Development Guidelines
-
-- **TypeScript**: Strict mode enabled
-- **Testing**: All new code requires tests
-- **Security**: Follow OWASP guidelines
-- **Performance**: Lazy loading, code splitting
+3. Make changes with tests
+4. Submit PR
 
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License - see LICENSE file
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/attm1122/hr_agent_swarm/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/attm1122/hr_agent_swarm/discussions)
-- **Documentation**: See `/docs` folder and inline JSDoc
+- Issues: GitHub Issues
+- Discussions: GitHub Discussions
+- Email: support@example.com
 
 ---
 
-**Disclaimer**: This software is provided as-is for evaluation purposes. The authors assume no liability for production use without appropriate security review and hardening.
+Built with Next.js, Supabase, TypeScript, and OpenAI.

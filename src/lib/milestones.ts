@@ -3,7 +3,7 @@ import {
   compareDateOnly,
   differenceFromTodayInDateOnlyDays,
   getDateOnlyRelativeState,
-} from '@/lib/date-only';
+} from '@/lib/domain/shared/date-value';
 
 export type DerivedMilestoneState = 'upcoming' | 'due' | 'overdue' | 'completed';
 

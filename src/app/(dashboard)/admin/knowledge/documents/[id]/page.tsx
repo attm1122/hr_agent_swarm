@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { formatDateOnly, getDateOnlyRelativeState } from '@/lib/date-only';
+import { formatDateOnly, getDateOnlyRelativeState } from '@/lib/domain/shared/date-value';
 
 interface PageProps {
   params: Promise<{ id: string }>;

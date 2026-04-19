@@ -21,7 +21,7 @@ import {
   validateZoneAssignment,
 } from './knowledge-zones';
 import type { Role } from '@/types';
-import type { KnowledgeZone, ConfidentialityLevel } from '@/types/rag';
+import type { KnowledgeZone, ConfidentialityLevel } from './types';
 
 describe('KNOWLEDGE_ZONE_CONFIG', () => {
   it('should define all knowledge zones', () => {

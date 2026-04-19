@@ -98,7 +98,7 @@ export class SupabaseMilestoneRepository
         status: 'acknowledged',
         acknowledgedBy: acknowledgedBy,
         acknowledgedAt: new Date().toISOString(),
-      } as any,
+      },
       tenantId
     );
   }

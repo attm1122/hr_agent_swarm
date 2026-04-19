@@ -10,7 +10,7 @@ import {
   parseDateOnly,
   toDateOnlyString,
   toUTCDateFromDateOnly,
-} from './date-only';
+} from '@/lib/domain/shared/date-value';
 
 const originalTimeZone = process.env.TZ;
 

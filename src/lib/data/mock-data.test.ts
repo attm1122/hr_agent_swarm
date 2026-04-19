@@ -284,7 +284,7 @@ describe('milestones', () => {
   });
 
   it('all milestone types are valid', () => {
-    const validTypes = ['service_anniversary', 'probation_end', 'visa_expiry', 'certification_expiry', 'contract_expiry', 'performance_review'];
+    const validTypes = ['work_anniversary', 'probation_end', 'visa_expiry', 'certification_expiry', 'contract_expiry', 'performance_review'];
     milestones.forEach(ms => {
       expect(validTypes).toContain(ms.milestoneType);
     });
@@ -310,8 +310,8 @@ describe('milestones', () => {
     });
   });
 
-  it('has service anniversary milestones', () => {
-    const anniversaries = milestones.filter(m => m.milestoneType === 'service_anniversary');
+  it('has work anniversary milestones', () => {
+    const anniversaries = milestones.filter(m => m.milestoneType === 'work_anniversary');
     expect(anniversaries.length).toBeGreaterThan(0);
   });
 

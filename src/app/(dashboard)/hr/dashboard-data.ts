@@ -7,7 +7,7 @@ import {
   getEmployeeById,
 } from '@/lib/data/mock-data';
 import type { Milestone } from '@/types';
-import { compareDateOnly } from '@/lib/date-only';
+import { compareDateOnly } from '@/lib/domain/shared/date-value';
 import { getDerivedMilestoneState, getMilestoneDayOffset } from '@/lib/milestones';
 
 export function getDashboardMetrics() {

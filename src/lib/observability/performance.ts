@@ -6,6 +6,7 @@
  */
 
 import { getAgentRunRepository } from '@/lib/repositories';
+import { logger } from '@/lib/observability/logger';
 
 interface PerformanceMetric {
   name: string;
@@ -186,7 +187,7 @@ async function flushMetrics(): Promise<void> {
   // In production, send to monitoring service (DataDog, New Relic, etc.)
   // For now, just log to console
   if (process.env.DEBUG === 'true') {
-    console.log('[PERFORMANCE_METRICS]', metricsBuffer);
+    logger.info('Performance metrics', { component: 'observability:performance', metrics: metricsBuffer });
   }
   
   // Clear buffer

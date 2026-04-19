@@ -13,6 +13,7 @@ import type {
   AuditLogPort,
 } from '@/lib/ports';
 import { createId } from '@/lib/utils/ids';
+import { logger } from '@/lib/observability/logger';
 
 // Intent routing map
 const INTENT_ROUTING: Partial<Record<AgentIntent, AgentType>> = {
@@ -157,7 +158,7 @@ export class SwarmCoordinator {
       // Persist execution (non-blocking)
       if (this.config.enablePersistence) {
         this.persistExecution(auditId, targetType, request, result, executionTimeMs)
-          .catch(err => console.error('Failed to persist agent run:', err));
+          .catch(err => logger.error('Failed to persist agent run', { component: 'agents:coordinator', error: err instanceof Error ? err.message : String(err) }));
       }
 
       // Publish event
@@ -176,7 +177,7 @@ export class SwarmCoordinator {
         tenantId: request.context.tenantId,
         userId: request.context.userId,
         version: 1,
-      }).catch(err => console.error('Failed to publish event:', err));
+      }).catch(err => logger.error('Failed to publish event', { component: 'agents:coordinator', error: err instanceof Error ? err.message : String(err) }));
 
       return response;
 
@@ -190,7 +191,7 @@ export class SwarmCoordinator {
       // Persist error
       if (this.config.enablePersistence) {
         this.persistExecution(auditId, 'coordinator', request, errorResult, executionTimeMs)
-          .catch(err => console.error('Failed to persist error:', err));
+          .catch(err => logger.error('Failed to persist error', { component: 'agents:coordinator', error: err instanceof Error ? err.message : String(err) }));
       }
 
       return this.buildResponse(

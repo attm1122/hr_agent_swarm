@@ -15,7 +15,9 @@ describe('database client', () => {
   beforeAll(() => {
     // Mock window as undefined (server environment) for admin client tests
     vi.stubGlobal('window', undefined);
-    // Mock service role key for admin client
+    // Mock required env vars
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
   });
 

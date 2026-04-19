@@ -6,7 +6,7 @@
 
 import type { OnboardingPlan, OnboardingTask, OnboardingBlocker } from '@/types';
 import { employees, getEmployeeById, getEmployeeFullName, getDirectReports } from './mock-data';
-import { addDaysToDateOnly, differenceInDateOnlyDays, toDateOnlyString } from '@/lib/date-only';
+import { addDaysToDateOnly, differenceInDateOnlyDays, toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 // Template task definition (subset of fields used for template creation)
 type OnboardingTemplateTask = {

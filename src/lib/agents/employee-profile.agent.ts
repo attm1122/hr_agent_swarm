@@ -14,7 +14,7 @@ import {
 } from '@/lib/data/mock-data';
 import { canViewEmployee, hasCapability, isInScope, stripSensitiveFields } from '@/lib/auth/authorization';
 import { buildRecordScopeContext } from '@/lib/auth/team-scope';
-import { getFullYearsSinceDateOnly } from '@/lib/date-only';
+import { getFullYearsSinceDateOnly } from '@/lib/domain/shared/date-value';
 
 export class EmployeeProfileAgent implements Agent {
   readonly type = 'employee_profile' as const;

@@ -25,10 +25,10 @@ import type {
   QueryClassification,
   KnowledgeZone,
   Jurisdiction,
-} from '@/types/rag';
+} from './types';
 import type { Role } from '@/types';
 import { getZonePriority, getRankingWeights } from './knowledge-zones';
-import { differenceFromTodayInDateOnlyDays } from '@/lib/date-only';
+import { differenceFromTodayInDateOnlyDays } from '@/lib/domain/shared/date-value';
 
 // ============================================
 // Reranker Configuration

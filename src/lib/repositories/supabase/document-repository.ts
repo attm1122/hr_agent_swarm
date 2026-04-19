@@ -1,5 +1,5 @@
 import type { DocumentRepositoryPort } from '@/lib/ports';
-import type { EmployeeDocument } from '@/types';
+import type { EmployeeDocument } from '@/lib/domain/document/types';
 import { BaseSupabaseRepository } from './base-repository';
 
 export class SupabaseDocumentRepository

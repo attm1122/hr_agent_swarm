@@ -6,6 +6,7 @@
  */
 
 import type { AgentIntent, AgentType } from '@/types';
+import { logger } from '@/lib/observability/logger';
 
 // ============================================
 // Agent Execution Tracing
@@ -191,7 +192,7 @@ export function recordSecurityEvent(
 
   // Alert on critical security events
   if (eventType === 'csrf_violation' || eventType === 'suspicious_pattern') {
-    console.warn('[SECURITY ALERT]', eventType, 'from role:', role);
+    logger.warn('Security alert', { component: 'observability:telemetry', eventType, role });
     // In production: send to security team
   }
 }

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to HR Agent Swarm</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 32px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .button {
+      display: inline-block;
+      background: #0f172a;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      margin: 16px 0;
+    }
+    .footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 14px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>HR Agent Swarm</h1>
+    </div>
+    
+    <h2>Welcome!</h2>
+    
+    <p>You've been invited to join HR Agent Swarm - your AI-powered HR management platform.</p>
+    
+    <a href="{{ .ConfirmationURL }}" class="button">Accept Invitation</a>
+    
+    <div class="footer">
+      <p>This invitation expires in 24 hours.</p>
+    </div>
+  </div>
+</body>
+</html>

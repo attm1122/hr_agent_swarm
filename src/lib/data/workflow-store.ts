@@ -4,9 +4,10 @@
  * Production: Replace with Supabase database calls.
  */
 
-import type { WorkflowInstance, WorkflowStep, ApprovalInboxItem } from '@/types';
+import type { WorkflowInstance, WorkflowStep, ApprovalInboxItem } from '@/lib/domain/workflow/types';
 import { getEmployeeById, getEmployeeFullName } from './mock-data';
-import { addDaysToDateOnly, toDateOnlyString } from '@/lib/date-only';
+import { addDaysToDateOnly, toDateOnlyString } from '@/lib/domain/shared/date-value';
+import { getNextStepState } from '@/lib/domain/workflow/workflow-state-machine';
 
 // In-memory stores
 export const workflowInstances: WorkflowInstance[] = [];
@@ -232,18 +233,18 @@ export function approveWorkflowStep(
   step.actedAt = now;
   step.updatedAt = now;
 
-  // Check if this was the last step
+  // Advance workflow state
   const workflow = getWorkflowById(step.workflowId);
   if (workflow) {
     const allSteps = getWorkflowSteps(workflow.id);
-    const allCompleted = allSteps.every(s => s.status === 'approved' || s.status === 'skipped');
+    const { complete, nextStepNumber } = getNextStepState(allSteps, step.stepNumber);
 
-    if (allCompleted) {
+    if (complete) {
       workflow.status = 'completed';
       workflow.completedAt = now;
       workflow.currentStep = workflow.totalSteps;
     } else {
-      workflow.currentStep = step.stepNumber + 1;
+      workflow.currentStep = nextStepNumber!;
       workflow.status = 'in_progress';
     }
     workflow.updatedAt = now;

@@ -12,7 +12,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { PageGuard } from './PageGuard';
 
 // Mock the session module to control role
 const mockGetSession = vi.fn();
@@ -20,7 +19,23 @@ vi.mock('@/lib/auth/session', () => ({
   getSession: () => mockGetSession(),
 }));
 
+// Mock PageGuard to a synchronous implementation for testing
+vi.mock('./PageGuard', async () => {
+  const React = (await vi.importActual('react')) as typeof import('react');
+  const { hasCapability } = await vi.importActual<typeof import('@/lib/auth/authorization')>('@/lib/auth/authorization');
+  return {
+    PageGuard: ({ requiredPermission, children }: { requiredPermission: string; children: React.ReactNode }) => {
+      const session = mockGetSession();
+      if (!session || !hasCapability(session.role, requiredPermission)) {
+        return React.createElement('div', null, 'Access Denied');
+      }
+      return React.createElement(React.Fragment, null, children);
+    }
+  };
+});
+
 // Import after mock
+import { PageGuard } from './PageGuard';
 import { ROLE_CAPABILITIES, ROLE_SCOPE, ROLE_SENSITIVITY } from '@/lib/auth/authorization';
 import type { Role } from '@/types';
 
@@ -28,6 +43,7 @@ function buildMockSession(role: Role) {
   return {
     userId: 'user-test',
     employeeId: 'emp-test',
+    tenantId: 'tenant-test',
     name: 'Test User',
     email: 'test@co.com',
     role,
@@ -35,6 +51,7 @@ function buildMockSession(role: Role) {
     permissions: ROLE_CAPABILITIES[role],
     scope: ROLE_SCOPE[role],
     sensitivityClearance: ROLE_SENSITIVITY[role],
+    sessionId: 'session-test',
   };
 }
 

@@ -15,13 +15,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestLogger } from '@/lib/observability/logger';
+import { getCorrelationId } from '@/lib/observability/correlation';
 import {
   requireVerifiedSessionContext,
   isSessionResolutionError,
 } from '@/lib/auth/session';
 import { hasCapability } from '@/lib/auth/authorization';
-import { securityMiddleware, addSecurityHeaders } from '@/lib/security';
-import { logSecurityEvent } from '@/lib/security';
+import { securityMiddleware, addSecurityHeaders } from '@/lib/infrastructure/security-middleware';
+import { logSecurityEvent } from '@/lib/infrastructure/audit/audit-logger';
 import {
   getAgentMetrics,
   getSecurityMetrics,
@@ -36,6 +38,9 @@ import {
 } from '@/lib/observability/integration-health';
 
 export async function GET(req: NextRequest) {
+  const correlationId = getCorrelationId(req.headers);
+  const routeLogger = createRequestLogger('api:observability', correlationId);
+
   try {
     const { session, context, securityContext } = await requireVerifiedSessionContext();
 
@@ -155,7 +160,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.error('Observability endpoint error:', error);
+    routeLogger.error('Observability endpoint error', { error: error instanceof Error ? error.message : String(error) });
     
     const errorResponse = NextResponse.json(
       {

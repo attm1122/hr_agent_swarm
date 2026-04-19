@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { classifyQuery, TEST_EXPORTS } from './query-classifier';
 import type { AgentContext } from '@/types';
-import type { QueryIntent, QueryDomain, RiskLevel, ResponseMode } from '@/types/rag';
+import type { QueryIntent, QueryDomain, RiskLevel, ResponseMode } from './types';
 
 const {
   determineActor,
@@ -27,6 +27,7 @@ const {
 // Test context factory
 const createTestContext = (role: AgentContext['role']): AgentContext => ({
   userId: 'test-user',
+  tenantId: 'tenant-test',
   role,
   scope: role === 'admin' ? 'all' : role === 'manager' ? 'team' : 'self',
   sensitivityClearance: ['self_visible', 'team_visible'],

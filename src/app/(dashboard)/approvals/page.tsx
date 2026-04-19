@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { CheckSquare, Clock, AlertTriangle, Calendar, FileText, Shield } from 'lucide-react';
 import { actionQueue, getEmployeeById, leaveRequests } from '@/lib/data/mock-data';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 
 export default function ApprovalsPage() {
   const pendingItems = actionQueue;

@@ -14,7 +14,7 @@ import {
   documents,
   actionQueue,
 } from '@/lib/data/mock-data';
-import { formatDateOnly } from '@/lib/date-only';
+import { formatDateOnly } from '@/lib/domain/shared/date-value';
 import {
   getDashboardMetrics,
   getProbationDue,
@@ -56,7 +56,7 @@ async function DashboardContent() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">HR Dashboard</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Welcome back. Here's what's happening across your organization.
+            Welcome back. Here&apos;s what&apos;s happening across your organization.
           </p>
         </div>
         <Link href="/reports">

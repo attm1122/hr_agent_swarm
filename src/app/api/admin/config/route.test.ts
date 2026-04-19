@@ -9,6 +9,7 @@ vi.mock('@/lib/auth/session', () => ({
   isSessionResolutionError: (error: unknown) =>
     Boolean(error) &&
     typeof error === 'object' &&
+    error !== null &&
     'code' in error &&
     'status' in error &&
     'message' in error,

@@ -6,7 +6,7 @@
 
 import type { OffboardingPlan, OffboardingTask, OffboardingAsset, OffboardingAccess, OffboardingExitSummary } from '@/types';
 import { getEmployeeById, getEmployeeFullName } from './mock-data';
-import { addDaysToDateOnly, toDateOnlyString } from '@/lib/date-only';
+import { addDaysToDateOnly, toDateOnlyString } from '@/lib/domain/shared/date-value';
 
 // Template definitions (subset of fields used for template creation)
 type OffboardingTemplateTask = {

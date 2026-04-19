@@ -10,10 +10,13 @@
  * - Service calls agents for complex operations
  */
 
-import type { Employee, AgentContext } from '@/types';
-import { employees, getEmployeeById, getTeamById, getPositionById, getManagerForEmployee } from '@/lib/data/mock-data';
+import type { Employee } from '@/lib/domain/employee/types';
+import type { AgentContext } from '@/types';
+import { employees, getEmployeeById, getTeamById, getPositionById, getManagerForEmployee, leaveRequests } from '@/lib/data/mock-data';
+import { onboardingPlans } from '@/lib/data/onboarding-store';
 import { stripSensitiveFields, isInScope } from '@/lib/auth/authorization';
 import { buildRecordScopeContext } from '@/lib/auth/team-scope';
+import { canTransitionStatus, type EmployeeStatus } from '@/lib/domain/employee/employee-status';
 
 export interface EmployeeListOptions {
   status?: 'active' | 'inactive' | 'on_leave' | 'terminated' | 'pending' | 'all';
@@ -172,5 +175,79 @@ export async function getEmployeeProfile(
       id: manager.id, 
       name: `${manager.firstName} ${manager.lastName}` 
     } : null,
+  };
+}
+
+export interface UpdateEmployeeStatusResult {
+  success: boolean;
+  previousStatus?: EmployeeStatus;
+  newStatus?: EmployeeStatus;
+  reason?: string;
+}
+
+/**
+ * Update an employee's status with domain-rule validation.
+ *
+ * Enforces:
+ * - RBAC scope check
+ * - Status transition business rules (via domain layer)
+ * - Context-aware blocking (open leave, incomplete onboarding)
+ */
+export async function updateEmployeeStatus(
+  context: AgentContext,
+  targetEmployeeId: string,
+  newStatus: EmployeeStatus
+): Promise<UpdateEmployeeStatusResult> {
+  const { scope } = context;
+  const scopeContext = buildRecordScopeContext(context);
+
+  // RBAC check
+  const hasAccess = isInScope(scope, targetEmployeeId, {
+    employeeId: scopeContext.employeeId,
+    teamEmployeeIds: scopeContext.teamEmployeeIds,
+  });
+
+  if (!hasAccess) {
+    return { success: false, reason: 'Access denied' };
+  }
+
+  const employee = getEmployeeById(targetEmployeeId);
+  if (!employee) {
+    return { success: false, reason: 'Employee not found' };
+  }
+
+  const currentStatus = employee.status as EmployeeStatus;
+
+  // Build transition context
+  const hasOpenLeaveRequests = leaveRequests.some(
+    (lr) => lr.employeeId === targetEmployeeId && lr.status === 'pending'
+  );
+  const hasIncompleteOnboarding = onboardingPlans.some(
+    (p) => p.employeeId === targetEmployeeId && p.status !== 'completed'
+  );
+
+  const transitionResult = canTransitionStatus(currentStatus, newStatus, {
+    hasOpenLeaveRequests,
+    hasIncompleteOnboarding,
+  });
+
+  if (!transitionResult.allowed) {
+    return {
+      success: false,
+      previousStatus: currentStatus,
+      newStatus,
+      reason: transitionResult.reason,
+    };
+  }
+
+  // Apply the update
+  employee.status = newStatus;
+  employee.updatedAt = new Date().toISOString();
+
+  return {
+    success: true,
+    previousStatus: currentStatus,
+    newStatus,
+    reason: transitionResult.reason,
   };
 }

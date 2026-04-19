@@ -12,10 +12,11 @@
  */
 
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/observability/logger';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Server-only flag detection
 const isServer = typeof window === 'undefined';
@@ -60,10 +61,7 @@ export function createAdminClient(): SupabaseClient {
   
   // Additional check: Verify service key is not the same as anon key
   if (supabaseServiceKey === supabaseKey && supabaseServiceKey !== '') {
-    console.warn(
-      '[SECURITY WARNING] SUPABASE_SERVICE_ROLE_KEY appears to be the same as NEXT_PUBLIC_SUPABASE_ANON_KEY. ' +
-      'Ensure you are using different keys for service role and anon key.'
-    );
+    logger.warn('SUPABASE_SERVICE_ROLE_KEY appears to be the same as NEXT_PUBLIC_SUPABASE_ANON_KEY', { component: 'infra:database' });
   }
   
   // Verify service key is configured
@@ -86,13 +84,12 @@ class SecurityError extends Error {
     this.name = 'SecurityError';
     
     // Log security violation for monitoring
-    if (typeof console !== 'undefined') {
-      console.error('[SECURITY VIOLATION]', {
-        error: message,
-        timestamp: new Date().toISOString(),
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
-      });
-    }
+    logger.error('SECURITY VIOLATION', {
+      component: 'infra:database',
+      error: message,
+      timestamp: new Date().toISOString(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
+    });
   }
 }
 
@@ -107,12 +104,7 @@ export function verifyServiceKeyNotInBundle(): void {
       // In browser, SUPABASE_SERVICE_ROLE_KEY should be undefined
       const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (hasServiceKey) {
-        console.error(
-          '[CRITICAL SECURITY ERROR] ' +
-          'SUPABASE_SERVICE_ROLE_KEY is exposed in client bundle! ' +
-          'This is a critical security vulnerability. ' +
-          'Ensure NEXT_PUBLIC_ prefix is NOT used for service role key.'
-        );
+        logger.error('SUPABASE_SERVICE_ROLE_KEY is exposed in client bundle', { component: 'infra:database' });
       }
     } catch {
       // Expected in browser - env vars not accessible
